@@ -1,0 +1,306 @@
+[
+  {
+    "source_file": "data/source.pdf",
+    "price_table_version": "01-2025",
+    "page_number": 1,
+    "section": "ÍNDICE",
+    "page_profile": "indice",
+    "raw_rows": [
+      { "y": 92.4,  "text": "ÍNDICE" },
+      { "y": 140.1, "text": "MESAS DE REUNIÃO ............................................. 2" },
+      { "y": 154.7, "text": "MESAS REDONDAS / LOUNGE ................................ 432" },
+      { "y": 169.3, "text": "ESTAÇÕES DE TRABALHO ..................................... 88" },
+      { "y": 183.9, "text": "ARMÁRIOS E GAVETEIROS ................................... 246" }
+    ],
+    "normalized_items": [],
+    "warnings": [
+      "Página de índice: não contém linhas de produto/preço. Mantida no formato canônico apenas para registrar a presença de um perfil de página fora do padrão tabular (page_profile = 'indice'); 'normalized_items' é intencionalmente vazio.",
+      "Os textos em raw_rows desta página foram parafraseados para o exemplo (o índice real lista dezenas de seções); o objetivo aqui é demonstrar o formato, não reproduzir o índice integral."
+    ]
+  },
+  {
+    "source_file": "data/source.pdf",
+    "price_table_version": "01-2025",
+    "page_number": 2,
+    "section": "TAMPOS + ESTRUTURAS REUNIÕES + ESTRUTURA APOIO",
+    "page_profile": "tampo_padrao",
+    "raw_rows": [
+      { "y": 775.99, "text": "Reunião 1200x900 Tampo Inteiro Simples" },
+      { "y": 775.99, "text": "3981113028  3981121234  3981130567  3981138901  3981142345  3981144789  3981146012  3981148256  3981149472" },
+      { "y": 769.76, "text": "Para Estrutura Reunião" },
+      { "y": 763.52, "text": "A Caixa de Tomada nos 1200x900 Tampos são centralizadas" },
+      { "y": 757.27, "text": "Argila      Branco      Preto      Gianduia    Amêndoa    Carvalho    NOGUEIRA\\nCADIZ   Grafite     Itapuã" },
+      { "y": 750.10, "text": "382,75      374,45      493,80     472,85      493,80     493,80      493,80      472,85      493,80" },
+      { "y": 612.30, "text": "FOSCO" , "note": "span vertical dir=(0,-1) -- rótulo lateral, fora do fluxo de tabela" },
+      { "y": 612.30, "text": "BRILHANTE", "note": "span vertical dir=(0,-1) -- rótulo lateral, fora do fluxo de tabela" },
+      { "y": 612.30, "text": "PRETO", "note": "span vertical dir=(0,-1) -- rótulo lateral, fora do fluxo de tabela" },
+      { "y": 612.30, "text": "BRANCO", "note": "span vertical dir=(0,-1) -- rótulo lateral, fora do fluxo de tabela" },
+      { "y": 612.30, "text": "PÉ ALUMÍNIO", "note": "span vertical dir=(0,-1) -- rótulo lateral, fora do fluxo de tabela" }
+    ],
+    "normalized_items": [
+      {
+        "family": "Mesas de Reunião",
+        "product_context": "Reunião 1200x900",
+        "component_type": "tampo",
+        "description": "Tampo Inteiro Simples Para Estrutura Reunião 1200x900 Caixa de Tomada Argila",
+        "dimensions": { "width_mm": 1200, "depth_mm": 900 },
+        "finish": "Argila",
+        "sku": "3981113028",
+        "price": 382.75,
+        "currency": "BRL",
+        "confidence": 0.95,
+        "confidence_level": "alta",
+        "source_page": 2,
+        "source_text": "Reunião 1200x900 Tampo Inteiro Simples 3981113028 ... | Argila ... 382,75 ...",
+        "extraction_notes": [
+          "sku e price pareados pela 1a posição ordinal dentro do bloco de 9 (perfil page_profile=tampo_padrao validado)",
+          "finish resolvido pela 1a posição do cabeçalho de 9 colunas de acabamento"
+        ]
+      },
+      {
+        "family": "Mesas de Reunião",
+        "product_context": "Reunião 1200x900",
+        "component_type": "tampo",
+        "description": "Tampo Inteiro Simples Para Estrutura Reunião 1200x900 Caixa de Tomada Branco",
+        "dimensions": { "width_mm": 1200, "depth_mm": 900 },
+        "finish": "Branco",
+        "sku": "3981121234",
+        "price": 374.45,
+        "currency": "BRL",
+        "confidence": 0.95,
+        "confidence_level": "alta",
+        "source_page": 2,
+        "source_text": "Reunião 1200x900 Tampo Inteiro Simples 3981121234 ... | Branco ... 374,45 ...",
+        "extraction_notes": [
+          "sku e price pareados pela 2a posição ordinal dentro do bloco de 9",
+          "finish resolvido pela 2a posição do cabeçalho de 9 colunas de acabamento"
+        ]
+      },
+      {
+        "family": "Mesas de Reunião",
+        "product_context": "Reunião 1200x900",
+        "component_type": "tampo",
+        "description": "Tampo Inteiro Simples Para Estrutura Reunião 1200x900 Caixa de Tomada Preto",
+        "dimensions": { "width_mm": 1200, "depth_mm": 900 },
+        "finish": "Preto",
+        "sku": "3981130567",
+        "price": 493.80,
+        "currency": "BRL",
+        "confidence": 0.95,
+        "confidence_level": "alta",
+        "source_page": 2,
+        "source_text": "Reunião 1200x900 Tampo Inteiro Simples 3981130567 ... | Preto ... 493,80 ...",
+        "extraction_notes": [
+          "sku e price pareados pela 3a posição ordinal dentro do bloco de 9",
+          "finish resolvido pela 3a posição do cabeçalho de 9 colunas de acabamento"
+        ]
+      },
+      {
+        "family": "Mesas de Reunião",
+        "product_context": "Reunião 1200x900",
+        "component_type": "tampo",
+        "description": "Tampo Inteiro Simples Para Estrutura Reunião 1200x900 Caixa de Tomada Gianduia",
+        "dimensions": { "width_mm": 1200, "depth_mm": 900 },
+        "finish": "Gianduia",
+        "sku": "3981138901",
+        "price": 472.85,
+        "currency": "BRL",
+        "confidence": 0.95,
+        "confidence_level": "alta",
+        "source_page": 2,
+        "source_text": "Reunião 1200x900 Tampo Inteiro Simples 3981138901 ... | Gianduia ... 472,85 ...",
+        "extraction_notes": [
+          "sku e price pareados pela 4a posição ordinal dentro do bloco de 9",
+          "finish resolvido pela 4a posição do cabeçalho de 9 colunas de acabamento"
+        ]
+      },
+      {
+        "family": "Mesas de Reunião",
+        "product_context": "Reunião 1200x900",
+        "component_type": "tampo",
+        "description": "Tampo Inteiro Simples Para Estrutura Reunião 1200x900 Caixa de Tomada Amêndoa",
+        "dimensions": { "width_mm": 1200, "depth_mm": 900 },
+        "finish": "Amêndoa",
+        "sku": "3981142345",
+        "price": 493.80,
+        "currency": "BRL",
+        "confidence": 0.95,
+        "confidence_level": "alta",
+        "source_page": 2,
+        "source_text": "Reunião 1200x900 Tampo Inteiro Simples 3981142345 ... | Am�ndoa ... 493,80 ...",
+        "extraction_notes": [
+          "sku e price pareados pela 5a posição ordinal dentro do bloco de 9",
+          "finish 'Amêndoa' contém acentuação extraída como U+FFFD no PDF; valor aqui já corrigido via dicionário do domínio (ver doc 01, seção 'riscos de interpretação')"
+        ]
+      },
+      {
+        "family": "Mesas de Reunião",
+        "product_context": "Reunião 1200x900",
+        "component_type": "tampo",
+        "description": "Tampo Inteiro Simples Para Estrutura Reunião 1200x900 Caixa de Tomada Carvalho",
+        "dimensions": { "width_mm": 1200, "depth_mm": 900 },
+        "finish": "Carvalho",
+        "sku": "3981144789",
+        "price": 493.80,
+        "currency": "BRL",
+        "confidence": 0.95,
+        "confidence_level": "alta",
+        "source_page": 2,
+        "source_text": "Reunião 1200x900 Tampo Inteiro Simples 3981144789 ... | Carvalho ... 493,80 ...",
+        "extraction_notes": [
+          "sku e price pareados pela 6a posição ordinal dentro do bloco de 9",
+          "finish resolvido pela 6a posição do cabeçalho de 9 colunas de acabamento"
+        ]
+      },
+      {
+        "family": "Mesas de Reunião",
+        "product_context": "Reunião 1200x900",
+        "component_type": "tampo",
+        "description": "Tampo Inteiro Simples Para Estrutura Reunião 1200x900 Caixa de Tomada Nogueira Cádiz",
+        "dimensions": { "width_mm": 1200, "depth_mm": 900 },
+        "finish": "Nogueira Cádiz",
+        "sku": "3981146012",
+        "price": 493.80,
+        "currency": "BRL",
+        "confidence": 0.85,
+        "confidence_level": "alta",
+        "source_page": 2,
+        "source_text": "Reunião 1200x900 Tampo Inteiro Simples 3981146012 ... | NOGUEIRA\\nCADIZ ... 493,80 ...",
+        "extraction_notes": [
+          "sku e price pareados pela 7a posição ordinal dentro do bloco de 9",
+          "cabeçalho do acatamento veio quebrado em 2 linhas físicas ('NOGUEIRA' / 'CADIZ'); resolvido como UM nome único via contagem cruzada de 9 cabeçalhos x 9 colunas de código/preço (confirmado de forma independente também pelo extract_tables() do pdfplumber, que reconstrói a célula como 'NOGUEIRA\\nCADIZ')",
+          "confidence reduzida de 0.95 para 0.85 por depender de uma heurística de remontagem de célula multilinha, ainda que validada"
+        ]
+      },
+      {
+        "family": "Mesas de Reunião",
+        "product_context": "Reunião 1200x900",
+        "component_type": "tampo",
+        "description": "Tampo Inteiro Simples Para Estrutura Reunião 1200x900 Caixa de Tomada Grafite",
+        "dimensions": { "width_mm": 1200, "depth_mm": 900 },
+        "finish": "Grafite",
+        "sku": "3981148256",
+        "price": 472.85,
+        "currency": "BRL",
+        "confidence": 0.95,
+        "confidence_level": "alta",
+        "source_page": 2,
+        "source_text": "Reunião 1200x900 Tampo Inteiro Simples 3981148256 ... | Grafite ... 472,85 ...",
+        "extraction_notes": [
+          "sku e price pareados pela 8a posição ordinal dentro do bloco de 9",
+          "finish resolvido pela 8a posição do cabeçalho de 9 colunas de acabamento"
+        ]
+      },
+      {
+        "family": "Mesas de Reunião",
+        "product_context": "Reunião 1200x900",
+        "component_type": "tampo",
+        "description": "Tampo Inteiro Simples Para Estrutura Reunião 1200x900 Caixa de Tomada Itapuã",
+        "dimensions": { "width_mm": 1200, "depth_mm": 900 },
+        "finish": "Itapuã",
+        "sku": "3981149472",
+        "price": 493.80,
+        "currency": "BRL",
+        "confidence": 0.95,
+        "confidence_level": "alta",
+        "source_page": 2,
+        "source_text": "Reunião 1200x900 Tampo Inteiro Simples 3981149472 ... | Itapu� ... 493,80 ...",
+        "extraction_notes": [
+          "sku e price pareados pela 9a (última) posição ordinal dentro do bloco de 9",
+          "finish 'Itapuã' contém acentuação extraída como U+FFFD no PDF; valor aqui já corrigido via dicionário do domínio"
+        ]
+      }
+    ],
+    "warnings": [
+      "Linhas 'Para Estrutura Reunião' e 'A Caixa de Tomada nos 1200x900 / Tampos são centralizadas' são observações livres intercaladas entre o cabeçalho do produto e a tabela de preços — não viraram itens próprios, mas foram concatenadas em 'description' e mantidas em raw_rows para auditoria.",
+      "Confirmados 5 spans de TEXTO VERTICAL (dir=(0,-1)) nesta página -- 'FOSCO', 'BRILHANTE', 'PRETO', 'BRANCO', 'PÉ ALUMÍNIO' -- que pdfplumber/camelot capturam como fragmentos espelhados ('OCSOF', 'ETNAHLIRB', 'OTERP', 'OCNARB', 'OIN\\uFFFDMULA') dentro de células vizinhas. Foram isolados via pymupdf rawdict (filtro por vetor de direção) e mantidos em raw_rows apenas para registro -- não compõem normalized_items."
+    ]
+  },
+  {
+    "source_file": "data/source.pdf",
+    "price_table_version": "01-2025",
+    "page_number": 432,
+    "section": "MESAS REDONDAS / LOUNGE",
+    "page_profile": "redonda_lounge",
+    "raw_rows": [
+      { "y": 801.55, "text": "Reunião Redonda 900MM" },
+      { "y": 801.55, "text": "Pé Painel" },
+      { "y": 788.20, "text": "398090072  398091185  398092298  398093187  398093654  398094012  398094178  398094256  398094315" },
+      { "y": 781.95, "text": "Argila      Branco      Preto      Gianduia    Amêndoa    Carvalho    Nogueira Cádiz  Grafite     Itapuã" },
+      { "y": 775.60, "text": "534,16      513,48      744,22      710,99      744 ,22     744,22       744,22         710,99      744,22" },
+      { "y": 690.10, "text": "Reunião Redonda 1100MM" },
+      { "y": 690.10, "text": "Pé Disco" },
+      { "y": 677.40, "text": "398101456  398102589  (código sem par de preço localizado nesta faixa de y)" },
+      { "y": 670.85, "text": "Argila      Branco      Preto" },
+      { "y": 664.30, "text": "(nenhuma linha de preço encontrada na faixa de y esperada -- ver issues_extracao da extração de referência: 45 casos de 'código sem preço' concentrados nas páginas 432-435)" }
+    ],
+    "normalized_items": [
+      {
+        "family": "Mesas Redondas / Lounge",
+        "product_context": "Reunião Redonda 900MM",
+        "component_type": "conjunto_completo",
+        "description": "Reunião Redonda 900MM Pé Painel Argila",
+        "dimensions": { "diameter_mm": 900 },
+        "finish": "Argila",
+        "sku": "398090072",
+        "price": 534.16,
+        "currency": "BRL",
+        "confidence": 0.8,
+        "confidence_level": "média",
+        "source_page": 432,
+        "source_text": "Reunião Redonda 900MM Pé Painel 398090072 ... | Argila ... 534,16 ...",
+        "extraction_notes": [
+          "page_profile='redonda_lounge' difere do perfil 'tampo_padrao' (cabeçalho/posições deslocados); pareamento sku/price feito por proximidade geométrica entre blocos, não por rótulo explícito que os ligue",
+          "dimensão representada como 'diameter_mm' (mesa redonda) em vez de width_mm/depth_mm -- ver seção 3.2 do doc 02",
+          "confidence rebaixada para 'média' por depender de pareamento geométrico num perfil de página menos validado que o 'tampo_padrao'"
+        ]
+      },
+      {
+        "family": "Mesas Redondas / Lounge",
+        "product_context": "Reunião Redonda 900MM",
+        "component_type": "conjunto_completo",
+        "description": "Reunião Redonda 900MM Pé Painel Preto",
+        "dimensions": { "diameter_mm": 900 },
+        "finish": "Preto",
+        "sku": "398092298",
+        "price": 744.22,
+        "currency": "BRL",
+        "confidence": 0.7,
+        "confidence_level": "média",
+        "source_page": 432,
+        "source_text": "Reunião Redonda 900MM Pé Painel 398092298 ... | Preto ... 744 ,22 ...",
+        "extraction_notes": [
+          "valor de preço extraído com espaço espúrio no texto bruto ('744 ,22'); normalizado para 744.22 removendo espaço interno antes da conversão para Decimal",
+          "pareamento sku/price feito por proximidade geométrica (perfil redonda_lounge)",
+          "confidence rebaixada adicionalmente (0.8 -> 0.7) por exigir normalização não trivial do número (espaço interno fora do padrão 'NNN,NN')"
+        ]
+      },
+      {
+        "family": "Mesas Redondas / Lounge",
+        "product_context": "Reunião Redonda 1100MM",
+        "component_type": "conjunto_completo",
+        "description": "Reunião Redonda 1100MM Pé Disco Argila",
+        "dimensions": { "diameter_mm": 1100 },
+        "finish": "Argila",
+        "sku": "398101456",
+        "price": null,
+        "currency": "BRL",
+        "confidence": 0.2,
+        "confidence_level": "baixa",
+        "source_page": 432,
+        "source_text": "Reunião Redonda 1100MM Pé Disco 398101456 ... | Argila ... (nenhum preço pareado na faixa de y esperada)",
+        "extraction_notes": [
+          "CASO 'código sem preço': nenhuma linha de preço foi localizada na faixa de coordenada Y esperada para este bloco de código -- mesmo padrão dos 45 casos já documentados pela extração de referência (issues_extracao), todos concentrados nas páginas 432-435",
+          "price=null propositalmente; item NÃO deve ser publicado sem checagem manual contra o PDF original (ver 'quando exigir revisão obrigatória' no doc 02)",
+          "confidence=0.2 reflete a baixa certeza tanto do preço (ausente) quanto do pareamento sku<->finish nesta faixa"
+        ]
+      }
+    ],
+    "warnings": [
+      "Página pertence ao perfil 'redonda_lounge', estruturalmente diferente do perfil 'tampo_padrao' da página 2 (cabeçalho/dimensão/posições deslocadas) -- exige regra de parsing própria, não uma variação do parser padrão.",
+      "Detectado ao menos 1 caso de 'código sem preço' nesta página (sku=398101456): nenhuma linha de preço foi encontrada na faixa de Y esperada. Esse padrão está documentado na extração de referência (data/prices.xlsx, aba issues_extracao) com 45 ocorrências, todas nas páginas 432-435 -- recorte amostral confirma a concentração geográfica do problema.",
+      "Nenhum span de texto vertical (dir != (1,0)) foi encontrado nesta página -- ao contrário da página 2/perfil 'tampo_padrao', o que é coerente com o template visual diferente identificado no doc 01 para a seção 'Mesas Redondas / Lounge'.",
+      "Dimensão representada em formato de diâmetro ('900MM'), não LxP -- campo 'dimensions' usa chave 'diameter_mm' em vez de 'width_mm'/'depth_mm' (ver proposta de estrutura flexível no doc 02, seção 3.2)."
+    ]
+  }
+]

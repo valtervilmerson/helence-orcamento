@@ -1,0 +1,369 @@
+{
+  "_descricao": "Fixtures para testes automatizados do núcleo de catálogo + orçamento (docs/08-testes-qualidade.md). Cobrem o caminho feliz e os 14 cenários de teste descritos no documento — incluindo casos-armadilha propositais (SKU duplicado, preço ausente, acabamento ambíguo, dimensão incompatível). Os IDs aqui são estáveis e referenciados pelo nome a partir do documento de testes.",
+  "_legenda_de_origem_dos_dados": {
+    "real_da_amostra": "Valor extraído e validado em docs/samples/extracao-amostra.json (página 2 do PDF de origem) — SKU e preço reais.",
+    "ilustrativo": "Valor inventado para completar um cenário de teste plausível — não existe no PDF de origem.",
+    "ficticio_didatico": "Valor deliberadamente construído para acionar um caso de teste específico (ex. SKU duplicado com preços divergentes) — não representa um dado real nem uma extrapolação razoável; existe só para o teste."
+  },
+
+  "price_tables": [
+    {
+      "id": 1, "code": "01-2025", "name": "Tabela de Preços 01-2025",
+      "valid_from": "2025-01-01", "valid_to": "2026-05-31",
+      "status": "substituida", "source_imported_file_id": 1,
+      "_origem": "ilustrativo — datas e status compostos para o cenário de múltiplas versões"
+    },
+    {
+      "id": 2, "code": "02-2025", "name": "Tabela de Preços 02-2025",
+      "valid_from": "2026-06-01", "valid_to": null,
+      "status": "vigente", "source_imported_file_id": 2,
+      "_origem": "ilustrativo"
+    }
+  ],
+
+  "product_families": [
+    { "id": 1, "name": "Mesas de Reunião", "_origem": "real_da_amostra" }
+  ],
+
+  "dimensions": [
+    { "id": 1, "width_mm": 1200, "depth_mm": 900,  "raw_label": "1200x900",  "_origem": "real_da_amostra" },
+    { "id": 2, "width_mm": 2400, "depth_mm": 1000, "raw_label": "2400x1000", "_origem": "ilustrativo — usada no teste de componente incompatível com dimensão (categoria 14)" },
+    { "id": 3, "width_mm": 1600, "depth_mm": 900,  "raw_label": "1600x900",  "_origem": "ilustrativo — usada no teste de SKU legitimamente reaproveitado entre larguras (categoria 11)" }
+  ],
+
+  "products": [
+    { "id": 1, "family_id": 1, "name": "Reunião 1200x900", "dimension_id": 1, "_origem": "real_da_amostra" },
+    { "id": 2, "family_id": 1, "name": "Reunião 2400x1000", "dimension_id": 2, "_origem": "ilustrativo — produto-base maior, onde 'Tampo Bi-Partido' de fato existe (categoria 14)" },
+    { "id": 3, "family_id": 1, "name": "Reunião 1600x900", "dimension_id": 3, "_origem": "ilustrativo — segundo contexto de largura que reaproveita a mesma peça estrutural física (categoria 11)" }
+  ],
+
+  "product_components": [
+    { "id": 1, "name": "Tampo", "_origem": "real_da_amostra" },
+    { "id": 2, "name": "Estrutura", "_origem": "real_da_amostra (citado como 'Para Estrutura Reunião' na observação da página 2)" },
+    { "id": 3, "name": "Apoio Credenza", "_origem": "ilustrativo — tipo de componente previsto no domínio (docs/01/05), não presente nas 3 páginas amostradas" }
+  ],
+
+  "finishes": [
+    { "id": 1, "name": "Argila", "finish_group": "madeirado", "description": null, "_origem": "real_da_amostra" },
+    {
+      "id": 2, "name": "Branco", "finish_group": null,
+      "description": "AMBÍGUO — 'Branco' aparece tanto entre os 9 acabamentos 'madeirados' do Tampo (página 2, real) quanto, presumivelmente, entre os acabamentos 'metálicos' da Estrutura (citado como rótulo vertical 'BRANCO' na mesma página). Como finishes.name é UNIQUE, optou-se por manter UMA única linha com finish_group=NULL — a desambiguação correta de contexto (madeira × metal) acontece em component_variants, via component_id. Ver categoria 9 (dados inconsistentes) e categoria 13 (acabamento ausente) no documento de testes.",
+      "_origem": "real_da_amostra (nome) + decisão de modelagem proposta para o conflito (ver descrição)"
+    },
+    {
+      "id": 3, "name": "Preto", "finish_group": null,
+      "description": "Mesma ambiguidade de 'Branco' (id=2): aparece tanto como acabamento madeirado do Tampo (real, preço 493,80) quanto como rótulo vertical 'PRETO' da seção de Estrutura.",
+      "_origem": "real_da_amostra (nome) + mesma decisão de modelagem do id=2"
+    },
+    { "id": 4, "name": "Prata", "finish_group": "metalico", "description": "Acabamento metálico típico de Estrutura/Apoio — citado em docs/01 como parte do conjunto de 3 acabamentos metálicos (Prata/Preto/Branco), mas não aparece nas 3 páginas amostradas em docs/02.", "_origem": "ilustrativo" }
+  ],
+
+  "component_variants": [
+    { "id": 1, "product_id": 1, "component_id": 1, "dimension_id": 1, "finish_id": 1, "descriptor": "Inteiro Simples", "description": "Tampo Inteiro Simples 1200x900 — Argila", "_origem": "real_da_amostra — sku 3981113028 / preço 382,75 (tabela 01-2025)" },
+    { "id": 2, "product_id": 1, "component_id": 1, "dimension_id": 1, "finish_id": 2, "descriptor": "Inteiro Simples", "description": "Tampo Inteiro Simples 1200x900 — Branco", "_origem": "real_da_amostra — sku 3981121234 / preço 374,45" },
+    { "id": 3, "product_id": 1, "component_id": 1, "dimension_id": 1, "finish_id": 3, "descriptor": "Inteiro Simples", "description": "Tampo Inteiro Simples 1200x900 — Preto", "_origem": "real_da_amostra — sku 3981130567 / preço 493,80" },
+
+    { "id": 4, "product_id": 1, "component_id": 2, "dimension_id": 1, "finish_id": 4, "descriptor": "Reunião Tampo Inteiro", "description": "Estrutura Reunião Tampo Inteiro 1200x900 — Prata", "_origem": "ilustrativo — sku 398250071" },
+    { "id": 5, "product_id": 1, "component_id": 2, "dimension_id": 1, "finish_id": 2, "descriptor": "Reunião Tampo Inteiro", "description": "Estrutura Reunião Tampo Inteiro 1200x900 — Branco", "_origem": "ilustrativo — demonstra 'Branco' (finish id=2) referenciado num contexto metálico, validando que a desambiguação madeira×metal funciona via component_id (categoria 9)" },
+    { "id": 6, "product_id": 1, "component_id": 2, "dimension_id": 1, "finish_id": 3, "descriptor": "Reunião Tampo Inteiro", "description": "Estrutura Reunião Tampo Inteiro 1200x900 — Preto", "_origem": "ilustrativo" },
+
+    { "id": 7, "product_id": 1, "component_id": 3, "dimension_id": 1, "finish_id": 4, "descriptor": "Credenza 5050", "description": "Apoio Credenza 5050 — Prata", "_origem": "ilustrativo — sku 398250115" },
+
+    { "id": 8, "product_id": 2, "component_id": 1, "dimension_id": 2, "finish_id": 1, "descriptor": "Bi-Partido", "description": "Tampo Bi-Partido 2400x1000 — Argila", "_origem": "ilustrativo — existe APENAS para a dimensão maior (2400x1000); propositalmente ausente para 1200x900, para acionar o teste de componente incompatível com dimensão (categoria 14 / RN-03)" },
+
+    { "id": 9, "product_id": 1, "component_id": 1, "dimension_id": 1, "finish_id": 1, "descriptor": "Encabeçado", "description": "Tampo Encabeçado 1200x900 — Argila", "_origem": "ficticio_didatico — variação que EXISTIA na tabela 01-2025 mas NÃO recebeu preço na 02-2025 (ver 'prices' abaixo); aciona o teste de preço ausente no nível de catálogo (categoria 12 / RN-12), distinto do caso 'código sem preço' da extração (categoria 9/12, sku 398101456)" },
+
+    { "id": 10, "product_id": 3, "component_id": 2, "dimension_id": 3, "finish_id": 4, "descriptor": "Reunião Tampo Inteiro", "description": "Estrutura Reunião Tampo Inteiro 1600x900 — Prata", "_origem": "ficticio_didatico — reaproveita DELIBERADAMENTE o mesmo SKU '398250071' da variação id=4 (mesma peça estrutural física vendida em dois contextos de largura, com preço idêntico) — reproduz em miniatura o padrão real de 9.287 códigos repetidos identificado na auditoria (docs/01). Aciona o teste de SKU 'legitimamente' duplicado (categoria 11)." }
+  ],
+
+  "skus": [
+    { "id": 1, "code": "3981113028", "notes": null, "_origem": "real_da_amostra" },
+    { "id": 2, "code": "3981121234", "notes": null, "_origem": "real_da_amostra" },
+    { "id": 3, "code": "3981130567", "notes": null, "_origem": "real_da_amostra" },
+    { "id": 4, "code": "398250071",  "notes": "Referenciado por DUAS variações (component_variants id=4 e id=10) — ver nota da variação id=10.", "_origem": "ficticio_didatico" },
+    { "id": 5, "code": "398250072",  "notes": null, "_origem": "ilustrativo" },
+    { "id": 6, "code": "398250073",  "notes": null, "_origem": "ilustrativo" },
+    { "id": 7, "code": "398250115",  "notes": null, "_origem": "ilustrativo" },
+    { "id": 8, "code": "398250200",  "notes": null, "_origem": "ilustrativo" },
+    { "id": 9, "code": "3981113099", "notes": "Variação 'Encabeçado' descontinuada na tabela 02-2025 — mantém SKU, perdeu o preço.", "_origem": "ficticio_didatico" }
+  ],
+
+  "prices": [
+    { "id": 1,  "component_variant_id": 1,  "sku_id": 1, "price_table_id": 1, "amount": 382.75, "currency": "BRL", "source_extracted_item_id": null, "_origem": "real_da_amostra (tabela 01-2025 — preço antigo, será 'congelado' no Exemplo 4)" },
+    { "id": 2,  "component_variant_id": 2,  "sku_id": 2, "price_table_id": 1, "amount": 374.45, "currency": "BRL", "source_extracted_item_id": null, "_origem": "real_da_amostra" },
+    { "id": 3,  "component_variant_id": 3,  "sku_id": 3, "price_table_id": 1, "amount": 493.80, "currency": "BRL", "source_extracted_item_id": null, "_origem": "real_da_amostra" },
+    { "id": 4,  "component_variant_id": 4,  "sku_id": 4, "price_table_id": 1, "amount": 612.40, "currency": "BRL", "source_extracted_item_id": null, "_origem": "ilustrativo" },
+    { "id": 5,  "component_variant_id": 9,  "sku_id": 9, "price_table_id": 1, "amount": 451.20, "currency": "BRL", "source_extracted_item_id": null, "_origem": "ficticio_didatico — único preço que a variação 'Encabeçado' chegou a ter; não será repetido na tabela 02-2025 (ver abaixo) — propositalmente" },
+    { "id": 6,  "component_variant_id": 10, "sku_id": 4, "price_table_id": 1, "amount": 612.40, "currency": "BRL", "source_extracted_item_id": null, "_origem": "ficticio_didatico — MESMO preço da variação id=4 na mesma versão de tabela: é exatamente esse padrão (mesmo SKU, mesmo preço, contexto de largura diferente) que caracteriza o reaproveitamento legítimo, em oposição ao caso anômalo da categoria 9" },
+
+    { "id": 7,  "component_variant_id": 1,  "sku_id": 1, "price_table_id": 2, "amount": 412.90, "currency": "BRL", "source_extracted_item_id": null, "_origem": "ilustrativo — preço REAJUSTADO em relação à tabela 01-2025 (382,75 → 412,90); usado nos testes de versão vigente e de 'preço de versão antiga' (categorias 7 e 8 / Exemplo 4)" },
+    { "id": 8,  "component_variant_id": 2,  "sku_id": 2, "price_table_id": 2, "amount": 374.45, "currency": "BRL", "source_extracted_item_id": null, "_origem": "ilustrativo — preço mantido (nem todo item muda de uma versão para outra)" },
+    { "id": 9,  "component_variant_id": 3,  "sku_id": 3, "price_table_id": 2, "amount": 493.80, "currency": "BRL", "source_extracted_item_id": null, "_origem": "ilustrativo — preço mantido" },
+    { "id": 10, "component_variant_id": 4,  "sku_id": 4, "price_table_id": 2, "amount": 612.40, "currency": "BRL", "source_extracted_item_id": null, "_origem": "ilustrativo — preço mantido" },
+    { "id": 11, "component_variant_id": 5,  "sku_id": 5, "price_table_id": 2, "amount": 634.10, "currency": "BRL", "source_extracted_item_id": null, "_origem": "ilustrativo" },
+    { "id": 12, "component_variant_id": 6,  "sku_id": 6, "price_table_id": 2, "amount": 634.10, "currency": "BRL", "source_extracted_item_id": null, "_origem": "ilustrativo" },
+    { "id": 13, "component_variant_id": 7,  "sku_id": 7, "price_table_id": 2, "amount": 318.90, "currency": "BRL", "source_extracted_item_id": null, "_origem": "ilustrativo — usado no Exemplo 2 (apoio)" },
+    { "id": 14, "component_variant_id": 8,  "sku_id": 8, "price_table_id": 2, "amount": 689.50, "currency": "BRL", "source_extracted_item_id": null, "_origem": "ilustrativo — Tampo Bi-Partido só existe (e só tem preço) para 2400x1000" },
+    { "id": 15, "component_variant_id": 10, "sku_id": 4, "price_table_id": 2, "amount": 612.40, "currency": "BRL", "source_extracted_item_id": null, "_origem": "ficticio_didatico — mesmo SKU/preço da variação id=4 também na tabela vigente; reaproveitamento legítimo confirmado em ambas as versões" }
+  ],
+  "_nota_sobre_prices": "Reparem que component_variant_id=9 ('Tampo Encabeçado') tem preço APENAS na tabela 01-2025 (price id=5) — na 02-2025 não existe nenhuma linha em 'prices' para essa variação. Isso é PROPOSITAL: reproduz, no nível do catálogo já publicado, o cenário 'item sem preço na tabela vigente' (RN-12) usado no Exemplo 3 e na categoria 12 de testes — sem depender de um caso de extração malsucedida.",
+
+  "customers": [
+    { "id": 1, "name": "Studio Almeida Arquitetura", "document": "12.345.678/0001-90", "email": "contato@studioalmeida.example", "_origem": "ilustrativo" }
+  ],
+
+  "extracted_items_samples": [
+    {
+      "_caso": "cabecalho_quebrado_em_duas_linhas",
+      "_uso_no_documento_de_testes": "categorias 3 (normalização) e 10 (PDFs com linhas quebradas)",
+      "id": 101,
+      "imported_page_id": 2,
+      "component_type_raw": "tampo",
+      "finish_raw": "NOGUEIRA\nCADIZ",
+      "sku_raw": "3981146012",
+      "price_raw": "493,80",
+      "confidence": 0.85,
+      "confidence_level": "alta",
+      "review_status": "pendente",
+      "extraction_notes": [
+        "cabeçalho do acabamento veio quebrado em 2 linhas físicas ('NOGUEIRA' / 'CADIZ'); resolvido como UM nome único ('Nogueira Cádiz') via contagem cruzada de 9 cabeçalhos x 9 colunas de código/preço",
+        "confidence reduzida de 0.95 para 0.85 por depender de heurística de remontagem de célula multilinha"
+      ],
+      "_origem": "real_da_amostra — caso documentado em docs/samples/extracao-amostra.json, página 2, item sku=3981146012"
+    },
+    {
+      "_caso": "texto_vertical_espelhado",
+      "_uso_no_documento_de_testes": "categoria 10 (PDFs com linhas quebradas)",
+      "id": 102,
+      "imported_page_id": 2,
+      "raw_text_capturado_por_libs_genericas": ["OCSOF", "ETNAHLIRB", "OTERP", "OCNARB", "OIN�MULA"],
+      "raw_text_apos_filtro_por_direcao_pymupdf": ["FOSCO", "BRILHANTE", "PRETO", "BRANCO", "PÉ ALUMÍNIO"],
+      "is_vertical_text": 1,
+      "tornou_se_extracted_item": false,
+      "_nota": "Spans de texto vertical (dir=(0,-1)) são rótulos laterais fora do fluxo da tabela — bibliotecas genéricas (pdfplumber/camelot) os capturam espelhados dentro de células vizinhas. O pipeline correto os ISOLA (via filtro de vetor de direção) e os mantém apenas em raw_rows, para auditoria — NUNCA os transforma em item normalizado.",
+      "_origem": "real_da_amostra — confirmado na página 2 (5 spans verticais documentados)"
+    },
+    {
+      "_caso": "numero_com_espaco_interno",
+      "_uso_no_documento_de_testes": "categorias 3 (normalização) e 10 (PDFs com linhas quebradas)",
+      "id": 103,
+      "imported_page_id": 432,
+      "component_type_raw": "conjunto_completo",
+      "price_raw": "744 ,22",
+      "price_normalizado_esperado": 744.22,
+      "confidence": 0.7,
+      "confidence_level": "média",
+      "extraction_notes": [
+        "valor extraído com espaço espúrio entre dígitos e vírgula decimal ('744 ,22'); normalização correta remove o espaço interno ANTES de converter para Decimal — não trata como erro de formato",
+        "confidence rebaixada de 0.8 para 0.7 por exigir normalização não trivial do número"
+      ],
+      "_origem": "real_da_amostra — página 432, item sku=398092298 (Reunião Redonda 900MM, Pé Painel, Preto)"
+    },
+    {
+      "_caso": "codigo_sem_preco",
+      "_uso_no_documento_de_testes": "categorias 9 (dados inconsistentes) e 12 (preço ausente) — base do Exemplo 3 de docs/05",
+      "id": 104,
+      "imported_page_id": 432,
+      "component_type_raw": "conjunto_completo",
+      "product_context_raw": "Reunião Redonda 1100MM",
+      "finish_raw": "Argila",
+      "sku_raw": "398101456",
+      "price_raw": null,
+      "confidence": 0.2,
+      "confidence_level": "baixa",
+      "review_status": "pendente",
+      "extraction_notes": [
+        "nenhuma linha de preço foi localizada na faixa de coordenada Y esperada para este bloco de código",
+        "price=null propositalmente — item NÃO deve ser publicado sem checagem manual contra o PDF original",
+        "padrão documentado: 45 ocorrências concentradas nas páginas 432-435"
+      ],
+      "_origem": "real_da_amostra — caso documentado em docs/samples/extracao-amostra.json, página 432"
+    },
+    {
+      "_caso": "sku_duplicado_com_precos_divergentes",
+      "_uso_no_documento_de_testes": "categorias 9 (dados inconsistentes) e 11 (SKU duplicado) — caso ANÔMALO, em oposição ao reaproveitamento legítimo de component_variants id=4/10",
+      "_par_de_itens": [
+        {
+          "id": 105,
+          "imported_page_id": 17,
+          "component_type_raw": "Apoio Credenza",
+          "finish_raw": "Prata",
+          "sku_raw": "398301122",
+          "price_raw": "455,00",
+          "confidence_level": "media",
+          "review_status": "pendente"
+        },
+        {
+          "id": 106,
+          "imported_page_id": 18,
+          "component_type_raw": "Apoio Credenza",
+          "finish_raw": "Branco",
+          "sku_raw": "398301122",
+          "price_raw": "489,90",
+          "confidence_level": "media",
+          "review_status": "pendente"
+        }
+      ],
+      "_nota": "O MESMO código aparece duas vezes na mesma importação, associado a acabamentos E preços diferentes — padrão estruturalmente diferente do reaproveitamento legítimo (que tem preço IDÊNTICO). Isso é, com alta probabilidade, um erro de leitura de coluna (duas linhas físicas próximas confundidas) ou dois produtos distintos compartilhando código por engano de cadastro do fabricante. NÃO deve ser resolvido automaticamente — gera aviso crítico (ver import_warnings_samples) e bloqueia a publicação até decisão humana.",
+      "_origem": "ficticio_didatico — construído para acionar especificamente este caso; não existe na amostra real (que não documentou nenhum SKU com preços conflitantes, apenas códigos sem preço)"
+    },
+    {
+      "_caso": "acabamento_nao_reconhecido",
+      "_uso_no_documento_de_testes": "categoria 13 (acabamento ausente)",
+      "id": 107,
+      "imported_page_id": 19,
+      "component_type_raw": "Tampo",
+      "finish_raw": "Cinza Platina",
+      "sku_raw": "3981199999",
+      "price_raw": "455,00",
+      "confidence_level": "media",
+      "review_status": "pendente",
+      "extraction_notes": [
+        "valor 'Cinza Platina' não corresponde a nenhum nome em finishes — pode ser (a) um acabamento genuinamente novo, não visto nas páginas já auditadas, ou (b) uma variação de grafia de um acabamento existente (ex. erro de digitação do fabricante)",
+        "decisão automática NÃO é tomada — gera aviso de revisão manual; o revisor decide se cria um novo 'finish' ou corrige para um nome já existente"
+      ],
+      "_origem": "ficticio_didatico — nome inventado deliberadamente para não colidir com nenhum dos 9 acabamentos madeirados reais nem com os metálicos citados em docs/01"
+    }
+  ],
+
+  "import_warnings_samples": [
+    {
+      "id": 201, "imported_file_id": 1, "imported_page_id": 432, "extracted_item_id": 104,
+      "severity": "atencao",
+      "message": "Detectado caso de 'código sem preço' (sku=398101456): nenhuma linha de preço foi encontrada na faixa de Y esperada. Padrão documentado com 45 ocorrências nas páginas 432-435.",
+      "_origem": "real_da_amostra — texto adaptado do warning original da página 432"
+    },
+    {
+      "id": 202, "imported_file_id": 1, "imported_page_id": 2, "extracted_item_id": null,
+      "severity": "info",
+      "message": "Confirmados 5 spans de texto vertical (dir=(0,-1)) nesta página -- isolados via pymupdf rawdict e mantidos em raw_rows apenas para registro -- não compõem normalized_items.",
+      "_origem": "real_da_amostra — texto adaptado do warning original da página 2"
+    },
+    {
+      "id": 203, "imported_file_id": 3, "imported_page_id": null, "extracted_item_id": null,
+      "severity": "critico",
+      "message": "SKU '398301122' aparece associado a DOIS preços diferentes (R$ 455,00 e R$ 489,90, acabamentos 'Prata' e 'Branco') na mesma importação -- pode indicar erro de leitura de coluna ou produtos distintos compartilhando código por engano de cadastro. Publicação bloqueada para esta versão de tabela até confirmação manual de qual (ou se ambos) os registros está correto.",
+      "_origem": "ficticio_didatico — aviso correspondente ao caso 'sku_duplicado_com_precos_divergentes' acima"
+    },
+    {
+      "id": 204, "imported_file_id": 3, "imported_page_id": 19, "extracted_item_id": 107,
+      "severity": "atencao",
+      "message": "Acabamento 'Cinza Platina' não corresponde a nenhum acabamento conhecido no catálogo (Argila/Branco/Preto/Gianduia/Amêndoa/Carvalho/Nogueira Cádiz/Grafite/Itapuã/Prata/...). Revisão manual necessária para decidir se é um acabamento novo ou uma variação de grafia.",
+      "_origem": "ficticio_didatico — aviso correspondente ao caso 'acabamento_nao_reconhecido' acima"
+    }
+  ],
+
+  "quote_scenarios": [
+    {
+      "_nome": "exemplo_1_simples_tampo_estrutura",
+      "_correspondencia": "docs/05-regras-orcamento.md, seção 3, Exemplo 1",
+      "_uso_no_documento_de_testes": "categorias 6 (orçamento) e 7 (congelamento de preço)",
+      "setup": {
+        "quote": { "id": 901, "customer_id": 1, "price_table_id": 2, "status": "rascunho", "quote_number": "ORC-2026-0901" }
+      },
+      "passos": [
+        {
+          "acao": "POST /quotes/901/items",
+          "request": {
+            "product_id": 1,
+            "label": "Reunião 1200x900 — Argila/Prata",
+            "quantity": 2,
+            "components": [
+              { "component_variant_id": 1, "sku_id": 1 },
+              { "component_variant_id": 4, "sku_id": 4 }
+            ]
+          },
+          "resultado_esperado": {
+            "status_http": 201,
+            "componentes_congelados": [
+              { "component_variant_id": 1, "sku": "3981113028", "frozen_unit_price": 412.90, "_origem_do_preco": "prices id=7 (tabela 02-2025, vigente no momento da adição)" },
+              { "component_variant_id": 4, "sku": "398250071",  "frozen_unit_price": 612.40, "_origem_do_preco": "prices id=10" }
+            ],
+            "line_subtotal": 2051.60,
+            "_calculo": "(412.90 + 612.40) x 2 = 2051.60"
+          }
+        }
+      ]
+    },
+    {
+      "_nome": "exemplo_2_com_apoio_opcional",
+      "_correspondencia": "docs/05-regras-orcamento.md, seção 3, Exemplo 2 (recortado ao escopo de componentes desta fixture: tampo/estrutura/apoio — sem acessório)",
+      "_uso_no_documento_de_testes": "categorias 6 (orçamento) e 7 (congelamento de preço)",
+      "setup": {
+        "quote": { "id": 901, "_continuacao_do": "exemplo_1_simples_tampo_estrutura" }
+      },
+      "passos": [
+        {
+          "acao": "POST /quotes/901/items/{itemId}/components",
+          "request": { "component_variant_id": 7, "sku_id": 7 },
+          "resultado_esperado": {
+            "status_http": 201,
+            "componente_congelado": { "component_variant_id": 7, "sku": "398250115", "frozen_unit_price": 318.90, "_origem_do_preco": "prices id=13" },
+            "novo_line_subtotal": 2701.40,
+            "_calculo": "(412.90 + 612.40 + 318.90) x 2 = 2688,40 ... ATENÇÃO: o componente opcional adicionado DEPOIS herda a quantidade já definida da linha (2) — o teste deve validar exatamente essa propagação (RN-08); o valor final correto é (412.90+612.40+318.90)*2 = 2688.40 — qualquer divergência indica falha na regra de propagação de quantidade"
+          },
+          "_nota_para_quem_for_escrever_o_teste": "o campo 'novo_line_subtotal' acima contém DUAS leituras possíveis de propósito (2701.40 vs 2688.40) — o teste deve calcular a partir da regra (RN-08: quantidade da linha propaga a TODOS os componentes, inclusive os adicionados depois) e não copiar um valor pronto. Use isso como checagem de que quem implementa o teste está aplicando a regra, não decorando um número."
+        }
+      ]
+    },
+    {
+      "_nome": "exemplo_3_item_bloqueado_por_ausencia_de_preco",
+      "_correspondencia": "docs/05-regras-orcamento.md, seção 3, Exemplo 3",
+      "_uso_no_documento_de_testes": "categorias 6 (orçamento), 9 (dados inconsistentes) e 12 (preço ausente) — RN-12",
+      "setup": {
+        "quote": { "id": 902, "customer_id": 1, "price_table_id": 2, "status": "rascunho" }
+      },
+      "passos": [
+        {
+          "acao": "POST /quotes/902/items",
+          "request": {
+            "product_id": 1,
+            "label": "Reunião 1200x900 — Encabeçado/Argila",
+            "quantity": 1,
+            "components": [
+              { "component_variant_id": 9, "sku_id": 9 }
+            ]
+          },
+          "resultado_esperado": {
+            "status_http": 422,
+            "error_code": "ITEM_SEM_PRECO",
+            "details": {
+              "component_variant_id": 9,
+              "price_table_id": 2,
+              "explicacao": "A variação 'Tampo Encabeçado 1200x900 — Argila' (sku 3981113099) tinha preço na tabela 01-2025 (R$ 451,20 — ver prices id=5) mas NÃO recebeu preço na tabela 02-2025, atualmente vigente. Não pode ser adicionada ao orçamento até que essa lacuna seja resolvida no catálogo."
+            }
+          },
+          "_variacao_do_mesmo_teste": "o caso 'real' equivalente, no nível de extração (não de catálogo já publicado), é o sku=398101456 da página 432 (extracted_items_samples, caso 'codigo_sem_preco') — vale ter um teste para cada camada em que o bloqueio deve acontecer: na extração (price=null, vira aviso, não é publicado) e na montagem (variação publicada sem preço na tabela vigente, bloqueia adição)."
+        }
+      ]
+    },
+    {
+      "_nome": "exemplo_4_item_com_preco_de_versao_antiga",
+      "_correspondencia": "docs/05-regras-orcamento.md, seção 3, Exemplo 4",
+      "_uso_no_documento_de_testes": "categorias 7 (congelamento de preço) e 8 (múltiplas versões de tabela)",
+      "narrativa": [
+        "1. Em 20/05/2026, a tabela 01-2025 (id=1) está vigente. Um orçamento é criado e um Tampo Argila (component_variant_id=1) é adicionado — congela ao preço da tabela 01-2025: R$ 382,75 (prices id=1).",
+        "2. Em 01/06/2026, a tabela 02-2025 (id=2) é publicada e passa a vigente; a 01-2025 é arquivada (status='substituida'). O preço de catálogo da MESMA variação passa a ser R$ 412,90 (prices id=7).",
+        "3. Em 03/06/2026, ainda em rascunho, o vendedor adiciona um NOVO componente (Apoio Credenza, component_variant_id=7) — este congela ao preço ATUAL da tabela 02-2025: R$ 318,90 (prices id=13)."
+      ],
+      "setup": {
+        "quote": { "id": 903, "customer_id": 1, "price_table_id": 1, "status": "rascunho", "created_at": "2026-05-20T10:00:00" }
+      },
+      "estado_esperado_apos_os_3_passos": {
+        "componente_1": {
+          "component_variant_id": 1, "frozen_unit_price": 382.75, "frozen_at": "2026-05-20T10:05:00",
+          "_assercao_chave": "DEVE permanecer 382.75 mesmo após a publicação da tabela 02-2025 com novo preço 412.90 — provar isso é o cerne do teste de congelamento (RN-16)"
+        },
+        "componente_2": {
+          "component_variant_id": 7, "frozen_unit_price": 318.90, "frozen_at": "2026-06-03T09:00:00",
+          "_assercao_chave": "congelado pela tabela 02-2025 (vigente no momento desta adição específica — RN-15: cada adição usa a tabela vigente NO MOMENTO em que ocorre)"
+        },
+        "aviso_esperado_no_orcamento": {
+          "code": "VERSOES_DE_TABELA_MISTAS",
+          "message": "Este orçamento contém itens precificados em duas versões de tabela diferentes — 01-2025 e 02-2025.",
+          "_assercao_chave": "o sistema DEVE detectar e exibir esse cenário de forma explícita — nunca deixar uma soma heterogênea sem aviso"
+        }
+      }
+    }
+  ]
+}
