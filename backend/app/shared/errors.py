@@ -31,6 +31,60 @@ def error_envelope(
     return {"error": {"code": code, "message": message, "details": details or {}}}
 
 
+class RegistroNaoEncontradoError(DomainError):
+    code = "REGISTRO_NAO_ENCONTRADO"
+    status_code = status.HTTP_404_NOT_FOUND
+    message = "Registro não encontrado."
+
+
+class RegistroDuplicadoError(DomainError):
+    code = "REGISTRO_DUPLICADO"
+    status_code = status.HTTP_409_CONFLICT
+    message = "Já existe um registro com estes dados."
+
+
+class ReferenciaInvalidaError(DomainError):
+    code = "REFERENCIA_INVALIDA"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = "Referência inválida."
+
+
+class RegistroEmUsoError(DomainError):
+    code = "REGISTRO_EM_USO"
+    status_code = status.HTTP_409_CONFLICT
+    message = "Registro em uso — não pode ser removido."
+
+
+class ComponenteNaoEncontradoError(DomainError):
+    code = "COMPONENTE_NAO_ENCONTRADO"
+    status_code = status.HTTP_404_NOT_FOUND
+    message = "Variação de componente não encontrada."
+
+
+class VariacaoDuplicadaError(DomainError):
+    code = "VARIACAO_DUPLICADA"
+    status_code = status.HTTP_409_CONFLICT
+    message = (
+        "Já existe uma variação idêntica cadastrada (mesmo produto, componente, "
+        "dimensão, acabamento e descritor)."
+    )
+
+
+class PrecoDuplicadoError(DomainError):
+    code = "PRECO_DUPLICADO"
+    status_code = status.HTTP_409_CONFLICT
+    message = "Já existe um preço para esta variação nesta versão de tabela."
+
+
+class ComponenteEmUsoError(DomainError):
+    code = "COMPONENTE_EM_USO"
+    status_code = status.HTTP_409_CONFLICT
+    message = (
+        "Esta variação está referenciada por preços de outra versão de tabela e/ou "
+        "por orçamentos existentes — arquive/descontinue em vez de excluir."
+    )
+
+
 async def domain_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, DomainError)
     return JSONResponse(

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getHealth } from './api/client'
+import { CatalogPage } from './pages/catalog/CatalogPage'
 
 type ApiStatus = 'loading' | 'ok' | 'error'
 
@@ -21,6 +22,8 @@ function App() {
         {apiStatus === 'ok' && 'conectada ✅'}
         {apiStatus === 'error' && 'indisponível ❌'}
       </p>
+      <hr />
+      <CatalogPage />
     </main>
   )
 }

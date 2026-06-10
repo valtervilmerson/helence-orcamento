@@ -1,9 +1,10 @@
-"""Seed mínimo de dados de referência (docs/07, Fase 1).
+"""Seed mínimo de dados de referência (docs/07, Fases 1 e 2).
 
 Cria um usuário de teste por papel e uma ``price_table`` vazia em
 status ``vigente``, evitando o erro ``NENHUMA_TABELA_VIGENTE`` ao
-montar orçamentos (Fase 3). Idempotente: rodar mais de uma vez não
-duplica registros.
+montar orçamentos (Fase 3), além de um pequeno catálogo manual real
+(``seed_catalog``). Idempotente: rodar mais de uma vez não duplica
+registros.
 
 Mapeamento de papéis (docs/04, seção "Papéis"): a coluna ``users.role``
 só aceita ``admin | importador | revisor | vendedor | colaborador``
@@ -32,6 +33,29 @@ SEED_USERS = [
 
 SEED_PRICE_TABLE_CODE = "SEED-VAZIA"
 
+# Catálogo manual de exemplo (Fase 2): replica as 9 variações de
+# "Reunião 1200x900 — Tampo Inteiro Simples" do spike de extração
+# (docs/samples/extracao-amostra.json, página 2), provando o modelo de
+# dados com dados reais e gerando insumo para a montagem de orçamentos
+# da Fase 3.
+SEED_FAMILY_NAME = "Mesas de Reunião"
+SEED_PRODUCT_NAME = "Reunião 1200x900"
+SEED_COMPONENT_NAME = "Tampo"
+SEED_DESCRIPTOR = "Inteiro Simples"
+
+# (acabamento, código SKU, preço)
+SEED_VARIANTS = [
+    ("Argila", "3981113028", 382.75),
+    ("Branco", "3981121234", 374.45),
+    ("Preto", "3981130567", 493.80),
+    ("Gianduia", "3981138901", 472.85),
+    ("Amêndoa", "3981142345", 493.80),
+    ("Carvalho", "3981144789", 493.80),
+    ("Nogueira Cádiz", "3981146012", 493.80),
+    ("Grafite", "3981148256", 472.85),
+    ("Itapuã", "3981149472", 493.80),
+]
+
 
 def seed(connection: sqlite3.Connection) -> None:
     for name, email, role in SEED_USERS:
@@ -48,7 +72,87 @@ def seed(connection: sqlite3.Connection) -> None:
         (SEED_PRICE_TABLE_CODE,),
     )
 
+    seed_catalog(connection)
+
     connection.commit()
+
+
+def seed_catalog(connection: sqlite3.Connection) -> None:
+    price_table_id = connection.execute(
+        "SELECT id FROM price_tables WHERE code = ?", (SEED_PRICE_TABLE_CODE,)
+    ).fetchone()["id"]
+
+    connection.execute(
+        "INSERT OR IGNORE INTO product_families (name) VALUES (?)", (SEED_FAMILY_NAME,)
+    )
+    family_id = connection.execute(
+        "SELECT id FROM product_families WHERE name = ?", (SEED_FAMILY_NAME,)
+    ).fetchone()["id"]
+
+    connection.execute(
+        "INSERT OR IGNORE INTO dimensions (width_mm, depth_mm, raw_label) "
+        "VALUES (1200, 900, '1200x900')"
+    )
+    dimension_id = connection.execute(
+        "SELECT id FROM dimensions WHERE width_mm = 1200 AND depth_mm = 900"
+    ).fetchone()["id"]
+
+    connection.execute(
+        "INSERT OR IGNORE INTO products (family_id, name, dimension_id) VALUES (?, ?, ?)",
+        (family_id, SEED_PRODUCT_NAME, dimension_id),
+    )
+    product_id = connection.execute(
+        "SELECT id FROM products WHERE family_id = ? AND name = ?", (family_id, SEED_PRODUCT_NAME)
+    ).fetchone()["id"]
+
+    connection.execute(
+        "INSERT OR IGNORE INTO product_components (name) VALUES (?)", (SEED_COMPONENT_NAME,)
+    )
+    component_id = connection.execute(
+        "SELECT id FROM product_components WHERE name = ?", (SEED_COMPONENT_NAME,)
+    ).fetchone()["id"]
+
+    for finish_name, sku_code, price in SEED_VARIANTS:
+        connection.execute(
+            "INSERT OR IGNORE INTO finishes (name, finish_group) VALUES (?, 'madeirado')",
+            (finish_name,),
+        )
+        finish_id = connection.execute(
+            "SELECT id FROM finishes WHERE name = ?", (finish_name,)
+        ).fetchone()["id"]
+
+        description = (
+            f"Tampo Inteiro Simples Para Estrutura Reunião 1200x900 Caixa de Tomada {finish_name}"
+        )
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO component_variants
+                (product_id, component_id, dimension_id, finish_id, descriptor, description)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (product_id, component_id, dimension_id, finish_id, SEED_DESCRIPTOR, description),
+        )
+        variant_id = connection.execute(
+            """
+            SELECT id FROM component_variants
+            WHERE product_id = ? AND component_id = ? AND dimension_id = ?
+              AND finish_id = ? AND descriptor = ?
+            """,
+            (product_id, component_id, dimension_id, finish_id, SEED_DESCRIPTOR),
+        ).fetchone()["id"]
+
+        connection.execute("INSERT OR IGNORE INTO skus (code) VALUES (?)", (sku_code,))
+        sku_id = connection.execute("SELECT id FROM skus WHERE code = ?", (sku_code,)).fetchone()[
+            "id"
+        ]
+
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO prices (component_variant_id, sku_id, price_table_id, amount)
+            VALUES (?, ?, ?, ?)
+            """,
+            (variant_id, sku_id, price_table_id, price),
+        )
 
 
 def main() -> None:
