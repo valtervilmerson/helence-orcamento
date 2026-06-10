@@ -39,3 +39,38 @@ class ImportListOut(BaseModel):
     page: int
     page_size: int
     total: int
+
+
+class ProcessImportIn(BaseModel):
+    strategy: str | None = None
+
+
+class ProcessImportOut(BaseModel):
+    id: int
+    status: ImportStatus
+    started_at: str | None
+
+
+class ImportProgress(BaseModel):
+    pages_total: int | None
+    pages_processed: int | None
+
+
+class ImportSummary(BaseModel):
+    items_extracted: int
+    warnings: int
+
+
+class ImportError(BaseModel):
+    code: str
+    message: str
+
+
+class ImportStatusOut(BaseModel):
+    id: int
+    status: ImportStatus
+    progress: ImportProgress
+    started_at: str | None
+    finished_at: str | None
+    summary: ImportSummary
+    error: ImportError | None

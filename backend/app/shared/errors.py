@@ -209,6 +209,27 @@ class ParametroInvalidoError(DomainError):
     message = "Parâmetro inválido."
 
 
+class ImportacaoNaoEncontradaError(DomainError):
+    code = "IMPORTACAO_NAO_ENCONTRADA"
+    status_code = status.HTTP_404_NOT_FOUND
+    message = "Importação não encontrada."
+
+
+class ImportacaoStatusInvalidoError(DomainError):
+    code = "STATUS_INVALIDO"
+    status_code = status.HTTP_409_CONFLICT
+    message = (
+        "Esta importação já está em processamento ou já foi concluída — "
+        "reprocessar exige uma ação explícita e diferente."
+    )
+
+
+class EstrategiaIndisponivelError(DomainError):
+    code = "ESTRATEGIA_INDISPONIVEL"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = "A estratégia de extração informada não é suportada."
+
+
 async def domain_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, DomainError)
     return JSONResponse(

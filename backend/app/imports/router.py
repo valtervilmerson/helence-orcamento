@@ -1,14 +1,20 @@
-"""Endpoints REST de upload e listagem de importações (docs/06, 14.1/14.2)."""
+"""Endpoints REST de upload, listagem e processamento de importações (docs/06, 14.1-14.4)."""
 
 import sqlite3
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile, status
 
 from app.config import get_settings
 from app.db.connection import get_connection
 from app.files.storage import FileStorage
-from app.imports import service
-from app.imports.schemas import ImportedFileOut, ImportListOut
+from app.imports import repository, service
+from app.imports.schemas import (
+    ImportedFileOut,
+    ImportListOut,
+    ImportStatusOut,
+    ProcessImportIn,
+    ProcessImportOut,
+)
 
 router = APIRouter(prefix="/imports", tags=["imports"])
 
@@ -50,3 +56,32 @@ def list_imports(
     connection: sqlite3.Connection = Depends(get_db),
 ) -> ImportListOut:
     return service.list_imports(connection, status=status_, page=page, page_size=page_size)
+
+
+@router.post(
+    "/{import_id}/process",
+    response_model=ProcessImportOut,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def process_import(
+    import_id: int,
+    background_tasks: BackgroundTasks,
+    body: ProcessImportIn | None = None,
+    connection: sqlite3.Connection = Depends(get_db),
+) -> ProcessImportOut:
+    strategy = body.strategy if body is not None else None
+    result = service.start_processing(connection, import_id, strategy=strategy)
+
+    row = repository.get_imported_file(connection, import_id)
+    assert row is not None
+    background_tasks.add_task(service.run_processing, import_id, row["file_path"])
+
+    return result
+
+
+@router.get("/{import_id}/status", response_model=ImportStatusOut)
+def get_import_status(
+    import_id: int,
+    connection: sqlite3.Connection = Depends(get_db),
+) -> ImportStatusOut:
+    return service.get_status(connection, import_id)

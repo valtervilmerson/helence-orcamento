@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   ImportsApiError,
   listImports,
+  processImport,
   uploadImport,
   type ImportListItem,
 } from '../../../api/imports'
@@ -68,6 +69,7 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
 export function ImportsPage() {
   const [imports, setImports] = useState<ImportListItem[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [processingError, setProcessingError] = useState<string | null>(null)
 
   async function reload() {
     try {
@@ -84,10 +86,31 @@ export function ImportsPage() {
     void reload()
   }, [])
 
+  // Enquanto houver alguma importação em processamento, faz polling do
+  // status (docs/06, seção 7 — polling simples no MVP).
+  useEffect(() => {
+    if (!imports.some((item) => item.status === 'processando')) {
+      return
+    }
+    const timer = setInterval(() => void reload(), 2000)
+    return () => clearInterval(timer)
+  }, [imports])
+
+  async function handleProcess(importId: number) {
+    setProcessingError(null)
+    try {
+      await processImport(importId)
+      await reload()
+    } catch (err) {
+      setProcessingError(describeError(err))
+    }
+  }
+
   return (
     <div>
       <h1>Importações</h1>
       <ErrorMessage error={error} />
+      <ErrorMessage error={processingError} />
 
       <UploadForm onUploaded={() => void reload()} />
 
@@ -101,6 +124,7 @@ export function ImportsPage() {
               <th>Status</th>
               <th>Páginas</th>
               <th>Enviado em</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -111,6 +135,13 @@ export function ImportsPage() {
                 <td>{item.status}</td>
                 <td>{item.page_count ?? '—'}</td>
                 <td>{item.imported_at}</td>
+                <td>
+                  {item.status === 'recebido' && (
+                    <button type="button" onClick={() => void handleProcess(item.id)}>
+                      Processar
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

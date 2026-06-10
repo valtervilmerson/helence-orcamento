@@ -40,6 +40,7 @@ def test_migrations_are_idempotent(connection) -> None:
         "0001_initial",
         "0002_quote_item_discounts",
         "0003_imported_files_status",
+        "0004_import_processing",
     ]
     assert second == []
 
@@ -48,6 +49,7 @@ def test_migrations_are_idempotent(connection) -> None:
         "0001_initial",
         "0002_quote_item_discounts",
         "0003_imported_files_status",
+        "0004_import_processing",
     ]
 
 

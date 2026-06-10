@@ -94,3 +94,33 @@ export const listImports = (params?: { status?: ImportStatus; page?: number; pag
   const qs = query.toString()
   return request<ImportListOut>(`/imports${qs ? `?${qs}` : ''}`)
 }
+
+// ---------------------------------------------------------------------------
+// Processamento — 14.3/14.4 (Fase 5: extração em segundo plano)
+// ---------------------------------------------------------------------------
+
+export interface ProcessImportOut {
+  id: number
+  status: ImportStatus
+  started_at: string | null
+}
+
+export interface ImportStatusOut {
+  id: number
+  status: ImportStatus
+  progress: { pages_total: number | null; pages_processed: number | null }
+  started_at: string | null
+  finished_at: string | null
+  summary: { items_extracted: number; warnings: number }
+  error: { code: string; message: string } | null
+}
+
+export const processImport = (importId: number, strategy?: string) =>
+  request<ProcessImportOut>(`/imports/${importId}/process`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(strategy ? { strategy } : {}),
+  })
+
+export const getImportStatus = (importId: number) =>
+  request<ImportStatusOut>(`/imports/${importId}/status`)
