@@ -174,6 +174,41 @@ class OrcamentoVazioError(DomainError):
     message = "Orçamento sem nenhuma linha — não há o que totalizar/congelar."
 
 
+# ---------------------------------------------------------------------------
+# Importações (docs/06, seção 14.1/14.2)
+# ---------------------------------------------------------------------------
+
+
+class ArquivoInvalidoError(DomainError):
+    code = "ARQUIVO_INVALIDO"
+    status_code = status.HTTP_400_BAD_REQUEST
+    message = "O arquivo enviado não é um PDF válido."
+
+
+class ArquivoMuitoGrandeError(DomainError):
+    code = "ARQUIVO_MUITO_GRANDE"
+    status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    message = "O arquivo excede o tamanho máximo permitido."
+
+
+class ArquivoDuplicadoError(DomainError):
+    code = "ARQUIVO_DUPLICADO"
+    status_code = status.HTTP_409_CONFLICT
+    message = "Já existe uma importação com o mesmo conteúdo."
+
+
+class CampoObrigatorioAusenteError(DomainError):
+    code = "CAMPO_OBRIGATORIO_AUSENTE"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = "Campo obrigatório ausente."
+
+
+class ParametroInvalidoError(DomainError):
+    code = "PARAMETRO_INVALIDO"
+    status_code = status.HTTP_400_BAD_REQUEST
+    message = "Parâmetro inválido."
+
+
 async def domain_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, DomainError)
     return JSONResponse(

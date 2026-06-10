@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.admin.router import router as admin_router
 from app.catalog.router import router as catalog_router
+from app.imports.router import router as imports_router
 from app.quotes.router import customers_router
 from app.quotes.router import router as quotes_router
 
@@ -16,4 +17,5 @@ def get_health() -> dict[str, str]:
 router.include_router(catalog_router)
 router.include_router(quotes_router)
 router.include_router(customers_router)
+router.include_router(imports_router)
 router.include_router(admin_router)

@@ -36,11 +36,19 @@ def test_migrations_are_idempotent(connection) -> None:
     first = apply_migrations(connection)
     second = apply_migrations(connection)
 
-    assert first == ["0001_initial", "0002_quote_item_discounts"]
+    assert first == [
+        "0001_initial",
+        "0002_quote_item_discounts",
+        "0003_imported_files_status",
+    ]
     assert second == []
 
     versions = connection.execute("SELECT version FROM schema_migrations").fetchall()
-    assert [row["version"] for row in versions] == ["0001_initial", "0002_quote_item_discounts"]
+    assert [row["version"] for row in versions] == [
+        "0001_initial",
+        "0002_quote_item_discounts",
+        "0003_imported_files_status",
+    ]
 
 
 def test_foreign_key_chain_is_enforced(connection) -> None:
