@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     cors_allowed_origins: str = "http://localhost:5173"
     backup_dir: str = "./backups"
+    admin_seed_key: str | None = None
 
     @property
     def is_production(self) -> bool:
