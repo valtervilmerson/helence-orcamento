@@ -12,6 +12,8 @@ from app.imports.schemas import (
     BatchCorrectionApplyIn,
     BatchCorrectionApplyOut,
     BatchCorrectionPreviewOut,
+    BatchReviewIn,
+    BatchReviewOut,
     ExtractedItemsListOut,
     ImportedFileOut,
     ImportListOut,
@@ -124,6 +126,14 @@ def review_extracted_item(
     connection: sqlite3.Connection = Depends(get_db),
 ) -> ReviewItemOut:
     return service.review_item(connection, item_id, body)
+
+
+@extracted_items_router.post("/batch-review", response_model=BatchReviewOut)
+def batch_review_extracted_items(
+    body: BatchReviewIn,
+    connection: sqlite3.Connection = Depends(get_db),
+) -> BatchReviewOut:
+    return service.batch_review_items(connection, body)
 
 
 @extracted_items_router.get(

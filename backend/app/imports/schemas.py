@@ -174,3 +174,31 @@ class BatchCorrectionApplyOut(BaseModel):
     applied_count: int
     applied_item_ids: list[int]
     skipped_item_ids: list[int]
+
+
+# ---------------------------------------------------------------------------
+# Aprovação/rejeição em lote (docs/04, seção 3 — barra de ações em lote)
+# ---------------------------------------------------------------------------
+
+BatchReviewDecision = Literal["aprovado", "rejeitado"]
+
+
+class BatchReviewIn(BaseModel):
+    item_ids: list[int]
+    decision: BatchReviewDecision
+    notes: str | None = None
+
+
+class BatchReviewResultItem(BaseModel):
+    item_id: int
+    success: bool
+    error_code: str | None = None
+    error_message: str | None = None
+
+
+class BatchReviewOut(BaseModel):
+    decision: BatchReviewDecision
+    requested_count: int
+    succeeded_count: int
+    failed_count: int
+    results: list[BatchReviewResultItem]

@@ -23,6 +23,9 @@ from app.imports.schemas import (
     BatchCorrectionApplyOut,
     BatchCorrectionCandidate,
     BatchCorrectionPreviewOut,
+    BatchReviewIn,
+    BatchReviewOut,
+    BatchReviewResultItem,
     ExtractedItemOut,
     ExtractedItemsListOut,
     ImportedFileOut,
@@ -45,6 +48,7 @@ from app.shared.errors import (
     CampoNaoCorrigivelError,
     CampoObrigatorioAusenteError,
     CorrecaoOrigemNaoEncontradaError,
+    DomainError,
     EstrategiaIndisponivelError,
     ImportacaoNaoEncontradaError,
     ImportacaoStatusInvalidoError,
@@ -436,6 +440,48 @@ def review_item(
             reviewed_by=reviewed_by,
             reviewed_at=decision_row["reviewed_at"],
         ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Aprovação/rejeição em lote (docs/04, seção 3 — barra de ações em lote)
+# ---------------------------------------------------------------------------
+
+
+def batch_review_items(connection: sqlite3.Connection, payload: BatchReviewIn) -> BatchReviewOut:
+    if not payload.item_ids:
+        raise ParametroInvalidoError(
+            details={"item_ids": payload.item_ids, "reason": "seleção vazia"}
+        )
+
+    if payload.decision == "rejeitado" and not payload.notes:
+        raise CampoObrigatorioAusenteError(
+            details={"field": "notes", "reason": "obrigatório para rejeitar itens em lote"}
+        )
+
+    results: list[BatchReviewResultItem] = []
+    for item_id in payload.item_ids:
+        try:
+            review_item(
+                connection,
+                item_id,
+                ReviewItemIn(decision=payload.decision, notes=payload.notes),
+            )
+            results.append(BatchReviewResultItem(item_id=item_id, success=True))
+        except DomainError as exc:
+            results.append(
+                BatchReviewResultItem(
+                    item_id=item_id, success=False, error_code=exc.code, error_message=exc.message
+                )
+            )
+
+    succeeded = sum(1 for r in results if r.success)
+    return BatchReviewOut(
+        decision=payload.decision,
+        requested_count=len(payload.item_ids),
+        succeeded_count=succeeded,
+        failed_count=len(results) - succeeded,
+        results=results,
     )
 
 

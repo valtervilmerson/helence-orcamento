@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   ImportsApiError,
   applyBatchCorrection,
+  batchReviewExtractedItems,
   getImportItems,
   previewBatchCorrection,
   reviewExtractedItem,
@@ -396,6 +397,12 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
   const [reviewStatus, setReviewStatus] = useState<ReviewStatus | ''>('pendente')
   const [confidenceLevel, setConfidenceLevel] = useState<ConfidenceLevel | ''>('')
 
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [bulkNotes, setBulkNotes] = useState('')
+  const [bulkError, setBulkError] = useState<string | null>(null)
+  const [bulkResult, setBulkResult] = useState<string | null>(null)
+  const [bulkSubmitting, setBulkSubmitting] = useState(false)
+
   async function reload() {
     try {
       const result = await getImportItems(importId, {
@@ -414,10 +421,62 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- carrega itens ao montar/filtrar
     void reload()
+    setSelectedIds(new Set())
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload é recriada a cada render
   }, [importId, reviewStatus, confidenceLevel])
 
   const selectedItem = items.find((item) => item.id === selectedId) ?? null
+
+  function toggleSelected(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) =>
+      prev.size === items.length ? new Set() : new Set(items.map((item) => item.id)),
+    )
+  }
+
+  async function handleBulkDecision(decision: 'aprovado' | 'rejeitado') {
+    setBulkError(null)
+    setBulkResult(null)
+    if (decision === 'rejeitado' && !bulkNotes) {
+      setBulkError('Justificativa é obrigatória para rejeitar itens em lote.')
+      return
+    }
+    setBulkSubmitting(true)
+    try {
+      const out = await batchReviewExtractedItems(
+        Array.from(selectedIds),
+        decision,
+        bulkNotes || undefined,
+      )
+      if (out.failed_count > 0) {
+        const failures = out.results.filter((r) => !r.success)
+        setBulkError(
+          `${out.failed_count} de ${out.requested_count} itens não puderam ser atualizados: ` +
+            failures.map((f) => `#${f.item_id} (${f.error_code})`).join(', '),
+        )
+      } else {
+        setBulkResult(`${out.succeeded_count} item(ns) atualizado(s).`)
+      }
+      setSelectedIds(new Set())
+      setBulkNotes('')
+      await reload()
+    } catch (err) {
+      setBulkError(describeError(err))
+    } finally {
+      setBulkSubmitting(false)
+    }
+  }
 
   return (
     <section>
@@ -462,6 +521,14 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
         <table>
           <thead>
             <tr>
+              <th>
+                <input
+                  type="checkbox"
+                  checked={items.length > 0 && selectedIds.size === items.length}
+                  onChange={toggleSelectAll}
+                  aria-label="Selecionar todos os itens listados"
+                />
+              </th>
               <th>Conf.</th>
               <th>Pág.</th>
               <th>Componente</th>
@@ -476,6 +543,14 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
           <tbody>
             {items.map((item) => (
               <tr key={item.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(item.id)}
+                    onChange={() => toggleSelected(item.id)}
+                    aria-label={`Selecionar item #${item.id}`}
+                  />
+                </td>
                 <td>
                   <ConfidenceBadge level={item.confidence_level} />
                 </td>
@@ -495,6 +570,36 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
             ))}
           </tbody>
         </table>
+      )}
+
+      {selectedIds.size > 0 && (
+        <p style={{ borderTop: '1px solid #ccc', paddingTop: '0.5rem', marginTop: '0.5rem' }}>
+          <strong>{selectedIds.size} selecionado(s)</strong>{' '}
+          <label>
+            Justificativa (obrigatória ao rejeitar):{' '}
+            <input
+              value={bulkNotes}
+              onChange={(e) => setBulkNotes(e.target.value)}
+              disabled={bulkSubmitting}
+            />
+          </label>{' '}
+          <button
+            type="button"
+            onClick={() => void handleBulkDecision('aprovado')}
+            disabled={bulkSubmitting}
+          >
+            Aprovar selecionados
+          </button>{' '}
+          <button
+            type="button"
+            onClick={() => void handleBulkDecision('rejeitado')}
+            disabled={bulkSubmitting}
+          >
+            Rejeitar selecionados
+          </button>
+          {bulkError && <ErrorMessageBlock error={bulkError} />}
+          {bulkResult && <span> {bulkResult}</span>}
+        </p>
       )}
 
       {selectedItem && (

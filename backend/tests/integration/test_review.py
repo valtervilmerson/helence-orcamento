@@ -474,3 +474,85 @@ def test_batch_apply_scope_import_reaches_other_pages(client) -> None:
     )
     assert apply_response.status_code == 200
     assert apply_response.json()["applied_item_ids"] == [item_b]
+
+
+# ---------------------------------------------------------------------------
+# Aprovação/rejeição em lote (docs/04, seção 3 — barra de ações em lote)
+# ---------------------------------------------------------------------------
+
+
+def test_batch_review_empty_selection_is_rejected(client) -> None:
+    response = client.post(
+        "/api/v1/extracted-items/batch-review",
+        json={"item_ids": [], "decision": "aprovado"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "PARAMETRO_INVALIDO"
+
+
+def test_batch_review_reject_without_notes_is_rejected(client) -> None:
+    _, item_id = _create_import_with_item(file_marker=b"batch-review-no-notes-marker")
+
+    response = client.post(
+        "/api/v1/extracted-items/batch-review",
+        json={"item_ids": [item_id], "decision": "rejeitado"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "CAMPO_OBRIGATORIO_AUSENTE"
+
+
+def test_batch_review_approve_multiple_items(client) -> None:
+    import_id = _create_import(b"batch-review-approve-marker")
+    page_id = _create_page(import_id, page_number=6)
+    item_a = _insert_item(page_id, sku_raw="1111111111")
+    item_b = _insert_item(page_id, sku_raw="2222222222")
+
+    response = client.post(
+        "/api/v1/extracted-items/batch-review",
+        json={"item_ids": [item_a, item_b], "decision": "aprovado"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["requested_count"] == 2
+    assert body["succeeded_count"] == 2
+    assert body["failed_count"] == 0
+    assert all(r["success"] for r in body["results"])
+
+    items = client.get(f"/api/v1/imports/{import_id}/items").json()["items"]
+    assert all(i["review_status"] == "aprovado" for i in items if i["id"] in (item_a, item_b))
+
+
+def test_batch_review_reports_partial_failures(client) -> None:
+    import_id = _create_import(b"batch-review-partial-marker")
+    page_id = _create_page(import_id, page_number=7)
+    item_a = _insert_item(page_id, sku_raw="3333333333")
+    item_b = _insert_item(page_id, sku_raw="4444444444", review_status="aprovado")
+
+    response = client.post(
+        "/api/v1/extracted-items/batch-review",
+        json={
+            "item_ids": [item_a, item_b, 999999],
+            "decision": "rejeitado",
+            "notes": "Lote inválido.",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["requested_count"] == 3
+    assert body["succeeded_count"] == 1
+    assert body["failed_count"] == 2
+
+    by_id = {r["item_id"]: r for r in body["results"]}
+    assert by_id[item_a]["success"] is True
+    assert by_id[item_b]["success"] is False
+    assert by_id[item_b]["error_code"] == "STATUS_INVALIDO"
+    assert by_id[999999]["success"] is False
+    assert by_id[999999]["error_code"] == "ITEM_NAO_ENCONTRADO"
+
+    items = client.get(f"/api/v1/imports/{import_id}/items").json()["items"]
+    item_a_out = next(i for i in items if i["id"] == item_a)
+    assert item_a_out["review_status"] == "rejeitado"

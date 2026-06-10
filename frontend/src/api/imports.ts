@@ -267,3 +267,35 @@ export const applyBatchCorrection = (
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ field, scope, notes: notes || undefined }),
   })
+
+// ---------------------------------------------------------------------------
+// Aprovação/rejeição em lote — docs/04 §3 (Fase 6)
+// ---------------------------------------------------------------------------
+
+export type BatchReviewDecision = 'aprovado' | 'rejeitado'
+
+export interface BatchReviewResultItem {
+  item_id: number
+  success: boolean
+  error_code: string | null
+  error_message: string | null
+}
+
+export interface BatchReviewOut {
+  decision: BatchReviewDecision
+  requested_count: number
+  succeeded_count: number
+  failed_count: number
+  results: BatchReviewResultItem[]
+}
+
+export const batchReviewExtractedItems = (
+  itemIds: number[],
+  decision: BatchReviewDecision,
+  notes?: string,
+) =>
+  request<BatchReviewOut>('/extracted-items/batch-review', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ item_ids: itemIds, decision, notes: notes || undefined }),
+  })
