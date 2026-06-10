@@ -2,6 +2,8 @@ from fastapi import APIRouter
 
 from app.admin.router import router as admin_router
 from app.catalog.router import router as catalog_router
+from app.quotes.router import customers_router
+from app.quotes.router import router as quotes_router
 
 router = APIRouter(prefix="/api/v1", tags=["health"])
 
@@ -12,4 +14,6 @@ def get_health() -> dict[str, str]:
 
 
 router.include_router(catalog_router)
+router.include_router(quotes_router)
+router.include_router(customers_router)
 router.include_router(admin_router)

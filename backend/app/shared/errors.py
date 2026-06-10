@@ -85,6 +85,95 @@ class ComponenteEmUsoError(DomainError):
     )
 
 
+# ---------------------------------------------------------------------------
+# Orçamentos (docs/06, seção 14.10-14.13; docs/05)
+# ---------------------------------------------------------------------------
+
+
+class ClienteNaoEncontradoError(DomainError):
+    code = "CLIENTE_NAO_ENCONTRADO"
+    status_code = status.HTTP_404_NOT_FOUND
+    message = "Cliente não encontrado."
+
+
+class NenhumaTabelaVigenteError(DomainError):
+    code = "NENHUMA_TABELA_VIGENTE"
+    status_code = status.HTTP_409_CONFLICT
+    message = "Não há nenhuma tabela de preço marcada como vigente — não é possível orçar."
+
+
+class OrcamentoNaoEncontradoError(DomainError):
+    code = "ORCAMENTO_NAO_ENCONTRADO"
+    status_code = status.HTTP_404_NOT_FOUND
+    message = "Orçamento não encontrado."
+
+
+class ItemNaoEncontradoError(DomainError):
+    code = "ITEM_NAO_ENCONTRADO"
+    status_code = status.HTTP_404_NOT_FOUND
+    message = "Item de orçamento não encontrado."
+
+
+class VariacaoNaoEncontradaError(DomainError):
+    code = "VARIACAO_NAO_ENCONTRADA"
+    status_code = status.HTTP_404_NOT_FOUND
+    message = "Variação de componente não encontrada no catálogo."
+
+
+class StatusInvalidoError(DomainError):
+    code = "STATUS_INVALIDO"
+    status_code = status.HTTP_409_CONFLICT
+    message = "O orçamento não está em rascunho — não pode ser editado."
+
+
+class TransicaoInvalidaError(DomainError):
+    code = "TRANSICAO_INVALIDA"
+    status_code = status.HTTP_409_CONFLICT
+    message = "Transição de status inválida."
+
+
+class ItemSemPrecoError(DomainError):
+    code = "ITEM_SEM_PRECO"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = (
+        "Esta variação não tem preço cadastrado na tabela vigente — lacuna conhecida do "
+        "catálogo. Escolha outra variação ou contate o time responsável pelo catálogo."
+    )
+
+
+class ItemSemSkuError(DomainError):
+    code = "ITEM_SEM_SKU"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = (
+        "Este componente tem preço cadastrado, mas não tem código de fabricação associado — "
+        "não pode ser incluído até que isso seja resolvido."
+    )
+
+
+class QuantidadeInvalidaError(DomainError):
+    code = "QUANTIDADE_INVALIDA"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = "A quantidade deve ser um número positivo."
+
+
+class DescontoSemJustificativaError(DomainError):
+    code = "DESCONTO_SEM_JUSTIFICATIVA"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = "Um desconto foi informado sem justificativa (discount_reason)."
+
+
+class DescontoInvalidoError(DomainError):
+    code = "DESCONTO_INVALIDO"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = "Desconto inválido."
+
+
+class OrcamentoVazioError(DomainError):
+    code = "ORCAMENTO_VAZIO"
+    status_code = status.HTTP_409_CONFLICT
+    message = "Orçamento sem nenhuma linha — não há o que totalizar/congelar."
+
+
 async def domain_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, DomainError)
     return JSONResponse(

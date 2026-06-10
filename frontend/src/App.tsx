@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getHealth } from './api/client'
 import { CatalogPage } from './pages/catalog/CatalogPage'
+import { QuotesPage } from './pages/quotes/QuotesPage'
 
 type ApiStatus = 'loading' | 'ok' | 'error'
 
@@ -24,6 +25,8 @@ function App() {
       </p>
       <hr />
       <CatalogPage />
+      <hr />
+      <QuotesPage />
     </main>
   )
 }

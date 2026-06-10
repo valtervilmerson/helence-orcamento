@@ -33,6 +33,9 @@ SEED_USERS = [
 
 SEED_PRICE_TABLE_CODE = "SEED-VAZIA"
 
+# Cliente de exemplo para a montagem manual de orçamentos (Fase 3).
+SEED_CUSTOMER_NAME = "Studio Almeida Arquitetura"
+
 # Catálogo manual de exemplo (Fase 2): replica as 9 variações de
 # "Reunião 1200x900 — Tampo Inteiro Simples" do spike de extração
 # (docs/samples/extracao-amostra.json, página 2), provando o modelo de
@@ -71,6 +74,12 @@ def seed(connection: sqlite3.Connection) -> None:
         """,
         (SEED_PRICE_TABLE_CODE,),
     )
+
+    existing_customer = connection.execute(
+        "SELECT id FROM customers WHERE name = ?", (SEED_CUSTOMER_NAME,)
+    ).fetchone()
+    if existing_customer is None:
+        connection.execute("INSERT INTO customers (name) VALUES (?)", (SEED_CUSTOMER_NAME,))
 
     seed_catalog(connection)
 
