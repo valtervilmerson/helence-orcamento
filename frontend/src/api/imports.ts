@@ -124,3 +124,88 @@ export const processImport = (importId: number, strategy?: string) =>
 
 export const getImportStatus = (importId: number) =>
   request<ImportStatusOut>(`/imports/${importId}/status`)
+
+// ---------------------------------------------------------------------------
+// Itens extraídos e revisão — 14.5/14.6 (Fase 6)
+// ---------------------------------------------------------------------------
+
+export type ReviewStatus = 'pendente' | 'revisado' | 'aprovado' | 'rejeitado' | 'corrigido'
+export type ConfidenceLevel = 'alta' | 'media' | 'baixa'
+export type ReviewDecisionType = 'aprovado' | 'rejeitado' | 'corrigido'
+
+export interface ExtractedItem {
+  id: number
+  imported_page_id: number
+  page_number: number
+  family_raw: string | null
+  product_context_raw: string | null
+  component_type_raw: string | null
+  description_raw: string | null
+  dimension_raw: string | null
+  finish_raw: string | null
+  sku_raw: string | null
+  price_raw: string | null
+  confidence: number | null
+  confidence_level: ConfidenceLevel | null
+  review_status: ReviewStatus
+  source_text: string | null
+}
+
+export interface ExtractedItemsListOut {
+  items: ExtractedItem[]
+  page: number
+  page_size: number
+  total: number
+}
+
+export interface ExtractedItemsFilters {
+  review_status?: ReviewStatus
+  confidence_level?: ConfidenceLevel
+  page_number?: number
+  search?: string
+  page?: number
+  page_size?: number
+}
+
+export const getImportItems = (importId: number, filters?: ExtractedItemsFilters) => {
+  const query = new URLSearchParams()
+  if (filters?.review_status) query.set('review_status', filters.review_status)
+  if (filters?.confidence_level) query.set('confidence_level', filters.confidence_level)
+  if (filters?.page_number) query.set('page_number', String(filters.page_number))
+  if (filters?.search) query.set('search', filters.search)
+  if (filters?.page) query.set('page', String(filters.page))
+  if (filters?.page_size) query.set('page_size', String(filters.page_size))
+  const qs = query.toString()
+  return request<ExtractedItemsListOut>(`/imports/${importId}/items${qs ? `?${qs}` : ''}`)
+}
+
+export interface ReviewItemIn {
+  decision: ReviewDecisionType
+  notes?: string
+  field?: string
+  previous_value?: string | null
+  corrected_value?: string
+}
+
+export interface ReviewDecisionOut {
+  id: number
+  decision: ReviewDecisionType
+  field_corrected: string | null
+  previous_value: string | null
+  corrected_value: string | null
+  reviewed_by: UserSummary | null
+  reviewed_at: string
+}
+
+export interface ReviewItemOut {
+  id: number
+  review_status: ReviewStatus
+  decision: ReviewDecisionOut
+}
+
+export const reviewExtractedItem = (itemId: number, body: ReviewItemIn) =>
+  request<ReviewItemOut>(`/extracted-items/${itemId}/review`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })

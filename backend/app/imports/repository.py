@@ -286,3 +286,125 @@ def count_warnings(connection: sqlite3.Connection, import_id: int) -> int:
         "SELECT COUNT(*) AS c FROM import_warnings WHERE imported_file_id = ?",
         (import_id,),
     ).fetchone()["c"]
+
+
+# ---------------------------------------------------------------------------
+# Itens extraídos e revisão (docs/06, seções 14.5/14.6; docs/07, Fase 6)
+# ---------------------------------------------------------------------------
+
+_EXTRACTED_ITEM_BASE = """
+    SELECT ei.*, p.page_number, p.imported_file_id
+    FROM extracted_items ei
+    JOIN imported_pages p ON p.id = ei.imported_page_id
+"""
+
+
+def list_extracted_items(
+    connection: sqlite3.Connection,
+    import_id: int,
+    *,
+    review_status: str | None,
+    confidence_level: str | None,
+    page_number: int | None,
+    search: str | None,
+    page: int,
+    page_size: int,
+) -> tuple[list[sqlite3.Row], int]:
+    where = ["p.imported_file_id = ?"]
+    params: list[object] = [import_id]
+
+    if review_status is not None:
+        where.append("ei.review_status = ?")
+        params.append(review_status)
+    if confidence_level is not None:
+        where.append("ei.confidence_level = ?")
+        params.append(confidence_level)
+    if page_number is not None:
+        where.append("p.page_number = ?")
+        params.append(page_number)
+    if search is not None:
+        where.append("(ei.description_raw LIKE ? OR ei.sku_raw LIKE ? OR ei.price_raw LIKE ?)")
+        like = f"%{search}%"
+        params.extend([like, like, like])
+
+    where_sql = " AND ".join(where)
+
+    total = connection.execute(
+        f"SELECT COUNT(*) AS c FROM extracted_items ei JOIN imported_pages p "
+        f"ON p.id = ei.imported_page_id WHERE {where_sql}",
+        params,
+    ).fetchone()["c"]
+
+    offset = (page - 1) * page_size
+    rows = connection.execute(
+        f"""
+        {_EXTRACTED_ITEM_BASE}
+        WHERE {where_sql}
+        ORDER BY ei.confidence ASC, ei.id ASC
+        LIMIT ? OFFSET ?
+        """,
+        [*params, page_size, offset],
+    ).fetchall()
+    return rows, total
+
+
+def get_extracted_item(connection: sqlite3.Connection, item_id: int) -> sqlite3.Row | None:
+    return connection.execute(_EXTRACTED_ITEM_BASE + " WHERE ei.id = ?", (item_id,)).fetchone()
+
+
+def update_extracted_item_field(
+    connection: sqlite3.Connection, item_id: int, field: str, value: str | None
+) -> None:
+    connection.execute(f"UPDATE extracted_items SET {field} = ? WHERE id = ?", (value, item_id))
+
+
+def set_extracted_item_review_status(
+    connection: sqlite3.Connection, item_id: int, review_status: str
+) -> None:
+    connection.execute(
+        "UPDATE extracted_items SET review_status = ? WHERE id = ?", (review_status, item_id)
+    )
+
+
+def insert_review_decision(
+    connection: sqlite3.Connection,
+    *,
+    extracted_item_id: int,
+    decision: str,
+    reviewed_by_user_id: int | None,
+    field_corrected: str | None,
+    previous_value: str | None,
+    corrected_value: str | None,
+    notes: str | None,
+) -> int:
+    cursor = connection.execute(
+        """
+        INSERT INTO import_review_decisions (
+            extracted_item_id, decision, reviewed_by_user_id,
+            field_corrected, previous_value, corrected_value, notes
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            extracted_item_id,
+            decision,
+            reviewed_by_user_id,
+            field_corrected,
+            previous_value,
+            corrected_value,
+            notes,
+        ),
+    )
+    return int(cursor.lastrowid)
+
+
+def get_review_decision(connection: sqlite3.Connection, decision_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT d.*, u.id AS reviewed_by_id, u.name AS reviewed_by_name
+        FROM import_review_decisions d
+        LEFT JOIN users u ON u.id = d.reviewed_by_user_id
+        WHERE d.id = ?
+        """,
+        (decision_id,),
+    ).fetchone()

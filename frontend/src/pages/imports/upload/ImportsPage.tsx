@@ -6,6 +6,7 @@ import {
   uploadImport,
   type ImportListItem,
 } from '../../../api/imports'
+import { ReviewPage } from '../review/ReviewPage'
 
 function ErrorMessage({ error }: { error: string | null }) {
   if (!error) return null
@@ -70,6 +71,7 @@ export function ImportsPage() {
   const [imports, setImports] = useState<ImportListItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [processingError, setProcessingError] = useState<string | null>(null)
+  const [reviewingImportId, setReviewingImportId] = useState<number | null>(null)
 
   async function reload() {
     try {
@@ -106,6 +108,10 @@ export function ImportsPage() {
     }
   }
 
+  if (reviewingImportId !== null) {
+    return <ReviewPage importId={reviewingImportId} onBack={() => setReviewingImportId(null)} />
+  }
+
   return (
     <div>
       <h1>Importações</h1>
@@ -139,6 +145,11 @@ export function ImportsPage() {
                   {item.status === 'recebido' && (
                     <button type="button" onClick={() => void handleProcess(item.id)}>
                       Processar
+                    </button>
+                  )}
+                  {item.status === 'concluido' && (
+                    <button type="button" onClick={() => setReviewingImportId(item.id)}>
+                      Revisar
                     </button>
                   )}
                 </td>

@@ -230,6 +230,32 @@ class EstrategiaIndisponivelError(DomainError):
     message = "A estratégia de extração informada não é suportada."
 
 
+# ---------------------------------------------------------------------------
+# Revisão de itens extraídos (docs/06, seção 14.6; docs/07, Fase 6)
+# ---------------------------------------------------------------------------
+
+
+class ItemRevisaoStatusInvalidoError(DomainError):
+    code = "STATUS_INVALIDO"
+    status_code = status.HTTP_409_CONFLICT
+    message = (
+        "Este item já tem uma decisão final (aprovado/rejeitado) — reabrir exige "
+        "uma ação explícita e distinta, não uma nova revisão silenciosa."
+    )
+
+
+class CampoNaoCorrigivelError(DomainError):
+    code = "CAMPO_NAO_CORRIGIVEL"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = "O campo informado não é elegível para correção."
+
+
+class ValorIncompativelError(DomainError):
+    code = "VALOR_INCOMPATIVEL"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = "O valor corrigido não é compatível com o tipo esperado para este campo."
+
+
 async def domain_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, DomainError)
     return JSONResponse(

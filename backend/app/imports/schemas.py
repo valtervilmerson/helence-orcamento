@@ -1,4 +1,4 @@
-"""Modelos de request/response de importações (docs/06, seções 14.1/14.2)."""
+"""Modelos de request/response de importações (docs/06, seções 14.1-14.6)."""
 
 from __future__ import annotations
 
@@ -10,6 +10,9 @@ from app.catalog.schemas import PriceTableSummary
 from app.quotes.schemas import UserSummary
 
 ImportStatus = Literal["recebido", "processando", "concluido", "erro"]
+ReviewStatus = Literal["pendente", "revisado", "aprovado", "rejeitado", "corrigido"]
+ConfidenceLevel = Literal["alta", "media", "baixa"]
+ReviewDecisionType = Literal["aprovado", "rejeitado", "corrigido"]
 
 
 class ImportedFileOut(BaseModel):
@@ -74,3 +77,58 @@ class ImportStatusOut(BaseModel):
     finished_at: str | None
     summary: ImportSummary
     error: ImportError | None
+
+
+# ---------------------------------------------------------------------------
+# Itens extraídos e revisão (docs/06, 14.5/14.6; docs/07, Fase 6)
+# ---------------------------------------------------------------------------
+
+
+class ExtractedItemOut(BaseModel):
+    id: int
+    imported_page_id: int
+    page_number: int
+    family_raw: str | None
+    product_context_raw: str | None
+    component_type_raw: str | None
+    description_raw: str | None
+    dimension_raw: str | None
+    finish_raw: str | None
+    sku_raw: str | None
+    price_raw: str | None
+    confidence: float | None
+    confidence_level: ConfidenceLevel | None
+    review_status: ReviewStatus
+    source_text: str | None
+
+
+class ExtractedItemsListOut(BaseModel):
+    items: list[ExtractedItemOut]
+    page: int
+    page_size: int
+    total: int
+
+
+class ReviewItemIn(BaseModel):
+    decision: ReviewDecisionType
+    notes: str | None = None
+    field: str | None = None
+    previous_value: str | None = None
+    corrected_value: str | None = None
+    reviewed_by_user_id: int | None = None
+
+
+class ReviewDecisionOut(BaseModel):
+    id: int
+    decision: ReviewDecisionType
+    field_corrected: str | None
+    previous_value: str | None
+    corrected_value: str | None
+    reviewed_by: UserSummary | None
+    reviewed_at: str
+
+
+class ReviewItemOut(BaseModel):
+    id: int
+    review_status: ReviewStatus
+    decision: ReviewDecisionOut

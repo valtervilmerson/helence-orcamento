@@ -9,14 +9,18 @@ from app.db.connection import get_connection
 from app.files.storage import FileStorage
 from app.imports import repository, service
 from app.imports.schemas import (
+    ExtractedItemsListOut,
     ImportedFileOut,
     ImportListOut,
     ImportStatusOut,
     ProcessImportIn,
     ProcessImportOut,
+    ReviewItemIn,
+    ReviewItemOut,
 )
 
 router = APIRouter(prefix="/imports", tags=["imports"])
+extracted_items_router = APIRouter(prefix="/extracted-items", tags=["imports"])
 
 
 def get_db() -> sqlite3.Connection:
@@ -85,3 +89,35 @@ def get_import_status(
     connection: sqlite3.Connection = Depends(get_db),
 ) -> ImportStatusOut:
     return service.get_status(connection, import_id)
+
+
+@router.get("/{import_id}/items", response_model=ExtractedItemsListOut)
+def list_extracted_items(
+    import_id: int,
+    review_status: str | None = Query(default=None),
+    confidence_level: str | None = Query(default=None),
+    page_number: int | None = Query(default=None, ge=1),
+    search: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    connection: sqlite3.Connection = Depends(get_db),
+) -> ExtractedItemsListOut:
+    return service.list_items(
+        connection,
+        import_id,
+        review_status=review_status,
+        confidence_level=confidence_level,
+        page_number=page_number,
+        search=search,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@extracted_items_router.post("/{item_id}/review", response_model=ReviewItemOut)
+def review_extracted_item(
+    item_id: int,
+    body: ReviewItemIn,
+    connection: sqlite3.Connection = Depends(get_db),
+) -> ReviewItemOut:
+    return service.review_item(connection, item_id, body)

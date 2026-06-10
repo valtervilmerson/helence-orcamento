@@ -19,6 +19,8 @@ from app.files.storage import FileStorage
 from app.imports import repository
 from app.imports.extraction import extract_page
 from app.imports.schemas import (
+    ExtractedItemOut,
+    ExtractedItemsListOut,
     ImportedFileOut,
     ImportError,
     ImportListItem,
@@ -27,16 +29,24 @@ from app.imports.schemas import (
     ImportStatusOut,
     ImportSummary,
     ProcessImportOut,
+    ReviewDecisionOut,
+    ReviewItemIn,
+    ReviewItemOut,
     UserSummary,
 )
 from app.shared.errors import (
     ArquivoDuplicadoError,
     ArquivoInvalidoError,
     ArquivoMuitoGrandeError,
+    CampoNaoCorrigivelError,
+    CampoObrigatorioAusenteError,
     EstrategiaIndisponivelError,
     ImportacaoNaoEncontradaError,
     ImportacaoStatusInvalidoError,
+    ItemNaoEncontradoError,
+    ItemRevisaoStatusInvalidoError,
     ParametroInvalidoError,
+    ValorIncompativelError,
 )
 
 PDF_MAGIC = b"%PDF-"
@@ -44,6 +54,23 @@ PDF_MAGIC = b"%PDF-"
 ALLOWED_STATUSES = {"recebido", "processando", "concluido", "erro"}
 
 SUPPORTED_STRATEGIES = {"pymupdf"}
+
+ALLOWED_REVIEW_STATUSES = {"pendente", "revisado", "aprovado", "rejeitado", "corrigido"}
+
+ALLOWED_CONFIDENCE_LEVELS = {"alta", "media", "baixa"}
+
+# Campos do item extraído que o revisor pode corrigir manualmente
+# (docs/04, seção 4 — capacidades 3-6: SKU, preço, acabamento, dimensão e
+# tipo de componente; descrição é somente leitura).
+CORRECTABLE_FIELDS = {
+    "sku_raw",
+    "price_raw",
+    "finish_raw",
+    "dimension_raw",
+    "component_type_raw",
+}
+
+FINAL_REVIEW_STATUSES = {"aprovado", "rejeitado"}
 
 
 def _now() -> str:
@@ -248,6 +275,163 @@ def run_processing(import_id: int, file_path: str) -> None:
                 error_code="ERRO_PROCESSAMENTO",
                 error_message=str(exc),
             )
+
+
+def _extracted_item_row_to_out(row: sqlite3.Row) -> ExtractedItemOut:
+    return ExtractedItemOut(
+        id=row["id"],
+        imported_page_id=row["imported_page_id"],
+        page_number=row["page_number"],
+        family_raw=row["family_raw"],
+        product_context_raw=row["product_context_raw"],
+        component_type_raw=row["component_type_raw"],
+        description_raw=row["description_raw"],
+        dimension_raw=row["dimension_raw"],
+        finish_raw=row["finish_raw"],
+        sku_raw=row["sku_raw"],
+        price_raw=row["price_raw"],
+        confidence=row["confidence"],
+        confidence_level=row["confidence_level"],
+        review_status=row["review_status"],
+        source_text=row["source_text"],
+    )
+
+
+def list_items(
+    connection: sqlite3.Connection,
+    import_id: int,
+    *,
+    review_status: str | None,
+    confidence_level: str | None,
+    page_number: int | None,
+    search: str | None,
+    page: int,
+    page_size: int,
+) -> ExtractedItemsListOut:
+    if repository.get_imported_file(connection, import_id) is None:
+        raise ImportacaoNaoEncontradaError()
+
+    if review_status is not None and review_status not in ALLOWED_REVIEW_STATUSES:
+        raise ParametroInvalidoError(
+            details={"review_status": review_status, "allowed": sorted(ALLOWED_REVIEW_STATUSES)}
+        )
+    if confidence_level is not None and confidence_level not in ALLOWED_CONFIDENCE_LEVELS:
+        raise ParametroInvalidoError(
+            details={
+                "confidence_level": confidence_level,
+                "allowed": sorted(ALLOWED_CONFIDENCE_LEVELS),
+            }
+        )
+
+    rows, total = repository.list_extracted_items(
+        connection,
+        import_id,
+        review_status=review_status,
+        confidence_level=confidence_level,
+        page_number=page_number,
+        search=search,
+        page=page,
+        page_size=page_size,
+    )
+
+    return ExtractedItemsListOut(
+        items=[_extracted_item_row_to_out(row) for row in rows],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
+
+
+def review_item(
+    connection: sqlite3.Connection, item_id: int, payload: ReviewItemIn
+) -> ReviewItemOut:
+    row = repository.get_extracted_item(connection, item_id)
+    if row is None:
+        raise ItemNaoEncontradoError()
+
+    if row["review_status"] in FINAL_REVIEW_STATUSES:
+        raise ItemRevisaoStatusInvalidoError()
+
+    field_corrected: str | None = None
+    previous_value: str | None = None
+    corrected_value: str | None = None
+
+    if payload.decision == "rejeitado":
+        if not payload.notes:
+            raise CampoObrigatorioAusenteError(
+                details={"field": "notes", "reason": "obrigatório ao rejeitar um item"}
+            )
+        new_review_status = "rejeitado"
+
+    elif payload.decision == "corrigido":
+        if not payload.field or payload.corrected_value is None:
+            raise CampoObrigatorioAusenteError(
+                details={
+                    "fields": ["field", "corrected_value"],
+                    "reason": "obrigatórios ao corrigir um item",
+                }
+            )
+        if payload.field not in CORRECTABLE_FIELDS:
+            raise CampoNaoCorrigivelError(
+                details={"field": payload.field, "allowed": sorted(CORRECTABLE_FIELDS)}
+            )
+        if payload.field == "price_raw":
+            try:
+                if float(payload.corrected_value) <= 0:
+                    raise ValueError
+            except ValueError as exc:
+                raise ValorIncompativelError(
+                    details={"field": payload.field, "corrected_value": payload.corrected_value}
+                ) from exc
+
+        field_corrected = payload.field
+        previous_value = row[payload.field]
+        corrected_value = payload.corrected_value
+
+        repository.update_extracted_item_field(
+            connection, item_id, payload.field, payload.corrected_value
+        )
+        new_review_status = "corrigido"
+
+    else:  # aprovado
+        new_review_status = "aprovado"
+
+    repository.set_extracted_item_review_status(connection, item_id, new_review_status)
+
+    decision_id = repository.insert_review_decision(
+        connection,
+        extracted_item_id=item_id,
+        decision=payload.decision,
+        reviewed_by_user_id=payload.reviewed_by_user_id,
+        field_corrected=field_corrected,
+        previous_value=previous_value,
+        corrected_value=corrected_value,
+        notes=payload.notes,
+    )
+    connection.commit()
+
+    decision_row = repository.get_review_decision(connection, decision_id)
+    assert decision_row is not None
+
+    reviewed_by = None
+    if decision_row["reviewed_by_id"] is not None:
+        reviewed_by = UserSummary(
+            id=decision_row["reviewed_by_id"], name=decision_row["reviewed_by_name"]
+        )
+
+    return ReviewItemOut(
+        id=item_id,
+        review_status=new_review_status,
+        decision=ReviewDecisionOut(
+            id=decision_row["id"],
+            decision=decision_row["decision"],
+            field_corrected=decision_row["field_corrected"],
+            previous_value=decision_row["previous_value"],
+            corrected_value=decision_row["corrected_value"],
+            reviewed_by=reviewed_by,
+            reviewed_at=decision_row["reviewed_at"],
+        ),
+    )
 
 
 def get_status(connection: sqlite3.Connection, import_id: int) -> ImportStatusOut:
