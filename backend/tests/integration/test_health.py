@@ -4,17 +4,15 @@ from app.main import app
 
 
 def test_health_returns_ok() -> None:
-    client = TestClient(app)
-
-    response = client.get("/api/v1/health")
+    with TestClient(app) as client:
+        response = client.get("/api/v1/health")
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
 def test_unknown_route_returns_404() -> None:
-    client = TestClient(app)
-
-    response = client.get("/api/v1/rota-inexistente")
+    with TestClient(app) as client:
+        response = client.get("/api/v1/rota-inexistente")
 
     assert response.status_code == 404

@@ -40,7 +40,18 @@ cp .env.example .env
 python3 -c "import secrets; print(secrets.token_hex(32))"
 
 # Subir o servidor (com reload)
+# Aplica migrations pendentes automaticamente no startup (docs/06, seção 10)
 uvicorn app.main:app --reload --port 8000
+```
+
+### Migrations e seed
+
+```bash
+# aplicar migrations pendentes manualmente (idempotente)
+python -m app.db.migrate
+
+# popular dados mínimos de referência (usuários de teste, price_table 'vigente')
+python -m app.db.seed
 ```
 
 - Healthcheck: `GET http://localhost:8000/api/v1/health` → `{"status": "ok"}`
