@@ -325,11 +325,14 @@ tela 10) precisa também ser rastreável *sobre si mesma*:
 **Nível e destino**: `INFO` para os três acima, `WARNING` para
 condições anômalas mas recuperáveis (ex. PDF com página ilegível),
 `ERROR` para falhas que impedem completar uma operação. Em
-desenvolvimento, saída para console; em uso real, gravação em arquivo
-rotacionado local — suficiente para o porte da aplicação, sem exigir
-um sistema de observabilidade externo desde o primeiro dia (se a
-operação crescer, o formato estruturado já facilita plugar um coletor
-depois, sem reescrever os pontos de log).
+desenvolvimento e em produção, saída para **stdout/stderr** (console)
+— em produção (Railway, `docs/09` seção 11), o *log stream* da
+plataforma captura essa saída automaticamente, sem necessidade de
+arquivo rotacionado local. Suficiente para o porte da aplicação, sem
+exigir um sistema de observabilidade externo desde o primeiro dia (se a
+operação crescer, o formato estruturado já facilita plugar um *log
+drain*/coletor externo depois, sem reescrever os pontos de log —
+`docs/09` seção 14.1).
 
 **O que nunca vai para o log**: senhas, conteúdo de sessão/cookies, e
 dados pessoais de cliente além do estritamente necessário para

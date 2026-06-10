@@ -65,6 +65,14 @@ inconsistência silenciosa entre máquinas e, depois, retrabalho caro.
   configurados.
 - Pipeline de integração contínua mínimo (roda *lint* + testes a cada
   *push*, mesmo que os testes ainda sejam triviais).
+- Projeto Railway criado, com serviços `backend`/`frontend`,
+  *healthcheck* `GET /api/v1/health` e Volume persistente já
+  configurados e validados com um "hello world" (`docs/09`, seção
+  18.0): valida cedo que o caminho deploy → produção funciona, antes
+  de acumular funcionalidades em cima de um pipeline não testado.
+  Conexão do repositório Git (deploy automático via `git push`) fica
+  pendente de autorização do GitHub App pela dashboard — até lá, deploy
+  manual via `railway up`.
 - `README.md` com passo a passo de instalação e execução local.
 
 **Arquivos/módulos prováveis**: `backend/app/main.py`,
@@ -808,16 +816,21 @@ Documentar processos que ainda vão mudar é desperdício garantido — e
 pior, gera confiança falsa em quem seguir a documentação desatualizada.
 
 **Entregáveis**:
-- Guia de instalação/configuração do zero.
+- Guia de instalação/configuração do zero, incluindo a configuração do
+  projeto Railway (serviços, Volume, variáveis de ambiente,
+  *healthcheck*, domínio — `docs/09`, seção 11 e checklist 18.0).
 - *Runbook* de operação: como aplicar migrations, como fazer e
-  restaurar *backup*, como ler e interpretar logs, como reagir a erros
-  comuns.
+  restaurar *backup* (rotina interna + *object storage* externo,
+  `docs/09` seções 12.5/13.3), como ler e interpretar logs via
+  `railway logs`/painel, como reagir a erros comuns (incluindo os
+  específicos de Railway — Volume não montado, falha de *healthcheck*).
 - Guia de primeiros passos para novos usuários, ligado diretamente às
   telas/fluxos já especificados em `docs/04-ux-operacional.md`.
 
-**Arquivos/módulos prováveis**: `docs/08-implantacao.md` (ou
-equivalente), `README.md` atualizado e promovido a ponto de entrada
-operacional (não apenas "como rodar em desenvolvimento").
+**Arquivos/módulos prováveis**: `docs/09-implantacao-operacao.md` (já
+existente — atualizar com o que foi de fato implementado), `README.md`
+atualizado e promovido a ponto de entrada operacional (não apenas "como
+rodar em desenvolvimento").
 
 **Critérios de aceite**:
 - Uma pessoa que não participou do desenvolvimento consegue, seguindo

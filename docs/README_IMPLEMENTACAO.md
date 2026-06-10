@@ -164,8 +164,9 @@ Listado em `docs/09` (seção 19) e consolidado aqui:
 | Logging | JSON estruturado, 3 focos (request / domínio / erro), correlação por `request_id` |
 | Autenticação | Sessão (cookie), papéis: Importador/Revisor/Aprovador/Vendedor/Auditor |
 | Migrations | SQL numerado + tabela `schema_migrations`, aplicado no startup, idempotente |
-| Backup | SQLite Online Backup API / `sqlite3 .backup` |
-| Containerização (opcional) | Docker Compose |
+| Backup | SQLite Online Backup API / `sqlite3 .backup`, com job interno de upload para *object storage* externo (S3-compatível) |
+| Hospedagem (produção) | **Railway** — deploy via push Git, Volume persistente para banco+uploads, logs via stdout/log stream |
+| Containerização (opcional) | Docker (build local/Nixpacks na Railway) |
 
 **Por que pymupdf** (`docs/02`): é a única das bibliotecas avaliadas
 (pypdf, pdfplumber, pymupdf, camelot, tabula-py) que permite isolar
@@ -632,55 +633,88 @@ Carga/performance, E2E de UI, autenticação/papéis detalhada, desconto/margem
 
 (`docs/09`, completo)
 
+> **Hospedagem de produção: Railway.** O ambiente de uso real interno
+> roda na Railway (railway.app) — deploy automático via push para a
+> branch conectada, banco SQLite + uploads em um **Volume** persistente,
+> variáveis de ambiente configuradas no painel/CLI da Railway (não em
+> `.env` no servidor), e logs estruturados em stdout capturados pelo
+> *log stream* da plataforma. Desenvolvimento local continua igual
+> (`.env`, comandos abaixo).
+
 - **Pré-requisitos**: Python 3.11+, Node 20 LTS+, npm, SQLite 3.35+, Git;
-  Docker opcional.
+  Docker recomendado (build local equivalente ao usado pela Railway via
+  Nixpacks/Dockerfile); Railway CLI opcional para depuração (`railway run`,
+  `railway shell`, `railway logs`).
 - **Variáveis de ambiente** principais (backend): `APP_ENV`, `DATABASE_PATH`,
   `UPLOADS_DIR`, `MAX_UPLOAD_SIZE_MB`, `SECRET_KEY`, `SESSION_COOKIE_SECURE`,
-  `LOG_LEVEL`, `LOG_DIR`, `CORS_ALLOWED_ORIGINS`, `BACKUP_DIR`; (frontend):
-  `VITE_API_BASE_URL`. Convenção `.env.example` em ambos os diretórios.
+  `LOG_LEVEL`, `CORS_ALLOWED_ORIGINS`, `BACKUP_DIR`; (frontend):
+  `VITE_API_BASE_URL`. Convenção `.env.example` em ambos os diretórios para
+  desenvolvimento; em produção, as mesmas chaves são cadastradas como
+  *Variables* no serviço Railway (`docs/09`, seção 3.4) — `DATABASE_PATH`/
+  `UPLOADS_DIR` apontam para o *mount path* do Volume, e
+  `SESSION_COOKIE_SECURE=true` desde o primeiro deploy (HTTPS é automático na
+  Railway).
 - **Banco**: inicializado via migrations numeradas (`0001_initial.sql` =
-  `docs/schema/schema.sql`), aplicadas automaticamente no startup, com tabela
+  `docs/schema/schema.sql`), aplicadas automaticamente no startup (e
+  explicitamente no *start command* de produção), com tabela
   `schema_migrations` para idempotência. Seed de dados de referência (Fase 1)
   via comando dedicado.
-- **Diretórios não versionados**: `backend/data/` (SQLite), `backend/data/
-  uploads/` (PDFs com nome hash, nunca limpos automaticamente),
-  `backend/logs/`.
+- **Diretórios não versionados**: `backend/data/` (SQLite) e `backend/data/
+  uploads/` (PDFs com nome hash, nunca limpos automaticamente) — em produção,
+  ambos vivem dentro do **Volume Railway** anexado ao serviço backend.
+  `backend/logs/` só é usado em desenvolvimento local; em produção os logs
+  vão para stdout (sem arquivo).
 - **Dev**: `uvicorn --reload` + `npm run dev`; testes via `pytest -m "not
   slow"` (gabarito de PDF é `slow`).
-- **Produção**: build do frontend (`npm run build`), `uvicorn` com workers
-  (atenção: SQLite tem concorrência limitada — preferir 1 worker ou
-  coordenar acesso), supervisor opcional. Docker Compose disponível como
-  exemplo opcional.
-- **Backup**: `scripts/backup.sh` (Online Backup API / `sqlite3 .backup`),
-  cobre banco + uploads, frequência diária + manual antes de operações
-  sensíveis (ex. publicação de tabela), retenção 14 dias + mensal,
-  armazenamento fora do disco da aplicação, verificação periódica de
-  integridade.
-- **Restauração**: `scripts/restore.sh`, com cópia de segurança do estado
-  atual antes de restaurar, checagem de integridade pós-restauração.
-- **Logs**: console em dev, arquivo rotacionado em produção, correlação por
-  `request_id`, política de retenção, lista de dados que **nunca** devem ser
-  logados.
-- **Atualização**: backup → `git pull` → deps backend + migrations → build
-  frontend → restart, com checklist pós-atualização e procedimento de
-  rollback.
-- **Troubleshooting**: tabela com 10 problemas comuns (FK pragma, falha de
+- **Produção (Railway)**: build via Nixpacks ou Dockerfile, `uvicorn` com
+  `--host 0.0.0.0 --port $PORT --workers 1-2` (SQLite tem concorrência
+  limitada, e o Volume está preso a uma única instância — sem
+  escalonamento horizontal no MVP). *Healthcheck* em `GET /api/v1/health`
+  decide se o deploy é promovido. Backend e frontend podem ser dois
+  serviços Railway ou um único serviço (backend servindo `frontend/dist/`
+  como estáticos) — ver `docs/09` seção 11.1 para a comparação.
+- **Backup**: `scripts/backup.sh` (Online Backup API / `sqlite3 .backup`)
+  serve para desenvolvimento local. Em produção, como o Volume só é acessível
+  pelo processo em execução, o backup é uma **rotina interna da aplicação**
+  (job agendado que faz `.backup` + cópia de `uploads/` + upload para
+  *object storage* externo S3-compatível), cobrindo banco + uploads,
+  frequência diária + manual antes de operações sensíveis (ex. publicação de
+  tabela), retenção 14 dias + mensal, armazenamento fora do Volume,
+  verificação periódica de integridade (`docs/09`, seção 12.5).
+- **Restauração**: `scripts/restore.sh` para desenvolvimento local; em
+  produção, restauração via `railway shell` (acesso ao Volume) ou um
+  comando/endpoint administrativo equivalente, com cópia de segurança do
+  estado atual antes de restaurar e checagem de integridade pós-restauração
+  (`docs/09`, seção 13.3).
+- **Logs**: stdout em dev e produção (capturado pelo *log stream* da
+  Railway), correlação por `request_id`, política de retenção (limitada pelo
+  plano Railway, ou *log drain* externo se necessário), lista de dados que
+  **nunca** devem ser logados.
+- **Atualização**: backup → push para `main` → Railway builda, roda
+  migrations no *start command*, valida *healthcheck* e promove o deploy
+  (zero-downtime na maioria dos casos) → checklist pós-atualização e
+  procedimento de rollback (re-deploy da versão anterior pelo painel).
+- **Troubleshooting**: tabela com problemas comuns (FK pragma, falha de
   migration, "database is locked", `ARQUIVO_DUPLICADO`,
   `ARQUIVO_MUITO_GRANDE`/`ARQUIVO_INVALIDO`, CORS, depuração de
   `ITEM_SEM_PRECO`, logs ausentes, 500 genérico, falha de integridade na
-  restauração).
-- **Checklist de deploy** (seção 18 de `docs/09`): referencia diretamente os
-  critérios de qualidade de `docs/08` seção 3.
+  restauração, Volume não montado, falha de *healthcheck* no deploy).
+- **Checklist de deploy** (seção 18 de `docs/09`, incluindo configuração
+  inicial do projeto Railway): referencia diretamente os critérios de
+  qualidade de `docs/08` seção 3.
 
 ### 13.1 Limitações conhecidas do MVP (`docs/09`, seção 19)
 
-SQLite single-writer/concorrência limitada; processamento assíncrono
-in-process sem fila/retry robusto; armazenamento local em disco; autenticação
-simples sem SSO/MFA; sem observabilidade externa; sem notificações por
-e-mail; backups locais exigem agendamento manual (cron/Task Scheduler);
-migrações destrutivas de SQLite são arriscadas e manuais; RN-09/RN-10
-(desconto/margem) pendentes; RN-04 (compatibilidade tampo↔estrutura) é
-heurística; sem i18n, moeda fixa em BRL.
+SQLite single-writer/concorrência limitada, preso a uma única instância
+(Volume Railway, sem escalonamento horizontal); processamento assíncrono
+in-process sem fila/retry robusto; armazenamento de uploads em Volume
+Railway, sem replicação; autenticação simples sem SSO/MFA; sem
+observabilidade externa (logs via *log stream* da Railway); sem
+notificações por e-mail; backup/restauração de produção dependem de uma
+rotina interna da aplicação + *object storage* externo (até implementada,
+exigem `railway shell`); migrações destrutivas de SQLite são arriscadas e
+manuais; RN-09/RN-10 (desconto/margem) pendentes; RN-04 (compatibilidade
+tampo↔estrutura) é heurística; sem i18n, moeda fixa em BRL.
 
 ---
 
