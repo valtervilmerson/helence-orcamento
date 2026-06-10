@@ -19,6 +19,10 @@ from app.files.storage import FileStorage
 from app.imports import repository
 from app.imports.extraction import extract_page
 from app.imports.schemas import (
+    BatchCorrectionApplyIn,
+    BatchCorrectionApplyOut,
+    BatchCorrectionCandidate,
+    BatchCorrectionPreviewOut,
     ExtractedItemOut,
     ExtractedItemsListOut,
     ImportedFileOut,
@@ -40,6 +44,7 @@ from app.shared.errors import (
     ArquivoMuitoGrandeError,
     CampoNaoCorrigivelError,
     CampoObrigatorioAusenteError,
+    CorrecaoOrigemNaoEncontradaError,
     EstrategiaIndisponivelError,
     ImportacaoNaoEncontradaError,
     ImportacaoStatusInvalidoError,
@@ -431,6 +436,137 @@ def review_item(
             reviewed_by=reviewed_by,
             reviewed_at=decision_row["reviewed_at"],
         ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Correção em lote (docs/04, seção 4 — fluxo de correção em lote)
+# ---------------------------------------------------------------------------
+
+ALLOWED_BATCH_SCOPES = {"page", "page_profile", "import"}
+
+
+def _resolve_batch_correction_source(
+    connection: sqlite3.Connection, item_id: int, field: str | None, scope: str | None
+) -> tuple[sqlite3.Row, sqlite3.Row]:
+    if field is None or scope is None:
+        raise CampoObrigatorioAusenteError(
+            details={"fields": ["field", "scope"], "reason": "obrigatórios para correção em lote"}
+        )
+    if scope not in ALLOWED_BATCH_SCOPES:
+        raise ParametroInvalidoError(
+            details={"scope": scope, "allowed": sorted(ALLOWED_BATCH_SCOPES)}
+        )
+
+    row = repository.get_extracted_item(connection, item_id)
+    if row is None:
+        raise ItemNaoEncontradoError()
+
+    if field not in CORRECTABLE_FIELDS:
+        raise CampoNaoCorrigivelError(
+            details={"field": field, "allowed": sorted(CORRECTABLE_FIELDS)}
+        )
+
+    decision_row = repository.get_latest_correction_decision(connection, item_id, field)
+    if decision_row is None:
+        raise CorrecaoOrigemNaoEncontradaError(details={"item_id": item_id, "field": field})
+
+    return row, decision_row
+
+
+def preview_batch_correction(
+    connection: sqlite3.Connection, item_id: int, *, field: str | None, scope: str | None
+) -> BatchCorrectionPreviewOut:
+    row, decision_row = _resolve_batch_correction_source(connection, item_id, field, scope)
+    assert field is not None and scope is not None
+
+    candidates = repository.find_batch_correction_candidates(
+        connection,
+        field=field,
+        previous_value=decision_row["previous_value"],
+        scope=scope,
+        exclude_item_id=item_id,
+        imported_page_id=row["imported_page_id"],
+        imported_file_id=row["imported_file_id"],
+        page_profile=row["page_profile"],
+    )
+
+    eligible = [c for c in candidates if c["review_status"] == "pendente"]
+    already_decided = [c for c in candidates if c["review_status"] != "pendente"]
+
+    return BatchCorrectionPreviewOut(
+        field=field,
+        previous_value=decision_row["previous_value"],
+        corrected_value=decision_row["corrected_value"],
+        scope=scope,
+        eligible_count=len(eligible),
+        already_decided_count=len(already_decided),
+        already_decided_item_ids=[c["id"] for c in already_decided],
+        candidates=[
+            BatchCorrectionCandidate(
+                id=c["id"],
+                page_number=c["page_number"],
+                confidence_level=c["confidence_level"],
+                previous_value=c[field],
+                corrected_value=decision_row["corrected_value"],
+            )
+            for c in eligible[:20]
+        ],
+    )
+
+
+def apply_batch_correction(
+    connection: sqlite3.Connection, item_id: int, payload: BatchCorrectionApplyIn
+) -> BatchCorrectionApplyOut:
+    row, decision_row = _resolve_batch_correction_source(
+        connection, item_id, payload.field, payload.scope
+    )
+    field = payload.field
+    assert field is not None
+
+    candidates = repository.find_batch_correction_candidates(
+        connection,
+        field=field,
+        previous_value=decision_row["previous_value"],
+        scope=payload.scope,
+        exclude_item_id=item_id,
+        imported_page_id=row["imported_page_id"],
+        imported_file_id=row["imported_file_id"],
+        page_profile=row["page_profile"],
+    )
+
+    eligible = [c for c in candidates if c["review_status"] == "pendente"]
+    already_decided = [c for c in candidates if c["review_status"] != "pendente"]
+
+    corrected_value = decision_row["corrected_value"]
+    notes = f"Correção em lote a partir do item #{item_id}."
+    if payload.notes:
+        notes = f"{notes} {payload.notes}"
+
+    for candidate in eligible:
+        repository.update_extracted_item_field(connection, candidate["id"], field, corrected_value)
+        repository.set_extracted_item_review_status(connection, candidate["id"], "corrigido")
+        repository.insert_review_decision(
+            connection,
+            extracted_item_id=candidate["id"],
+            decision="corrigido",
+            reviewed_by_user_id=None,
+            field_corrected=field,
+            previous_value=candidate[field],
+            corrected_value=corrected_value,
+            notes=notes,
+        )
+
+    connection.commit()
+
+    return BatchCorrectionApplyOut(
+        field=field,
+        previous_value=decision_row["previous_value"],
+        corrected_value=corrected_value,
+        scope=payload.scope,
+        applied_count=len(eligible),
+        applied_item_ids=[c["id"] for c in eligible],
+        skipped_item_ids=[c["id"] for c in already_decided],
     )
 
 

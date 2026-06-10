@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react'
 import {
   ImportsApiError,
+  applyBatchCorrection,
   getImportItems,
+  previewBatchCorrection,
   reviewExtractedItem,
+  type BatchCorrectionPreviewOut,
+  type BatchCorrectionScope,
   type ConfidenceLevel,
   type ExtractedItem,
   type ReviewStatus,
@@ -37,11 +41,191 @@ const CORRECTABLE_FIELDS: { field: keyof ExtractedItem; label: string }[] = [
 
 const FINAL_STATUSES: ReviewStatus[] = ['aprovado', 'rejeitado']
 
+const BATCH_SCOPE_OPTIONS: { value: BatchCorrectionScope; label: string }[] = [
+  { value: 'page', label: 'Mesma página' },
+  { value: 'page_profile', label: 'Mesmo perfil de página, em toda a importação' },
+  { value: 'import', label: 'Toda a importação' },
+]
+
 function ConfidenceBadge({ level }: { level: ConfidenceLevel | null }) {
   if (!level) return <span>—</span>
   const color = level === 'alta' ? 'green' : level === 'media' ? 'darkorange' : 'crimson'
   const label = level === 'alta' ? 'ALTA' : level === 'media' ? 'MÉDIA' : 'BAIXA'
   return <span style={{ color, fontWeight: 'bold' }}>{label}</span>
+}
+
+interface BatchCorrectionModalProps {
+  itemId: number
+  field: string
+  fieldLabel: string
+  onClose: () => void
+  onApplied: () => void
+}
+
+function BatchCorrectionModal({
+  itemId,
+  field,
+  fieldLabel,
+  onClose,
+  onApplied,
+}: BatchCorrectionModalProps) {
+  const [scope, setScope] = useState<BatchCorrectionScope>('page')
+  const [preview, setPreview] = useState<BatchCorrectionPreviewOut | null>(null)
+  const [notes, setNotes] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [applying, setApplying] = useState(false)
+  const [result, setResult] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carrega pré-visualização ao abrir/trocar escopo
+    setLoading(true)
+    setError(null)
+    setPreview(null)
+    previewBatchCorrection(itemId, field, scope)
+      .then((data) => {
+        if (!cancelled) setPreview(data)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(describeError(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [itemId, field, scope])
+
+  async function handleApply() {
+    setApplying(true)
+    setError(null)
+    try {
+      const out = await applyBatchCorrection(itemId, field, scope, notes || undefined)
+      setResult(`${out.applied_count} item(ns) corrigido(s).`)
+      onApplied()
+    } catch (err) {
+      setError(describeError(err))
+    } finally {
+      setApplying(false)
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.4)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+      }}
+    >
+      <div style={{ background: 'white', padding: '1.5rem', maxWidth: '32rem', width: '90%' }}>
+        <h3>Aplicar correção em lote — {fieldLabel}</h3>
+
+        {preview && (
+          <p>
+            Você corrigiu de <strong>{preview.previous_value ?? '—'}</strong> para{' '}
+            <strong>{preview.corrected_value}</strong>. Deseja aplicar a mesma correção a outros
+            itens com o valor original <strong>{preview.previous_value ?? '—'}</strong>?
+          </p>
+        )}
+
+        <p>
+          <label>
+            Escopo:{' '}
+            <select
+              value={scope}
+              onChange={(e) => setScope(e.target.value as BatchCorrectionScope)}
+              disabled={applying}
+            >
+              {BATCH_SCOPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </p>
+
+        {loading && <p>Carregando pré-visualização…</p>}
+
+        {preview && !loading && (
+          <>
+            <p>
+              {preview.eligible_count} item(ns) elegível(eis) para correção
+              {preview.already_decided_count > 0 && (
+                <>
+                  {' '}
+                  — {preview.already_decided_count} item(ns) já com decisão própria não serão
+                  alterados.
+                </>
+              )}
+            </p>
+
+            {preview.candidates.length > 0 && (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Pág.</th>
+                    <th>Conf.</th>
+                    <th>Novo valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.candidates.map((c) => (
+                    <tr key={c.id}>
+                      <td>#{c.id}</td>
+                      <td>{c.page_number}</td>
+                      <td>
+                        <ConfidenceBadge level={c.confidence_level} />
+                      </td>
+                      <td>{c.corrected_value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+
+        <p>
+          <label>
+            Observações (opcional):{' '}
+            <input
+              style={{ width: '60%' }}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={applying}
+            />
+          </label>
+        </p>
+
+        {error && <p style={{ color: 'crimson' }}>{error}</p>}
+        {result && <p>{result}</p>}
+
+        <p>
+          <button type="button" onClick={onClose} disabled={applying}>
+            Fechar
+          </button>{' '}
+          {!result && (
+            <button
+              type="button"
+              onClick={() => void handleApply()}
+              disabled={applying || loading || !preview || preview.eligible_count === 0}
+            >
+              Aplicar a {preview?.eligible_count ?? 0} item(ns)
+            </button>
+          )}
+        </p>
+      </div>
+    </div>
+  )
 }
 
 interface ItemDetailProps {
@@ -55,6 +239,7 @@ function ItemDetail({ item, onDecided }: ItemDetailProps) {
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [batchPrompt, setBatchPrompt] = useState<{ field: string; label: string } | null>(null)
 
   const isFinal = FINAL_STATUSES.includes(item.review_status)
 
@@ -70,6 +255,9 @@ function ItemDetail({ item, onDecided }: ItemDetailProps) {
           corrected_value: correctedValue,
           notes: notes || undefined,
         })
+        const corrected = CORRECTABLE_FIELDS.find((f) => f.field === field)
+        setBatchPrompt({ field, label: corrected?.label ?? field })
+        setField('')
       } else {
         await reviewExtractedItem(item.id, { decision: 'aprovado', notes: notes || undefined })
       }
@@ -184,6 +372,16 @@ function ItemDetail({ item, onDecided }: ItemDetailProps) {
             {field ? 'Salvar correção e aprovar' : '✓ Aprovar'}
           </button>
         </p>
+      )}
+
+      {batchPrompt && (
+        <BatchCorrectionModal
+          itemId={item.id}
+          field={batchPrompt.field}
+          fieldLabel={batchPrompt.label}
+          onClose={() => setBatchPrompt(null)}
+          onApplied={onDecided}
+        />
       )}
     </section>
   )

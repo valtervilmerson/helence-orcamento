@@ -132,3 +132,45 @@ class ReviewItemOut(BaseModel):
     id: int
     review_status: ReviewStatus
     decision: ReviewDecisionOut
+
+
+# ---------------------------------------------------------------------------
+# Correção em lote (docs/04, seção 4 — fluxo de correção em lote)
+# ---------------------------------------------------------------------------
+
+BatchCorrectionScope = Literal["page", "page_profile", "import"]
+
+
+class BatchCorrectionCandidate(BaseModel):
+    id: int
+    page_number: int
+    confidence_level: ConfidenceLevel | None
+    previous_value: str | None
+    corrected_value: str
+
+
+class BatchCorrectionPreviewOut(BaseModel):
+    field: str
+    previous_value: str | None
+    corrected_value: str
+    scope: BatchCorrectionScope
+    eligible_count: int
+    already_decided_count: int
+    already_decided_item_ids: list[int]
+    candidates: list[BatchCorrectionCandidate]
+
+
+class BatchCorrectionApplyIn(BaseModel):
+    field: str
+    scope: BatchCorrectionScope
+    notes: str | None = None
+
+
+class BatchCorrectionApplyOut(BaseModel):
+    field: str
+    previous_value: str | None
+    corrected_value: str
+    scope: BatchCorrectionScope
+    applied_count: int
+    applied_item_ids: list[int]
+    skipped_item_ids: list[int]

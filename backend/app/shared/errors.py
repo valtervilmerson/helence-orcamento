@@ -256,6 +256,15 @@ class ValorIncompativelError(DomainError):
     message = "O valor corrigido não é compatível com o tipo esperado para este campo."
 
 
+class CorrecaoOrigemNaoEncontradaError(DomainError):
+    code = "CORRECAO_ORIGEM_NAO_ENCONTRADA"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = (
+        "Não há uma correção registrada para este campo neste item — aplique a "
+        "correção individual antes de propagá-la em lote."
+    )
+
+
 async def domain_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, DomainError)
     return JSONResponse(

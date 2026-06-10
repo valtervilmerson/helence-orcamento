@@ -293,7 +293,7 @@ def count_warnings(connection: sqlite3.Connection, import_id: int) -> int:
 # ---------------------------------------------------------------------------
 
 _EXTRACTED_ITEM_BASE = """
-    SELECT ei.*, p.page_number, p.imported_file_id
+    SELECT ei.*, p.page_number, p.imported_file_id, p.page_profile
     FROM extracted_items ei
     JOIN imported_pages p ON p.id = ei.imported_page_id
 """
@@ -408,3 +408,55 @@ def get_review_decision(connection: sqlite3.Connection, decision_id: int) -> sql
         """,
         (decision_id,),
     ).fetchone()
+
+
+def get_latest_correction_decision(
+    connection: sqlite3.Connection, extracted_item_id: int, field: str
+) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT * FROM import_review_decisions
+        WHERE extracted_item_id = ? AND decision = 'corrigido' AND field_corrected = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (extracted_item_id, field),
+    ).fetchone()
+
+
+def find_batch_correction_candidates(
+    connection: sqlite3.Connection,
+    *,
+    field: str,
+    previous_value: str | None,
+    scope: str,
+    exclude_item_id: int,
+    imported_page_id: int,
+    imported_file_id: int,
+    page_profile: str | None,
+) -> list[sqlite3.Row]:
+    where = [f"ei.{field} = ?", "ei.id != ?"]
+    params: list[object] = [previous_value, exclude_item_id]
+
+    if scope == "page":
+        where.append("ei.imported_page_id = ?")
+        params.append(imported_page_id)
+    elif scope == "page_profile":
+        where.append("p.imported_file_id = ?")
+        where.append("p.page_profile IS ?")
+        params.extend([imported_file_id, page_profile])
+    else:  # import
+        where.append("p.imported_file_id = ?")
+        params.append(imported_file_id)
+
+    where_sql = " AND ".join(where)
+    return connection.execute(
+        f"""
+        SELECT ei.*, p.page_number, p.page_profile
+        FROM extracted_items ei
+        JOIN imported_pages p ON p.id = ei.imported_page_id
+        WHERE {where_sql}
+        ORDER BY p.page_number ASC, ei.id ASC
+        """,
+        params,
+    ).fetchall()

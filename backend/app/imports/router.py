@@ -9,6 +9,9 @@ from app.db.connection import get_connection
 from app.files.storage import FileStorage
 from app.imports import repository, service
 from app.imports.schemas import (
+    BatchCorrectionApplyIn,
+    BatchCorrectionApplyOut,
+    BatchCorrectionPreviewOut,
     ExtractedItemsListOut,
     ImportedFileOut,
     ImportListOut,
@@ -121,3 +124,26 @@ def review_extracted_item(
     connection: sqlite3.Connection = Depends(get_db),
 ) -> ReviewItemOut:
     return service.review_item(connection, item_id, body)
+
+
+@extracted_items_router.get(
+    "/{item_id}/batch-correction/preview", response_model=BatchCorrectionPreviewOut
+)
+def preview_batch_correction(
+    item_id: int,
+    field: str | None = Query(default=None),
+    scope: str | None = Query(default=None),
+    connection: sqlite3.Connection = Depends(get_db),
+) -> BatchCorrectionPreviewOut:
+    return service.preview_batch_correction(connection, item_id, field=field, scope=scope)
+
+
+@extracted_items_router.post(
+    "/{item_id}/batch-correction/apply", response_model=BatchCorrectionApplyOut
+)
+def apply_batch_correction(
+    item_id: int,
+    body: BatchCorrectionApplyIn,
+    connection: sqlite3.Connection = Depends(get_db),
+) -> BatchCorrectionApplyOut:
+    return service.apply_batch_correction(connection, item_id, body)

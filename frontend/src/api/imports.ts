@@ -209,3 +209,61 @@ export const reviewExtractedItem = (itemId: number, body: ReviewItemIn) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+
+// ---------------------------------------------------------------------------
+// Correção em lote — docs/04 §4 (Fase 6)
+// ---------------------------------------------------------------------------
+
+export type BatchCorrectionScope = 'page' | 'page_profile' | 'import'
+
+export interface BatchCorrectionCandidate {
+  id: number
+  page_number: number
+  confidence_level: ConfidenceLevel | null
+  previous_value: string | null
+  corrected_value: string
+}
+
+export interface BatchCorrectionPreviewOut {
+  field: string
+  previous_value: string | null
+  corrected_value: string
+  scope: BatchCorrectionScope
+  eligible_count: number
+  already_decided_count: number
+  already_decided_item_ids: number[]
+  candidates: BatchCorrectionCandidate[]
+}
+
+export interface BatchCorrectionApplyOut {
+  field: string
+  previous_value: string | null
+  corrected_value: string
+  scope: BatchCorrectionScope
+  applied_count: number
+  applied_item_ids: number[]
+  skipped_item_ids: number[]
+}
+
+export const previewBatchCorrection = (
+  itemId: number,
+  field: string,
+  scope: BatchCorrectionScope,
+) => {
+  const query = new URLSearchParams({ field, scope })
+  return request<BatchCorrectionPreviewOut>(
+    `/extracted-items/${itemId}/batch-correction/preview?${query.toString()}`,
+  )
+}
+
+export const applyBatchCorrection = (
+  itemId: number,
+  field: string,
+  scope: BatchCorrectionScope,
+  notes?: string,
+) =>
+  request<BatchCorrectionApplyOut>(`/extracted-items/${itemId}/batch-correction/apply`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ field, scope, notes: notes || undefined }),
+  })
