@@ -271,13 +271,15 @@ def insert_import_warning(
     imported_page_id: int | None,
     severity: str,
     message: str,
+    extracted_item_id: int | None = None,
 ) -> None:
     connection.execute(
         """
-        INSERT INTO import_warnings (imported_file_id, imported_page_id, severity, message)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO import_warnings
+            (imported_file_id, imported_page_id, extracted_item_id, severity, message)
+        VALUES (?, ?, ?, ?, ?)
         """,
-        (imported_file_id, imported_page_id, severity, message),
+        (imported_file_id, imported_page_id, extracted_item_id, severity, message),
     )
 
 

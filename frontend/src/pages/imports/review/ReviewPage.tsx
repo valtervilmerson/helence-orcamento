@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { listFinishes, type Finish, type FinishGroup } from '../../../api/catalog'
 import {
   ImportsApiError,
   applyBatchCorrection,
@@ -46,6 +47,17 @@ const BATCH_SCOPE_OPTIONS: { value: BatchCorrectionScope; label: string }[] = [
   { value: 'page', label: 'Mesma página' },
   { value: 'page_profile', label: 'Mesmo perfil de página, em toda a importação' },
   { value: 'import', label: 'Toda a importação' },
+]
+
+// Vocabulário fechado de acabamentos (docs/04, seção 4, capacidade 5):
+// sentinela usado no combo para abrir o sub-formulário de cadastro.
+const NEW_FINISH_OPTION = '__new__'
+
+const FINISH_GROUP_OPTIONS: { value: FinishGroup; label: string }[] = [
+  { value: 'madeirado', label: 'Madeirado' },
+  { value: 'metalico', label: 'Metálico' },
+  { value: 'pe_estrutura', label: 'Pé/Estrutura' },
+  { value: 'outro', label: 'Outro' },
 ]
 
 function ConfidenceBadge({ level }: { level: ConfidenceLevel | null }) {
@@ -229,14 +241,103 @@ function BatchCorrectionModal({
   )
 }
 
+interface FinishFieldProps {
+  finishes: Finish[]
+  correctedValue: string
+  onCorrectedValueChange: (value: string) => void
+  mode: 'existing' | 'new'
+  onModeChange: (mode: 'existing' | 'new') => void
+  newFinishName: string
+  onNewFinishNameChange: (value: string) => void
+  newFinishGroup: FinishGroup
+  onNewFinishGroupChange: (value: FinishGroup) => void
+}
+
+// Combo de acabamento restrito ao vocabulário fechado de `finishes`
+// (docs/04, seção 4, capacidade 5), com opção de cadastrar um novo
+// acabamento — fica marcado para atenção do Aprovador na tela 5.
+function FinishField({
+  finishes,
+  correctedValue,
+  onCorrectedValueChange,
+  mode,
+  onModeChange,
+  newFinishName,
+  onNewFinishNameChange,
+  newFinishGroup,
+  onNewFinishGroupChange,
+}: FinishFieldProps) {
+  const names = Array.from(new Set(finishes.map((f) => f.name))).sort((a, b) =>
+    a.localeCompare(b, 'pt-BR'),
+  )
+  if (correctedValue && !names.includes(correctedValue)) {
+    names.unshift(correctedValue)
+  }
+
+  return (
+    <>
+      <select
+        value={mode === 'new' ? NEW_FINISH_OPTION : correctedValue}
+        onChange={(e) => {
+          if (e.target.value === NEW_FINISH_OPTION) {
+            onModeChange('new')
+          } else {
+            onModeChange('existing')
+            onCorrectedValueChange(e.target.value)
+          }
+        }}
+      >
+        {names.map((name) => (
+          <option key={name} value={name}>
+            {name}
+          </option>
+        ))}
+        <option value={NEW_FINISH_OPTION}>Não está na lista — cadastrar novo acabamento</option>
+      </select>
+
+      {mode === 'new' && (
+        <div style={{ marginTop: '0.5rem' }}>
+          <label>
+            Nome do novo acabamento:{' '}
+            <input
+              value={newFinishName}
+              onChange={(e) => onNewFinishNameChange(e.target.value)}
+            />
+          </label>{' '}
+          <label>
+            Grupo:{' '}
+            <select
+              value={newFinishGroup}
+              onChange={(e) => onNewFinishGroupChange(e.target.value as FinishGroup)}
+            >
+              {FINISH_GROUP_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p style={{ color: 'darkorange', margin: '0.25rem 0 0' }}>
+            Este acabamento será marcado para atenção do Aprovador antes da publicação.
+          </p>
+        </div>
+      )}
+    </>
+  )
+}
+
 interface ItemDetailProps {
   item: ExtractedItem
+  finishes: Finish[]
   onDecided: () => void
 }
 
-function ItemDetail({ item, onDecided }: ItemDetailProps) {
+function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
   const [field, setField] = useState<string>('')
   const [correctedValue, setCorrectedValue] = useState('')
+  const [finishMode, setFinishMode] = useState<'existing' | 'new'>('existing')
+  const [newFinishName, setNewFinishName] = useState('')
+  const [newFinishGroup, setNewFinishGroup] = useState<FinishGroup>('madeirado')
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -246,19 +347,31 @@ function ItemDetail({ item, onDecided }: ItemDetailProps) {
 
   async function handleApprove() {
     setError(null)
+
+    if (field === 'finish_raw' && finishMode === 'new' && !newFinishName.trim()) {
+      setError('Informe o nome do novo acabamento.')
+      return
+    }
+
     setSubmitting(true)
     try {
       if (field) {
+        const isNewFinish = field === 'finish_raw' && finishMode === 'new'
         await reviewExtractedItem(item.id, {
           decision: 'corrigido',
           field,
           previous_value: (item[field as keyof ExtractedItem] as string | null) ?? null,
-          corrected_value: correctedValue,
+          corrected_value: isNewFinish ? newFinishName.trim() : correctedValue,
           notes: notes || undefined,
+          ...(isNewFinish
+            ? { new_finish_name: newFinishName.trim(), new_finish_group: newFinishGroup }
+            : {}),
         })
         const corrected = CORRECTABLE_FIELDS.find((f) => f.field === field)
         setBatchPrompt({ field, label: corrected?.label ?? field })
         setField('')
+        setFinishMode('existing')
+        setNewFinishName('')
       } else {
         await reviewExtractedItem(item.id, { decision: 'aprovado', notes: notes || undefined })
       }
@@ -290,6 +403,15 @@ function ItemDetail({ item, onDecided }: ItemDetailProps) {
   function startCorrection(fieldName: string) {
     setField(fieldName)
     setCorrectedValue((item[fieldName as keyof ExtractedItem] as string | null) ?? '')
+    setFinishMode('existing')
+    setNewFinishName('')
+    setNewFinishGroup('madeirado')
+  }
+
+  function cancelCorrection() {
+    setField('')
+    setFinishMode('existing')
+    setNewFinishName('')
   }
 
   return (
@@ -322,17 +444,31 @@ function ItemDetail({ item, onDecided }: ItemDetailProps) {
               <td>{label}</td>
               <td>
                 {field === f ? (
-                  <input
-                    value={correctedValue}
-                    onChange={(e) => setCorrectedValue(e.target.value)}
-                  />
+                  f === 'finish_raw' ? (
+                    <FinishField
+                      finishes={finishes}
+                      correctedValue={correctedValue}
+                      onCorrectedValueChange={setCorrectedValue}
+                      mode={finishMode}
+                      onModeChange={setFinishMode}
+                      newFinishName={newFinishName}
+                      onNewFinishNameChange={setNewFinishName}
+                      newFinishGroup={newFinishGroup}
+                      onNewFinishGroupChange={setNewFinishGroup}
+                    />
+                  ) : (
+                    <input
+                      value={correctedValue}
+                      onChange={(e) => setCorrectedValue(e.target.value)}
+                    />
+                  )
                 ) : (
                   (item[f] as string | null) ?? '—'
                 )}
               </td>
               <td>
                 {field === f ? (
-                  <button type="button" onClick={() => setField('')}>
+                  <button type="button" onClick={cancelCorrection}>
                     Desfazer
                   </button>
                 ) : (
@@ -393,6 +529,7 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
   const [total, setTotal] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [finishes, setFinishes] = useState<Finish[]>([])
 
   const [reviewStatus, setReviewStatus] = useState<ReviewStatus | ''>('pendente')
   const [confidenceLevel, setConfidenceLevel] = useState<ConfidenceLevel | ''>('')
@@ -424,6 +561,12 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
     setSelectedIds(new Set())
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload é recriada a cada render
   }, [importId, reviewStatus, confidenceLevel])
+
+  useEffect(() => {
+    listFinishes()
+      .then((data) => setFinishes(data))
+      .catch(() => setFinishes([]))
+  }, [])
 
   const selectedItem = items.find((item) => item.id === selectedId) ?? null
 
@@ -603,7 +746,12 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
       )}
 
       {selectedItem && (
-        <ItemDetail key={selectedItem.id} item={selectedItem} onDecided={() => void reload()} />
+        <ItemDetail
+          key={selectedItem.id}
+          item={selectedItem}
+          finishes={finishes}
+          onDecided={() => void reload()}
+        />
       )}
     </section>
   )

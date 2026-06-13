@@ -281,6 +281,58 @@ def test_correct_item_field(client) -> None:
     assert any(i["id"] == item_id and i["price_raw"] == "412.90" for i in items["items"])
 
 
+def test_correct_finish_with_new_finish_suggestion_creates_warning(client) -> None:
+    import_id, item_id = _create_import_with_item(
+        file_marker=b"correct-new-finish-marker", finish_raw="Nogueira Cadiz"
+    )
+
+    status_before = client.get(f"/api/v1/imports/{import_id}/status").json()
+
+    response = client.post(
+        f"/api/v1/extracted-items/{item_id}/review",
+        json={
+            "decision": "corrigido",
+            "field": "finish_raw",
+            "previous_value": "Nogueira Cadiz",
+            "corrected_value": "Nogueira Cádiz",
+            "new_finish_name": "Nogueira Cádiz",
+            "new_finish_group": "madeirado",
+            "notes": "Acabamento não está no vocabulário fechado.",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["review_status"] == "corrigido"
+    assert body["decision"]["corrected_value"] == "Nogueira Cádiz"
+
+    items = client.get(f"/api/v1/imports/{import_id}/items").json()
+    assert any(i["id"] == item_id and i["finish_raw"] == "Nogueira Cádiz" for i in items["items"])
+
+    status_after = client.get(f"/api/v1/imports/{import_id}/status").json()
+    assert status_after["summary"]["warnings"] == status_before["summary"]["warnings"] + 1
+
+
+def test_correct_finish_new_finish_requires_group(client) -> None:
+    _, item_id = _create_import_with_item(
+        file_marker=b"correct-new-finish-no-group-marker", finish_raw="Nogueira Cadiz"
+    )
+
+    response = client.post(
+        f"/api/v1/extracted-items/{item_id}/review",
+        json={
+            "decision": "corrigido",
+            "field": "finish_raw",
+            "previous_value": "Nogueira Cadiz",
+            "corrected_value": "Nogueira Cádiz",
+            "new_finish_name": "Nogueira Cádiz",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "CAMPO_OBRIGATORIO_AUSENTE"
+
+
 def test_correct_item_missing_field_is_rejected(client) -> None:
     _, item_id = _create_import_with_item(file_marker=b"correct-missing-field-marker")
 

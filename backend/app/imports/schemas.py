@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from app.catalog.schemas import PriceTableSummary
+from app.catalog.schemas import FinishGroup, PriceTableSummary
 from app.quotes.schemas import UserSummary
 
 ImportStatus = Literal["recebido", "processando", "concluido", "erro"]
@@ -116,6 +116,11 @@ class ReviewItemIn(BaseModel):
     previous_value: str | None = None
     corrected_value: str | None = None
     reviewed_by_user_id: int | None = None
+    # Preenchidos quando o revisor escolhe "Não está na lista — cadastrar
+    # novo acabamento" (docs/04, seção 4, capacidade 5). Aplicável apenas
+    # quando field == "finish_raw".
+    new_finish_name: str | None = None
+    new_finish_group: FinishGroup | None = None
 
 
 class ReviewDecisionOut(BaseModel):

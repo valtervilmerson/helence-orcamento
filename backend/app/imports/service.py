@@ -393,6 +393,22 @@ def review_item(
                     details={"field": payload.field, "corrected_value": payload.corrected_value}
                 ) from exc
 
+        if payload.new_finish_name is not None:
+            if payload.field != "finish_raw":
+                raise CampoNaoCorrigivelError(
+                    details={
+                        "field": payload.field,
+                        "reason": "new_finish_name só é aplicável ao corrigir finish_raw",
+                    }
+                )
+            if not payload.new_finish_group:
+                raise CampoObrigatorioAusenteError(
+                    details={
+                        "field": "new_finish_group",
+                        "reason": "obrigatório ao cadastrar um novo acabamento",
+                    }
+                )
+
         field_corrected = payload.field
         previous_value = row[payload.field]
         corrected_value = payload.corrected_value
@@ -417,6 +433,21 @@ def review_item(
         corrected_value=corrected_value,
         notes=payload.notes,
     )
+
+    if payload.new_finish_name is not None:
+        repository.insert_import_warning(
+            connection,
+            imported_file_id=row["imported_file_id"],
+            imported_page_id=row["imported_page_id"],
+            extracted_item_id=item_id,
+            severity="atencao",
+            message=(
+                f"Novo acabamento sugerido na revisão do item #{item_id}: "
+                f"'{payload.new_finish_name}' (grupo: {payload.new_finish_group}). "
+                "Requer cadastro em finishes antes da publicação no catálogo."
+            ),
+        )
+
     connection.commit()
 
     decision_row = repository.get_review_decision(connection, decision_id)

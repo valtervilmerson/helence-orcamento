@@ -179,12 +179,16 @@ export const getImportItems = (importId: number, filters?: ExtractedItemsFilters
   return request<ExtractedItemsListOut>(`/imports/${importId}/items${qs ? `?${qs}` : ''}`)
 }
 
+export type FinishGroup = 'madeirado' | 'metalico' | 'pe_estrutura' | 'outro'
+
 export interface ReviewItemIn {
   decision: ReviewDecisionType
   notes?: string
   field?: string
   previous_value?: string | null
   corrected_value?: string
+  new_finish_name?: string
+  new_finish_group?: FinishGroup
 }
 
 export interface ReviewDecisionOut {
