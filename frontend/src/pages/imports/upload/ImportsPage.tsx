@@ -10,7 +10,7 @@ import { ReviewPage } from '../review/ReviewPage'
 
 function ErrorMessage({ error }: { error: string | null }) {
   if (!error) return null
-  return <p style={{ color: 'crimson' }}>{error}</p>
+  return <p className="feedback-error">{error}</p>
 }
 
 function describeError(err: unknown): string {
@@ -18,6 +18,17 @@ function describeError(err: unknown): string {
     return `${err.code}: ${err.message}`
   }
   return String(err)
+}
+
+const IMPORT_STATUS_BADGE_CLASS: Record<string, string> = {
+  recebido: 'badge-neutral',
+  processando: 'badge-warning',
+  concluido: 'badge-success',
+  erro: 'badge-danger',
+}
+
+function ImportStatusBadge({ status }: { status: string }) {
+  return <span className={`badge ${IMPORT_STATUS_BADGE_CLASS[status] ?? 'badge-neutral'}`}>{status}</span>
 }
 
 function UploadForm({ onUploaded }: { onUploaded: () => void }) {
@@ -62,7 +73,7 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
         <button type="submit">Enviar</button>
       </form>
       <ErrorMessage error={error} />
-      {success && <p style={{ color: 'green' }}>{success}</p>}
+      {success && <p className="feedback-success">{success}</p>}
     </section>
   )
 }
@@ -122,6 +133,8 @@ export function ImportsPage() {
 
       <section>
         <h2>Arquivos enviados</h2>
+        {imports.length === 0 && <p>Nenhum arquivo enviado ainda.</p>}
+        {imports.length > 0 && (
         <table>
           <thead>
             <tr>
@@ -138,7 +151,9 @@ export function ImportsPage() {
               <tr key={item.id}>
                 <td>{item.id}</td>
                 <td>{item.original_filename ?? '—'}</td>
-                <td>{item.status}</td>
+                <td>
+                  <ImportStatusBadge status={item.status} />
+                </td>
                 <td>{item.page_count ?? '—'}</td>
                 <td>{item.imported_at}</td>
                 <td>
@@ -157,6 +172,7 @@ export function ImportsPage() {
             ))}
           </tbody>
         </table>
+        )}
       </section>
     </div>
   )

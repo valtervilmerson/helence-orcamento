@@ -8,6 +8,7 @@ from fastapi.responses import Response
 from app.db.connection import get_connection
 from app.quotes import service
 from app.quotes.schemas import (
+    CustomerCreateIn,
     CustomerSummary,
     QuoteCreateIn,
     QuoteItemComponentCreateIn,
@@ -34,6 +35,17 @@ def get_db() -> sqlite3.Connection:
 @customers_router.get("/customers", response_model=list[CustomerSummary])
 def list_customers(connection: sqlite3.Connection = Depends(get_db)) -> list[CustomerSummary]:
     return service.list_customers(connection)
+
+
+@customers_router.post(
+    "/customers", response_model=CustomerSummary, status_code=status.HTTP_201_CREATED
+)
+def create_customer(
+    payload: CustomerCreateIn, connection: sqlite3.Connection = Depends(get_db)
+) -> CustomerSummary:
+    return service.create_customer(
+        connection, payload.name, payload.document, payload.email, payload.phone, payload.address
+    )
 
 
 @router.post("", response_model=QuoteOut, status_code=status.HTTP_201_CREATED)

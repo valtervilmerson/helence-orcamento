@@ -31,7 +31,7 @@ import {
 
 function ErrorMessage({ error }: { error: string | null }) {
   if (!error) return null
-  return <p style={{ color: 'crimson' }}>{error}</p>
+  return <p className="feedback-error">{error}</p>
 }
 
 function describeError(err: unknown): string {
@@ -78,12 +78,17 @@ function FamiliesSection({
   return (
     <section>
       <h2>Famílias de produto</h2>
-      <ul>
+      {families.length === 0 && <p>Nenhuma família cadastrada ainda.</p>}
+      <ul className="list-plain">
         {families.map((family) => (
-          <li key={family.id}>
-            #{family.id} — {family.name}
-            {family.description ? ` (${family.description})` : ''}{' '}
-            <button onClick={() => handleDelete(family.id)}>excluir</button>
+          <li key={family.id} className="list-item-card">
+            <span>
+              #{family.id} — {family.name}
+              {family.description ? ` (${family.description})` : ''}
+            </span>
+            <button className="danger" onClick={() => handleDelete(family.id)}>
+              excluir
+            </button>
           </li>
         ))}
       </ul>
@@ -150,13 +155,18 @@ function DimensionsSection({
   return (
     <section>
       <h2>Dimensões</h2>
-      <ul>
+      {dimensions.length === 0 && <p>Nenhuma dimensão cadastrada ainda.</p>}
+      <ul className="list-plain">
         {dimensions.map((dimension) => (
-          <li key={dimension.id}>
-            #{dimension.id} — {dimension.raw_label ?? '—'} (L:{dimension.width_mm ?? '-'} P:
-            {dimension.depth_mm ?? '-'} ⌀:{dimension.diameter_mm ?? '-'} A:
-            {dimension.height_mm ?? '-'}){' '}
-            <button onClick={() => handleDelete(dimension.id)}>excluir</button>
+          <li key={dimension.id} className="list-item-card">
+            <span>
+              #{dimension.id} — {dimension.raw_label ?? '—'} (L:{dimension.width_mm ?? '-'} P:
+              {dimension.depth_mm ?? '-'} ⌀:{dimension.diameter_mm ?? '-'} A:
+              {dimension.height_mm ?? '-'})
+            </span>
+            <button className="danger" onClick={() => handleDelete(dimension.id)}>
+              excluir
+            </button>
           </li>
         ))}
       </ul>
@@ -207,11 +217,16 @@ function FinishesSection({ finishes, onChange }: { finishes: Finish[]; onChange:
   return (
     <section>
       <h2>Acabamentos</h2>
-      <ul>
+      {finishes.length === 0 && <p>Nenhum acabamento cadastrado ainda.</p>}
+      <ul className="list-plain">
         {finishes.map((finish) => (
-          <li key={finish.id}>
-            #{finish.id} — {finish.name} {finish.finish_group ? `(${finish.finish_group})` : ''}{' '}
-            <button onClick={() => handleDelete(finish.id)}>excluir</button>
+          <li key={finish.id} className="list-item-card">
+            <span>
+              #{finish.id} — {finish.name} {finish.finish_group ? `(${finish.finish_group})` : ''}
+            </span>
+            <button className="danger" onClick={() => handleDelete(finish.id)}>
+              excluir
+            </button>
           </li>
         ))}
       </ul>
@@ -266,10 +281,16 @@ function ComponentTypesSection({
   return (
     <section>
       <h2>Tipos de componente</h2>
-      <ul>
+      {componentTypes.length === 0 && <p>Nenhum tipo de componente cadastrado ainda.</p>}
+      <ul className="list-plain">
         {componentTypes.map((type) => (
-          <li key={type.id}>
-            #{type.id} — {type.name} <button onClick={() => handleDelete(type.id)}>excluir</button>
+          <li key={type.id} className="list-item-card">
+            <span>
+              #{type.id} — {type.name}
+            </span>
+            <button className="danger" onClick={() => handleDelete(type.id)}>
+              excluir
+            </button>
           </li>
         ))}
       </ul>
@@ -331,11 +352,16 @@ function ProductsSection({
   return (
     <section>
       <h2>Produtos-base</h2>
-      <ul>
+      {products.length === 0 && <p>Nenhum produto-base cadastrado ainda.</p>}
+      <ul className="list-plain">
         {products.map((product) => (
-          <li key={product.id}>
-            #{product.id} — {product.name} ({familyName(product.family_id)}){' '}
-            <button onClick={() => handleDelete(product.id)}>excluir</button>
+          <li key={product.id} className="list-item-card">
+            <span>
+              #{product.id} — {product.name} ({familyName(product.family_id)})
+            </span>
+            <button className="danger" onClick={() => handleDelete(product.id)}>
+              excluir
+            </button>
           </li>
         ))}
       </ul>
@@ -455,18 +481,16 @@ function ComponentVariantsSection({
     <section>
       <h2>Variações vendáveis (componentes)</h2>
 
-      <div>
-        <label>
-          Filtrar por família:{' '}
-          <select value={familyFilter} onChange={(e) => setFamilyFilter(e.target.value)}>
-            <option value="">(todas)</option>
-            {families.map((family) => (
-              <option key={family.id} value={family.name}>
-                {family.name}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="action-group">
+        <label>Filtrar por família:</label>
+        <select value={familyFilter} onChange={(e) => setFamilyFilter(e.target.value)}>
+          <option value="">(todas)</option>
+          {families.map((family) => (
+            <option key={family.id} value={family.name}>
+              {family.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       <p>{total} variação(ões) encontrada(s).</p>
@@ -501,14 +525,16 @@ function ComponentVariantsSection({
                 {item.price ? `${item.price.currency} ${item.price.amount.toFixed(2)}` : '—'}
               </td>
               <td>
-                <button onClick={() => handleDelete(item.component_variant_id)}>excluir</button>
+                <button className="danger" onClick={() => handleDelete(item.component_variant_id)}>
+                  excluir
+                </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <h3>Nova variação</h3>
+      <h3 style={{ marginTop: 'var(--space-5)' }}>Nova variação</h3>
       <form onSubmit={handleCreate}>
         <select value={componentId} onChange={(e) => setComponentId(e.target.value)} required>
           <option value="">(tipo de componente)</option>

@@ -27,6 +27,14 @@ class CustomerSummary(BaseModel):
     name: str
 
 
+class CustomerCreateIn(BaseModel):
+    name: str
+    document: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    address: str | None = None
+
+
 class UserSummary(BaseModel):
     id: int
     name: str

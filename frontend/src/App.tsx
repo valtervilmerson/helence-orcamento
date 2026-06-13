@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { getHealth } from './api/client'
+import { AppShell } from './layout/AppShell'
 import { CatalogPage } from './pages/catalog/CatalogPage'
 import { ConsultaPage } from './pages/catalog/consulta/ConsultaPage'
 import { ImportsPage } from './pages/imports/upload/ImportsPage'
@@ -17,23 +19,16 @@ function App() {
   }, [])
 
   return (
-    <main>
-      <h1>Helence Orçamento</h1>
-      <p>
-        API:{' '}
-        {apiStatus === 'loading' && 'verificando…'}
-        {apiStatus === 'ok' && 'conectada ✅'}
-        {apiStatus === 'error' && 'indisponível ❌'}
-      </p>
-      <hr />
-      <ConsultaPage />
-      <hr />
-      <CatalogPage />
-      <hr />
-      <QuotesPage />
-      <hr />
-      <ImportsPage />
-    </main>
+    <Routes>
+      <Route path="/" element={<AppShell apiStatus={apiStatus} />}>
+        <Route index element={<Navigate to="/orcamentos" replace />} />
+        <Route path="orcamentos" element={<QuotesPage />} />
+        <Route path="catalogo" element={<CatalogPage />} />
+        <Route path="consulta" element={<ConsultaPage />} />
+        <Route path="importacoes" element={<ImportsPage />} />
+        <Route path="*" element={<Navigate to="/orcamentos" replace />} />
+      </Route>
+    </Routes>
   )
 }
 

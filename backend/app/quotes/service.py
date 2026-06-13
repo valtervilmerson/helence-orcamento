@@ -110,6 +110,18 @@ def list_customers(connection: sqlite3.Connection) -> list[CustomerSummary]:
     ]
 
 
+def create_customer(
+    connection: sqlite3.Connection,
+    name: str,
+    document: str | None,
+    email: str | None,
+    phone: str | None,
+    address: str | None,
+) -> CustomerSummary:
+    row = repository.create_customer(connection, name, document, email, phone, address)
+    return CustomerSummary(id=row["id"], name=row["name"])
+
+
 def create_quote(
     connection: sqlite3.Connection,
     customer_id: int,

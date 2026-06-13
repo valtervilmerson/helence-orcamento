@@ -43,6 +43,18 @@ const CORRECTABLE_FIELDS: { field: keyof ExtractedItem; label: string }[] = [
 
 const FINAL_STATUSES: ReviewStatus[] = ['aprovado', 'rejeitado']
 
+const REVIEW_STATUS_BADGE_CLASS: Record<ReviewStatus, string> = {
+  pendente: 'badge-neutral',
+  revisado: 'badge-warning',
+  aprovado: 'badge-success',
+  rejeitado: 'badge-danger',
+  corrigido: 'badge-warning',
+}
+
+function ReviewStatusBadge({ status }: { status: ReviewStatus }) {
+  return <span className={`badge ${REVIEW_STATUS_BADGE_CLASS[status]}`}>{status}</span>
+}
+
 const BATCH_SCOPE_OPTIONS: { value: BatchCorrectionScope; label: string }[] = [
   { value: 'page', label: 'Mesma página' },
   { value: 'page_profile', label: 'Mesmo perfil de página, em toda a importação' },
@@ -60,11 +72,16 @@ const FINISH_GROUP_OPTIONS: { value: FinishGroup; label: string }[] = [
   { value: 'outro', label: 'Outro' },
 ]
 
+const CONFIDENCE_BADGE_CLASS: Record<ConfidenceLevel, string> = {
+  alta: 'badge-success',
+  media: 'badge-warning',
+  baixa: 'badge-danger',
+}
+
 function ConfidenceBadge({ level }: { level: ConfidenceLevel | null }) {
   if (!level) return <span>—</span>
-  const color = level === 'alta' ? 'green' : level === 'media' ? 'darkorange' : 'crimson'
   const label = level === 'alta' ? 'ALTA' : level === 'media' ? 'MÉDIA' : 'BAIXA'
-  return <span style={{ color, fontWeight: 'bold' }}>{label}</span>
+  return <span className={`badge ${CONFIDENCE_BADGE_CLASS[level]}`}>{label}</span>
 }
 
 interface BatchCorrectionModalProps {
@@ -219,13 +236,13 @@ function BatchCorrectionModal({
           </label>
         </p>
 
-        {error && <p style={{ color: 'crimson' }}>{error}</p>}
-        {result && <p>{result}</p>}
+        {error && <p className="feedback-error">{error}</p>}
+        {result && <p className="feedback-success">{result}</p>}
 
-        <p>
-          <button type="button" onClick={onClose} disabled={applying}>
+        <p className="action-group">
+          <button type="button" className="secondary" onClick={onClose} disabled={applying}>
             Fechar
-          </button>{' '}
+          </button>
           {!result && (
             <button
               type="button"
@@ -317,7 +334,7 @@ function FinishField({
               ))}
             </select>
           </label>
-          <p style={{ color: 'darkorange', margin: '0.25rem 0 0' }}>
+          <p className="feedback-warning">
             Este acabamento será marcado para atenção do Aprovador antes da publicação.
           </p>
         </div>
@@ -415,7 +432,7 @@ function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
   }
 
   return (
-    <section style={{ border: '1px solid #ccc', padding: '1rem', marginTop: '1rem' }}>
+    <section style={{ marginTop: 'var(--space-4)' }}>
       <h3>
         Item #{item.id} — pág. {item.page_number}{' '}
         <ConfidenceBadge level={item.confidence_level} />
@@ -468,11 +485,16 @@ function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
               </td>
               <td>
                 {field === f ? (
-                  <button type="button" onClick={cancelCorrection}>
+                  <button type="button" className="secondary" onClick={cancelCorrection}>
                     Desfazer
                   </button>
                 ) : (
-                  <button type="button" onClick={() => startCorrection(f)} disabled={isFinal}>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => startCorrection(f)}
+                    disabled={isFinal}
+                  >
                     ✎ Corrigir
                   </button>
                 )}
@@ -494,17 +516,17 @@ function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
         </label>
       </p>
 
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+      {error && <p className="feedback-error">{error}</p>}
 
       {isFinal ? (
         <p>
           <em>Decisão final registrada: {item.review_status}.</em>
         </p>
       ) : (
-        <p>
-          <button type="button" onClick={() => void handleReject()} disabled={submitting}>
+        <p className="action-group">
+          <button type="button" className="danger" onClick={() => void handleReject()} disabled={submitting}>
             Rejeitar
-          </button>{' '}
+          </button>
           <button type="button" onClick={() => void handleApprove()} disabled={submitting}>
             {field ? 'Salvar correção e aprovar' : '✓ Aprovar'}
           </button>
@@ -622,39 +644,44 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
   }
 
   return (
-    <section>
-      <h2>Revisão — importação {importId}</h2>
-      <button type="button" onClick={onBack}>
+    <div>
+      <h1>Revisão — importação {importId}</h1>
+      <section>
+      <button type="button" className="secondary" onClick={onBack}>
         ← Voltar para importações
       </button>
       <ErrorMessageBlock error={error} />
 
-      <p>
-        Status:{' '}
-        <select
-          value={reviewStatus}
-          onChange={(e) => setReviewStatus(e.target.value as ReviewStatus | '')}
-        >
-          <option value="">Todos</option>
-          {REVIEW_STATUS_OPTIONS.map((status) => (
-            <option key={status} value={status}>
-              {status}
-            </option>
-          ))}
-        </select>{' '}
-        Confiança:{' '}
-        <select
-          value={confidenceLevel}
-          onChange={(e) => setConfidenceLevel(e.target.value as ConfidenceLevel | '')}
-        >
-          <option value="">Todas</option>
-          {CONFIDENCE_LEVEL_OPTIONS.map((level) => (
-            <option key={level} value={level}>
-              {level}
-            </option>
-          ))}
-        </select>
-      </p>
+      <div className="action-group" style={{ marginTop: 'var(--space-3)' }}>
+        <label>
+          Status:{' '}
+          <select
+            value={reviewStatus}
+            onChange={(e) => setReviewStatus(e.target.value as ReviewStatus | '')}
+          >
+            <option value="">Todos</option>
+            {REVIEW_STATUS_OPTIONS.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Confiança:{' '}
+          <select
+            value={confidenceLevel}
+            onChange={(e) => setConfidenceLevel(e.target.value as ConfidenceLevel | '')}
+          >
+            <option value="">Todas</option>
+            {CONFIDENCE_LEVEL_OPTIONS.map((level) => (
+              <option key={level} value={level}>
+                {level}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       <p>{total} itens encontrados.</p>
 
@@ -703,9 +730,11 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
                 <td>{item.finish_raw ?? '—'}</td>
                 <td>{item.sku_raw ?? '—'}</td>
                 <td>{item.price_raw ?? '—'}</td>
-                <td>{item.review_status}</td>
                 <td>
-                  <button type="button" onClick={() => setSelectedId(item.id)}>
+                  <ReviewStatusBadge status={item.review_status} />
+                </td>
+                <td>
+                  <button type="button" className="secondary" onClick={() => setSelectedId(item.id)}>
                     Revisar
                   </button>
                 </td>
@@ -716,8 +745,11 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
       )}
 
       {selectedIds.size > 0 && (
-        <p style={{ borderTop: '1px solid #ccc', paddingTop: '0.5rem', marginTop: '0.5rem' }}>
-          <strong>{selectedIds.size} selecionado(s)</strong>{' '}
+        <div
+          className="action-group"
+          style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-3)', marginTop: 'var(--space-3)' }}
+        >
+          <strong>{selectedIds.size} selecionado(s)</strong>
           <label>
             Justificativa (obrigatória ao rejeitar):{' '}
             <input
@@ -725,25 +757,26 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
               onChange={(e) => setBulkNotes(e.target.value)}
               disabled={bulkSubmitting}
             />
-          </label>{' '}
+          </label>
           <button
             type="button"
             onClick={() => void handleBulkDecision('aprovado')}
             disabled={bulkSubmitting}
           >
             Aprovar selecionados
-          </button>{' '}
+          </button>
           <button
             type="button"
+            className="danger"
             onClick={() => void handleBulkDecision('rejeitado')}
             disabled={bulkSubmitting}
           >
             Rejeitar selecionados
           </button>
-          {bulkError && <ErrorMessageBlock error={bulkError} />}
-          {bulkResult && <span> {bulkResult}</span>}
-        </p>
+          {bulkResult && <span className="feedback-success">{bulkResult}</span>}
+        </div>
       )}
+      {bulkError && <ErrorMessageBlock error={bulkError} />}
 
       {selectedItem && (
         <ItemDetail
@@ -753,11 +786,12 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
           onDecided={() => void reload()}
         />
       )}
-    </section>
+      </section>
+    </div>
   )
 }
 
 function ErrorMessageBlock({ error }: { error: string | null }) {
   if (!error) return null
-  return <p style={{ color: 'crimson' }}>{error}</p>
+  return <p className="feedback-error">{error}</p>
 }

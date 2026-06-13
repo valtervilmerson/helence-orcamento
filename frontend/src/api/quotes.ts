@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1'
+import { fetchWithRetry } from './fetchWithRetry'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api/v1'
 
 export interface ApiError {
   error: { code: string; message: string; details?: Record<string, unknown> }
@@ -16,9 +18,9 @@ export class QuotesApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+  const response = await fetchWithRetry(`${API_BASE_URL}${path}`, {
     ...init,
+    headers: init?.body ? { 'Content-Type': 'application/json', ...init.headers } : init?.headers,
   })
 
   if (response.status === 204) {
@@ -44,6 +46,13 @@ export interface Customer {
 }
 
 export const listCustomers = () => request<Customer[]>('/customers')
+export const createCustomer = (data: {
+  name: string
+  document?: string | null
+  email?: string | null
+  phone?: string | null
+  address?: string | null
+}) => request<Customer>('/customers', { method: 'POST', body: JSON.stringify(data) })
 
 // ---------------------------------------------------------------------------
 // Orçamentos — 14.10
@@ -238,7 +247,7 @@ export const getReviewChecklist = (quoteId: number) =>
 // ---------------------------------------------------------------------------
 
 export const exportQuotePdf = async (quoteId: number): Promise<Blob> => {
-  const response = await fetch(`${API_BASE_URL}/quotes/${quoteId}/export?format=pdf`)
+  const response = await fetchWithRetry(`${API_BASE_URL}/quotes/${quoteId}/export?format=pdf`)
 
   if (!response.ok) {
     const body = await response.json()

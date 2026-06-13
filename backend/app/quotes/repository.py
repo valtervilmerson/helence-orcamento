@@ -29,6 +29,22 @@ def list_customers(connection: sqlite3.Connection) -> list[sqlite3.Row]:
     return connection.execute("SELECT id, name FROM customers ORDER BY name").fetchall()
 
 
+def create_customer(
+    connection: sqlite3.Connection,
+    name: str,
+    document: str | None,
+    email: str | None,
+    phone: str | None,
+    address: str | None,
+) -> sqlite3.Row:
+    cursor = connection.execute(
+        "INSERT INTO customers (name, document, email, phone, address) VALUES (?, ?, ?, ?, ?)",
+        (name, document, email, phone, address),
+    )
+    connection.commit()
+    return get_customer(connection, cursor.lastrowid)
+
+
 def next_quote_number(connection: sqlite3.Connection) -> str:
     year = datetime.now().year
     row = connection.execute(

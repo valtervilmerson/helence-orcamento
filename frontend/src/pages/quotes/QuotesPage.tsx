@@ -10,6 +10,7 @@ import {
   QuotesApiError,
   addComponent,
   addItem,
+  createCustomer,
   createQuote,
   duplicateQuote,
   exportQuotePdf,
@@ -43,7 +44,7 @@ const STATUS_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
 
 function ErrorMessage({ error }: { error: string | null }) {
   if (!error) return null
-  return <p style={{ color: 'crimson' }}>{error}</p>
+  return <p className="feedback-error">{error}</p>
 }
 
 function describeError(err: unknown): string {
@@ -53,9 +54,63 @@ function describeError(err: unknown): string {
   return String(err)
 }
 
+const STATUS_BADGE_CLASS: Record<QuoteStatus, string> = {
+  rascunho: 'badge-neutral',
+  enviado: '',
+  aprovado: 'badge-success',
+  rejeitado: 'badge-danger',
+  expirado: 'badge-warning',
+}
+
+function StatusBadge({ status }: { status: QuoteStatus }) {
+  return <span className={`badge ${STATUS_BADGE_CLASS[status]}`}>{status}</span>
+}
+
 function describeVariant(variant: ComponentVariant): string {
   const price = variant.price ? `${variant.price.currency} ${variant.price.amount.toFixed(2)}` : 'sem preço'
   return `${variant.product ?? variant.component} — ${variant.component} — ${variant.descriptor ?? ''} — ${variant.finish ?? '—'} — ${variant.sku ?? 'sem SKU'} — ${price}`
+}
+
+function NewCustomerForm({ onCreated }: { onCreated: (customer: Customer) => void }) {
+  const [name, setName] = useState('')
+  const [document, setDocument] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleCreate(event: React.FormEvent) {
+    event.preventDefault()
+    setError(null)
+    try {
+      const customer = await createCustomer({
+        name,
+        document: document || null,
+        email: email || null,
+        phone: phone || null,
+      })
+      setName('')
+      setDocument('')
+      setEmail('')
+      setPhone('')
+      onCreated(customer)
+    } catch (err) {
+      setError(describeError(err))
+    }
+  }
+
+  return (
+    <section>
+      <h2>Novo cliente</h2>
+      <form onSubmit={handleCreate} className="action-group">
+        <input placeholder="Nome" value={name} onChange={(e) => setName(e.target.value)} required />
+        <input placeholder="CNPJ/CPF (opcional)" value={document} onChange={(e) => setDocument(e.target.value)} />
+        <input placeholder="E-mail (opcional)" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input placeholder="Telefone (opcional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <button type="submit">Criar cliente</button>
+      </form>
+      <ErrorMessage error={error} />
+    </section>
+  )
 }
 
 function NewQuoteForm({ customers, onCreated }: { customers: Customer[]; onCreated: (quote: Quote) => void }) {
@@ -158,7 +213,7 @@ function ComponentPicker({
   }
 
   return (
-    <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
+    <div className="action-group">
       <select value={familyFilter} onChange={(e) => setFamilyFilter(e.target.value)}>
         <option value="">(todas as famílias)</option>
         {families.map((family) => (
@@ -167,7 +222,7 @@ function ComponentPicker({
           </option>
         ))}
       </select>
-      <select value={variantId} onChange={(e) => setVariantId(e.target.value)}>
+      <select value={variantId} onChange={(e) => setVariantId(e.target.value)} style={{ flex: 1, minWidth: '20rem' }}>
         <option value="">(selecione uma variação)</option>
         {results.map((item) => (
           <option key={item.component_variant_id} value={item.component_variant_id}>
@@ -175,7 +230,7 @@ function ComponentPicker({
           </option>
         ))}
       </select>
-      <button type="button" onClick={handlePick} disabled={!variantId}>
+      <button type="button" className="secondary" onClick={handlePick} disabled={!variantId}>
         {pickLabel}
       </button>
       <ErrorMessage error={error} />
@@ -247,23 +302,24 @@ function NewItemForm({
         dimensionFilter={dimensionFilter}
       />
       {pending.length > 0 && (
-        <ul>
+        <ul className="list-plain">
           {pending.map((variant, index) => (
-            <li key={`${variant.component_variant_id}-${index}`}>
-              {describeVariant(variant)}{' '}
-              <button type="button" onClick={() => handleRemovePending(index)}>
+            <li key={`${variant.component_variant_id}-${index}`} className="list-item-card">
+              <span>{describeVariant(variant)}</span>
+              <button type="button" className="secondary" onClick={() => handleRemovePending(index)}>
                 remover
               </button>
             </li>
           ))}
         </ul>
       )}
-      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+      <form onSubmit={handleSubmit} className="action-group">
         <input placeholder="Descrição do item" value={label} onChange={(e) => setLabel(e.target.value)} required />
         <input
           type="number"
           min="1"
           placeholder="Quantidade"
+          style={{ width: '6rem' }}
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
         />
@@ -346,15 +402,17 @@ function EditItemPanel({
 
   return (
     <tr>
-      <td colSpan={5} style={{ background: '#f7f7f7' }}>
-        <strong>Editar composição — {item.label}</strong>
+      <td colSpan={5} style={{ background: 'var(--color-bg)' }}>
+        <p>
+          <strong>Editar composição — {item.label}</strong>
+        </p>
         {item.missing_required_components.length > 0 && (
-          <div style={{ color: 'crimson', marginTop: '0.25rem' }}>
+          <div className="feedback-error field-group">
             <p>
               Pendências: faltam componente(s) obrigatório(s) —{' '}
               {item.missing_required_components.join(', ')}.
             </p>
-            <form onSubmit={handleSaveJustification} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+            <form onSubmit={handleSaveJustification} className="action-group">
               <textarea
                 placeholder="Justificativa para linha incompleta"
                 value={justification}
@@ -366,19 +424,19 @@ function EditItemPanel({
             </form>
           </div>
         )}
-        <ul>
+        <ul className="list-plain">
           {item.components.map((component) => {
             const swap = swapResults[component.id]
             return (
-              <li key={component.id} style={{ marginBottom: '0.5rem' }}>
-                <div>
-                  {component.sku} — {component.frozen_currency} {component.frozen_unit_price.toFixed(2)}{' '}
-                  <button type="button" onClick={() => handleRemoveComponent(component.id)}>
+              <li key={component.id} className="field-group">
+                <div className="action-group">
+                  {component.sku} — {component.frozen_currency} {component.frozen_unit_price.toFixed(2)}
+                  <button type="button" className="secondary" onClick={() => handleRemoveComponent(component.id)}>
                     remover componente
                   </button>
                 </div>
                 {swap && swap.price_changed && (
-                  <p style={{ color: 'darkorange' }}>
+                  <p className="feedback-warning">
                     Preço atualizado de {swap.frozen_currency} {swap.previous_frozen_unit_price.toFixed(2)} para{' '}
                     {swap.frozen_currency} {swap.frozen_unit_price.toFixed(2)}.
                   </p>
@@ -392,7 +450,7 @@ function EditItemPanel({
             )
           })}
         </ul>
-        <div>
+        <div className="action-group" style={{ marginTop: 'var(--space-3)' }}>
           <strong>+ componente</strong>
           <ComponentPicker families={families} pickLabel="Adicionar componente" onPick={handleAddComponent} />
         </div>
@@ -457,15 +515,11 @@ function ItemRow({
             </div>
           ))}
           {item.pricing_pendencias.length > 0 && (
-            <div style={{ color: 'crimson', marginTop: '0.25rem' }}>
-              {item.pricing_pendencias.map((pendencia, index) => (
-                <p key={index}>{pendencia}</p>
-              ))}
-            </div>
+            <p className="feedback-error">{item.pricing_pendencias.join('; ')}</p>
           )}
         </td>
         <td>
-          <form onSubmit={handleSave} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+          <form onSubmit={handleSave} className="action-group">
             <input
               type="number"
               min="1"
@@ -490,11 +544,11 @@ function ItemRow({
             />
             <button type="submit">salvar</button>
           </form>
-          <div style={{ marginTop: '0.25rem' }}>
-            <button type="button" onClick={() => setEditing((prev) => !prev)}>
+          <div className="action-group" style={{ marginTop: 'var(--space-2)' }}>
+            <button type="button" className="secondary" onClick={() => setEditing((prev) => !prev)}>
               {editing ? 'fechar composição' : 'editar composição'}
-            </button>{' '}
-            <button type="button" onClick={() => void handleRemoveItem()}>
+            </button>
+            <button type="button" className="danger" onClick={() => void handleRemoveItem()}>
               remover linha
             </button>
           </div>
@@ -606,28 +660,27 @@ function QuoteDetail({
   return (
     <section>
       <h2>
-        {quote.quote_number} — {quote.customer.name}
+        {quote.quote_number} — {quote.customer.name} <StatusBadge status={quote.status} />
       </h2>
       <p>
-        Status: <strong>{quote.status}</strong> | Tabela de preço: {quote.price_table.code} (
-        {quote.price_table.status})
+        Tabela de preço: {quote.price_table.code} ({quote.price_table.status})
       </p>
       {quote.source_quote_id !== null && <p>Duplicado do orçamento #{quote.source_quote_id}.</p>}
-      <p>
-        <button type="button" onClick={() => void handleDuplicate()}>
+      <div className="action-group">
+        <button type="button" className="secondary" onClick={() => void handleDuplicate()}>
           Duplicar orçamento
         </button>
-      </p>
-      {transitions.length > 0 && (
-        <p>
-          Mudar status para:{' '}
-          {transitions.map((status) => (
-            <button key={status} onClick={() => handleStatusChange(status)} style={{ marginRight: '0.5rem' }}>
-              {status}
-            </button>
-          ))}
-        </p>
-      )}
+        {transitions.length > 0 && (
+          <>
+            <span style={{ color: 'var(--color-text-muted)' }}>Mudar status para:</span>
+            {transitions.map((status) => (
+              <button key={status} className="secondary" onClick={() => handleStatusChange(status)}>
+                {status}
+              </button>
+            ))}
+          </>
+        )}
+      </div>
 
       <table>
         <thead>
@@ -653,16 +706,15 @@ function QuoteDetail({
       {checklist && (
         <section>
           <h3>Checklist de revisão final (RN-18)</h3>
-          <ul>
+          <ul className="list-plain">
             {checklist.items.map((checkItem) => (
-              <li key={checkItem.code} style={{ color: checkItem.ok ? 'inherit' : 'crimson' }}>
-                {checkItem.ok ? '✓' : '✗'} {checkItem.label}
+              <li key={checkItem.code}>
+                <span className={`badge ${checkItem.ok ? 'badge-success' : 'badge-danger'}`}>
+                  {checkItem.ok ? '✓ ok' : '✗ pendente'}
+                </span>{' '}
+                {checkItem.label}
                 {!checkItem.ok && (
-                  <ul>
-                    {checkItem.pendencias.map((pendencia, index) => (
-                      <li key={index}>{pendencia}</li>
-                    ))}
-                  </ul>
+                  <p className="feedback-error">{checkItem.pendencias.join('; ')}</p>
                 )}
               </li>
             ))}
@@ -676,19 +728,23 @@ function QuoteDetail({
           <p>
             Subtotal: {totals.currency} {totals.subtotal.toFixed(2)} | Desconto: {totals.currency}{' '}
             {totals.discount_amount.toFixed(2)} ({totals.discount_percent.toFixed(2)}%) | Total:{' '}
-            {totals.currency} {totals.total.toFixed(2)}
+            <strong>
+              {totals.currency} {totals.total.toFixed(2)}
+            </strong>
           </p>
           {totals.warnings.map((warning) => (
-            <p key={warning.code} style={{ color: 'darkorange' }}>
+            <p key={warning.code} className="feedback-warning">
               {warning.message}
             </p>
           ))}
-          <button onClick={handleFreeze} disabled={!checklist?.ready}>
-            Congelar total
-          </button>
-          <button onClick={() => void handleExportPdf()} disabled={!totals.is_snapshot} style={{ marginLeft: '0.5rem' }}>
-            Exportar PDF
-          </button>
+          <div className="action-group">
+            <button onClick={handleFreeze} disabled={!checklist?.ready}>
+              Congelar total
+            </button>
+            <button className="secondary" onClick={() => void handleExportPdf()} disabled={!totals.is_snapshot}>
+              Exportar PDF
+            </button>
+          </div>
         </section>
       )}
 
@@ -724,6 +780,10 @@ export function QuotesPage() {
     setSelectedQuoteId(quote.id)
   }
 
+  function handleCustomerCreated(customer: Customer) {
+    setCustomers((prev) => [...prev, customer].sort((a, b) => a.name.localeCompare(b.name)))
+  }
+
   function handleDuplicated(quote: Quote) {
     setQuotes((prev) => [...prev, quote])
     setSelectedQuoteId(quote.id)
@@ -742,16 +802,28 @@ export function QuotesPage() {
 
       <section>
         <h2>Orçamentos existentes</h2>
-        <ul>
+        {quotes.length === 0 && <p>Nenhum orçamento cadastrado ainda.</p>}
+        <ul className="list-plain">
           {quotes.map((quote) => (
-            <li key={quote.id}>
-              <button onClick={() => setSelectedQuoteId(quote.id)}>
-                {quote.quote_number} — {quote.customer.name} ({quote.status})
-              </button>
+            <li
+              key={quote.id}
+              className={`list-item-card ${quote.id === selectedQuoteId ? 'is-selected' : ''}`}
+            >
+              <span>
+                <strong>{quote.quote_number}</strong> — {quote.customer.name}
+              </span>
+              <span className="action-group">
+                <StatusBadge status={quote.status} />
+                <button type="button" className="secondary" onClick={() => setSelectedQuoteId(quote.id)}>
+                  {quote.id === selectedQuoteId ? 'Selecionado' : 'Abrir'}
+                </button>
+              </span>
             </li>
           ))}
         </ul>
       </section>
+
+      <NewCustomerForm onCreated={handleCustomerCreated} />
 
       <NewQuoteForm customers={customers} onCreated={handleCreated} />
 
