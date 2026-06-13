@@ -15,6 +15,9 @@ frontend/dist/
 frontend/.env
 npm-debug.log*
 
+# --- Playwright MCP ---
+.playwright-mcp/
+
 # --- Editor / OS ---
 .vscode/
 .idea/
