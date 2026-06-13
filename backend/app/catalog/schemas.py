@@ -82,11 +82,13 @@ class FinishOut(FinishIn):
 class ProductComponentIn(BaseModel):
     name: str
     description: str | None = None
+    finish_group: FinishGroup | None = None
 
 
 class ProductComponentPatch(BaseModel):
     name: str | None = None
     description: str | None = None
+    finish_group: FinishGroup | None = None
 
 
 class ProductComponentOut(ProductComponentIn):
@@ -115,6 +117,29 @@ class CompatibilityRulePatch(BaseModel):
 
 
 class CompatibilityRuleOut(CompatibilityRuleIn):
+    id: int
+
+
+# ---------------------------------------------------------------------------
+# Composição mínima por família (RN-07)
+# ---------------------------------------------------------------------------
+
+ComponentRequirement = Literal["obrigatorio", "opcional"]
+
+
+class FamilyComponentRequirementIn(BaseModel):
+    family_id: int
+    component_id: int
+    requirement: ComponentRequirement
+
+
+class FamilyComponentRequirementPatch(BaseModel):
+    family_id: int | None = None
+    component_id: int | None = None
+    requirement: ComponentRequirement | None = None
+
+
+class FamilyComponentRequirementOut(FamilyComponentRequirementIn):
     id: int
 
 
@@ -208,6 +233,7 @@ class ComponentVariantOut(BaseModel):
     description: str | None = None
     dimension: DimensionSummary | None = None
     finish: str | None = None
+    finish_group: FinishGroup | None = None
     sku: str | None = None
     price: PriceSummary | None = None
     price_table: PriceTableSummary | None = None

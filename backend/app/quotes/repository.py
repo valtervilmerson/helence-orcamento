@@ -330,7 +330,14 @@ def list_items_with_components(connection: sqlite3.Connection, quote_id: int) ->
 def update_item(connection: sqlite3.Connection, item_id: int, data: dict[str, Any]) -> None:
     cols = [
         c
-        for c in ("quantity", "discount_percent", "discount_amount", "discount_reason", "notes")
+        for c in (
+            "quantity",
+            "discount_percent",
+            "discount_amount",
+            "discount_reason",
+            "notes",
+            "composition_justification",
+        )
         if c in data
     ]
     if not cols:
@@ -341,6 +348,43 @@ def update_item(connection: sqlite3.Connection, item_id: int, data: dict[str, An
         (*(data[c] for c in cols), item_id),
     )
     connection.commit()
+
+
+# ---------------------------------------------------------------------------
+# Composição mínima por família (RN-07)
+# ---------------------------------------------------------------------------
+
+
+def get_item_family_id(connection: sqlite3.Connection, item_id: int) -> int | None:
+    """Família do item, derivada dos produtos dos componentes já incluídos.
+
+    Retorna o primeiro `family_id` não nulo encontrado entre os componentes
+    da linha — cobre itens criados sem `quote_items.product_id`.
+    """
+    row = connection.execute(
+        """
+        SELECT p.family_id AS family_id
+        FROM quote_item_components qic
+        JOIN component_variants cv ON cv.id = qic.component_variant_id
+        JOIN products p ON p.id = cv.product_id
+        WHERE qic.quote_item_id = ? AND p.family_id IS NOT NULL
+        LIMIT 1
+        """,
+        (item_id,),
+    ).fetchone()
+    return row["family_id"] if row else None
+
+
+def get_family_required_components(connection: sqlite3.Connection, family_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT pc.id AS component_id, pc.name AS name
+        FROM family_component_requirements fcr
+        JOIN product_components pc ON pc.id = fcr.component_id
+        WHERE fcr.family_id = ? AND fcr.requirement = 'obrigatorio'
+        """,
+        (family_id,),
+    ).fetchall()
 
 
 # ---------------------------------------------------------------------------

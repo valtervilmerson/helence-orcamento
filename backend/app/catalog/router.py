@@ -17,6 +17,9 @@ from app.catalog.schemas import (
     DimensionIn,
     DimensionOut,
     DimensionPatch,
+    FamilyComponentRequirementIn,
+    FamilyComponentRequirementOut,
+    FamilyComponentRequirementPatch,
     FinishIn,
     FinishOut,
     FinishPatch,
@@ -132,6 +135,13 @@ _register_crud(
     patch_model=CompatibilityRulePatch,
     out_model=CompatibilityRuleOut,
 )
+_register_crud(
+    path="/catalog/family-component-requirements",
+    repo=repository.family_component_requirements,
+    in_model=FamilyComponentRequirementIn,
+    patch_model=FamilyComponentRequirementPatch,
+    out_model=FamilyComponentRequirementOut,
+)
 
 
 @router.get("/catalog/price-tables", response_model=list[PriceTableSummary])
@@ -158,6 +168,7 @@ def search_components(
     component: str | None = Query(default=None),
     dimension: str | None = Query(default=None),
     finish: str | None = Query(default=None),
+    finish_group: str | None = Query(default=None),
     q: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
@@ -170,6 +181,7 @@ def search_components(
         component=component,
         dimension=dimension,
         finish=finish,
+        finish_group=finish_group,
         q=q,
         page=page,
         page_size=page_size,

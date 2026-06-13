@@ -103,6 +103,8 @@ export interface QuoteItem {
   discount_amount: number | null
   discount_reason: string | null
   notes: string | null
+  composition_justification: string | null
+  missing_required_components: string[]
   components: QuoteItemComponent[]
   line_subtotal: number
 }
@@ -132,6 +134,7 @@ export const updateItem = (
     discount_amount: number | null
     discount_reason: string | null
     notes: string | null
+    composition_justification: string | null
   }>,
 ) =>
   request<QuoteItem>(`/quotes/${quoteId}/items/${itemId}`, {

@@ -68,6 +68,25 @@ def test_search_filter_combination_without_match_returns_empty(client) -> None:
     assert body["items"] == []
 
 
+def test_search_filters_by_finish_group(client) -> None:
+    """RN-05 (camada 1): finish_group restringe os resultados pelo grupo do acabamento."""
+    matching = client.get(
+        "/api/v1/components",
+        params={"family": "Mesas de Reunião", "finish": "Carvalho", "finish_group": "madeirado"},
+    )
+    assert matching.status_code == 200
+    body = matching.json()
+    assert body["total"] == 1
+    assert body["items"][0]["finish_group"] == "madeirado"
+
+    mismatched = client.get(
+        "/api/v1/components",
+        params={"family": "Mesas de Reunião", "finish": "Carvalho", "finish_group": "metalico"},
+    )
+    assert mismatched.status_code == 200
+    assert mismatched.json()["total"] == 0
+
+
 def test_get_component_includes_price_history(client) -> None:
     search = client.get("/api/v1/components", params={"finish": "Branco"})
     variant_id = search.json()["items"][0]["component_variant_id"]
@@ -244,6 +263,65 @@ def test_create_compatibility_rule_invalid_reference(client) -> None:
             "component_b_id": 999999,
             "descriptor_b": "Reunião Tampo Inteiro",
         },
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "REFERENCIA_INVALIDA"
+
+
+# ---------------------------------------------------------------------------
+# Composição mínima por família (RN-07, Fase 9)
+# ---------------------------------------------------------------------------
+
+
+def test_family_component_requirements_crud_lifecycle(client) -> None:
+    family = client.post(
+        "/api/v1/catalog/families", json={"name": "Família RN07 CRUD Teste"}
+    ).json()
+    component = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Componente RN07 CRUD Teste"}
+    ).json()
+
+    created = client.post(
+        "/api/v1/catalog/family-component-requirements",
+        json={
+            "family_id": family["id"],
+            "component_id": component["id"],
+            "requirement": "obrigatorio",
+        },
+    )
+    assert created.status_code == 201
+    body = created.json()
+    assert body["requirement"] == "obrigatorio"
+
+    listed = client.get("/api/v1/catalog/family-component-requirements").json()
+    assert any(item["id"] == body["id"] for item in listed)
+
+    patched = client.patch(
+        f"/api/v1/catalog/family-component-requirements/{body['id']}",
+        json={"requirement": "opcional"},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["requirement"] == "opcional"
+
+    duplicate = client.post(
+        "/api/v1/catalog/family-component-requirements",
+        json={
+            "family_id": family["id"],
+            "component_id": component["id"],
+            "requirement": "obrigatorio",
+        },
+    )
+    assert duplicate.status_code == 409
+    assert duplicate.json()["error"]["code"] == "REGISTRO_DUPLICADO"
+
+    deleted = client.delete(f"/api/v1/catalog/family-component-requirements/{body['id']}")
+    assert deleted.status_code == 204
+
+
+def test_family_component_requirements_invalid_reference(client) -> None:
+    response = client.post(
+        "/api/v1/catalog/family-component-requirements",
+        json={"family_id": 999999, "component_id": 999999, "requirement": "obrigatorio"},
     )
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "REFERENCIA_INVALIDA"

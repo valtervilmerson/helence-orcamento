@@ -262,6 +262,23 @@ def _create_variant_with_price(
     return response.json()
 
 
+def _create_variant_with_product(
+    client, *, product_id: int, component_id: int, descriptor: str, sku: str, amount: float = 100
+) -> dict:
+    response = client.post(
+        "/api/v1/components",
+        json={
+            "product_id": product_id,
+            "component_id": component_id,
+            "descriptor": descriptor,
+            "sku": {"code": sku},
+            "price": {"amount": amount, "price_table_id": _vigente_price_table_id()},
+        },
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
 def test_add_component_to_existing_item_without_rule_is_allowed(client) -> None:
     """RN-04: sem regra cadastrada para o par de tipos de componente, não há restrição."""
     tampo = _seeded_variant(client)
@@ -727,3 +744,151 @@ def test_remove_last_component_is_blocked(client) -> None:
     )
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "ULTIMO_COMPONENTE_DA_LINHA"
+
+
+# ---------------------------------------------------------------------------
+# Composição mínima por família (RN-07, Fase 9)
+# ---------------------------------------------------------------------------
+
+
+def test_incomplete_composition_blocks_enviado_until_justified(client) -> None:
+    family = client.post("/api/v1/catalog/families", json={"name": "Família RN07 Teste"}).json()
+    product = client.post(
+        "/api/v1/catalog/products",
+        json={"family_id": family["id"], "name": "Produto RN07 Teste"},
+    ).json()
+    tampo_type = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Tampo RN07 Teste"}
+    ).json()
+    estrutura_type = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Estrutura RN07 Teste"}
+    ).json()
+
+    for component_type in (tampo_type, estrutura_type):
+        rule = client.post(
+            "/api/v1/catalog/family-component-requirements",
+            json={
+                "family_id": family["id"],
+                "component_id": component_type["id"],
+                "requirement": "obrigatorio",
+            },
+        )
+        assert rule.status_code == 201
+
+    tampo_variant = _create_variant_with_product(
+        client,
+        product_id=product["id"],
+        component_id=tampo_type["id"],
+        descriptor="Tampo RN07 Teste",
+        sku="TOP-RN07",
+    )
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    item = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "label": "Item RN07 Teste",
+            "product_id": product["id"],
+            "components": [{"component_variant_id": tampo_variant["component_variant_id"]}],
+        },
+    ).json()
+    assert item["missing_required_components"] == ["Estrutura RN07 Teste"]
+
+    blocked = client.patch(f"/api/v1/quotes/{quote['id']}", json={"status": "enviado"})
+    assert blocked.status_code == 422
+    assert blocked.json()["error"]["code"] == "COMPOSICAO_INCOMPLETA"
+    details = blocked.json()["error"]["details"]
+    assert details["items"][0]["item_id"] == item["id"]
+    assert details["items"][0]["missing"] == ["Estrutura RN07 Teste"]
+
+    patched = client.patch(
+        f"/api/v1/quotes/{quote['id']}/items/{item['id']}",
+        json={"composition_justification": "Cliente fornecerá a estrutura — uso da própria mesa existente."},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["composition_justification"] is not None
+    assert patched.json()["missing_required_components"] == ["Estrutura RN07 Teste"]
+
+    sent = client.patch(f"/api/v1/quotes/{quote['id']}", json={"status": "enviado"})
+    assert sent.status_code == 200
+
+
+def test_missing_required_components_cleared_after_adding_component(client) -> None:
+    family = client.post("/api/v1/catalog/families", json={"name": "Família RN07 Teste B"}).json()
+    product = client.post(
+        "/api/v1/catalog/products",
+        json={"family_id": family["id"], "name": "Produto RN07 Teste B"},
+    ).json()
+    tampo_type = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Tampo RN07 Teste B"}
+    ).json()
+    estrutura_type = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Estrutura RN07 Teste B"}
+    ).json()
+
+    for component_type in (tampo_type, estrutura_type):
+        rule = client.post(
+            "/api/v1/catalog/family-component-requirements",
+            json={
+                "family_id": family["id"],
+                "component_id": component_type["id"],
+                "requirement": "obrigatorio",
+            },
+        )
+        assert rule.status_code == 201
+
+    tampo_variant = _create_variant_with_product(
+        client,
+        product_id=product["id"],
+        component_id=tampo_type["id"],
+        descriptor="Tampo RN07 Teste B",
+        sku="TOP-RN07-B",
+    )
+    estrutura_variant = _create_variant_with_product(
+        client,
+        product_id=product["id"],
+        component_id=estrutura_type["id"],
+        descriptor="Estrutura RN07 Teste B",
+        sku="EST-RN07-B",
+    )
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    item = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "label": "Item RN07 Teste B",
+            "product_id": product["id"],
+            "components": [{"component_variant_id": tampo_variant["component_variant_id"]}],
+        },
+    ).json()
+    assert item["missing_required_components"] == ["Estrutura RN07 Teste B"]
+
+    added = client.post(
+        f"/api/v1/quotes/{quote['id']}/items/{item['id']}/components",
+        json={"component_variant_id": estrutura_variant["component_variant_id"]},
+    )
+    assert added.status_code == 201
+    assert added.json()["missing_required_components"] == []
+
+    sent = client.patch(f"/api/v1/quotes/{quote['id']}", json={"status": "enviado"})
+    assert sent.status_code == 200
+
+
+def test_item_without_known_family_requirements_never_blocks_enviado(client) -> None:
+    """Itens cuja família não tem exigências cadastradas (caso comum, sem
+    requisitos conhecidos) nunca têm pendências e nunca bloqueiam o envio."""
+    variant = _seeded_variant(client)
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    item = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": variant["component_variant_id"],
+            "label": "Item RN07 sem exigências",
+            "quantity": 1,
+        },
+    ).json()
+    assert item["missing_required_components"] == []
+
+    sent = client.patch(f"/api/v1/quotes/{quote['id']}", json={"status": "enviado"})
+    assert sent.status_code == 200

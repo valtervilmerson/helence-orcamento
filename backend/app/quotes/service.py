@@ -30,6 +30,7 @@ from app.shared.errors import (
     CampoObrigatorioAusenteError,
     ClienteNaoEncontradoError,
     ComponenteNaoEncontradoError,
+    ComposicaoIncompletaError,
     DescontoInvalidoError,
     DescontoSemJustificativaError,
     DescritorIncompativelError,
@@ -152,6 +153,30 @@ def _component_row_to_out(row: sqlite3.Row) -> QuoteItemComponentOut:
     )
 
 
+def _missing_required_components(connection: sqlite3.Connection, item_row: sqlite3.Row) -> list[str]:
+    """RN-07: nomes dos tipos de componente obrigatórios da família do item
+    que ainda não estão presentes na linha.
+
+    Itens sem família derivável (nenhum componente aponta para um produto
+    com `family_id`) não têm exigência conhecida — retorna lista vazia.
+    """
+    family_id = repository.get_item_family_id(connection, item_row["id"])
+    if family_id is None:
+        return []
+
+    required = repository.get_family_required_components(connection, family_id)
+    if not required:
+        return []
+
+    present_component_ids: set[int] = set()
+    for variant_id in repository.get_item_component_variant_ids(connection, item_row["id"]):
+        descriptor = repository.get_variant_descriptor(connection, variant_id)
+        if descriptor is not None:
+            present_component_ids.add(descriptor["component_id"])
+
+    return [row["name"] for row in required if row["component_id"] not in present_component_ids]
+
+
 def _build_item_out(connection: sqlite3.Connection, item_row: sqlite3.Row) -> QuoteItemOut:
     component_rows = repository.get_item_components(connection, item_row["id"])
     components = [_component_row_to_out(row) for row in component_rows]
@@ -170,6 +195,8 @@ def _build_item_out(connection: sqlite3.Connection, item_row: sqlite3.Row) -> Qu
         discount_amount=item_row["discount_amount"],
         discount_reason=item_row["discount_reason"],
         notes=item_row["notes"],
+        composition_justification=item_row["composition_justification"],
+        missing_required_components=_missing_required_components(connection, item_row),
         components=components,
         line_subtotal=round(subtotal, 2),
     )
@@ -488,6 +515,23 @@ def update_item(
 # ---------------------------------------------------------------------------
 
 
+def _check_composition_completeness(connection: sqlite3.Connection, quote_id: int) -> None:
+    """RN-07: bloqueia rascunho -> enviado se houver linha sem componente(s)
+    obrigatório(s) e sem justificativa registrada."""
+    incomplete_items = []
+    for item_row in repository.list_items_with_components(connection, quote_id):
+        if item_row["composition_justification"]:
+            continue
+        missing = _missing_required_components(connection, item_row)
+        if missing:
+            incomplete_items.append(
+                {"item_id": item_row["id"], "label": item_row["label"], "missing": missing}
+            )
+
+    if incomplete_items:
+        raise ComposicaoIncompletaError(details={"items": incomplete_items})
+
+
 def update_status(connection: sqlite3.Connection, quote_id: int, new_status: str) -> QuoteOut:
     current_status = repository.get_quote_status(connection, quote_id)
     if current_status is None:
@@ -498,6 +542,9 @@ def update_status(connection: sqlite3.Connection, quote_id: int, new_status: str
         raise TransicaoInvalidaError(
             details={"from": current_status, "to": new_status, "allowed": sorted(allowed)}
         )
+
+    if new_status == "enviado":
+        _check_composition_completeness(connection, quote_id)
 
     repository.update_quote_status(connection, quote_id, new_status)
     return get_quote(connection, quote_id)

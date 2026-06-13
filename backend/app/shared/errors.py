@@ -201,6 +201,15 @@ class UltimoComponenteError(DomainError):
     )
 
 
+class ComposicaoIncompletaError(DomainError):
+    code = "COMPOSICAO_INCOMPLETA"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = (
+        "Uma ou mais linhas estão sem componente(s) obrigatório(s) e sem "
+        "justificativa registrada."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Importações (docs/06, seção 14.1/14.2)
 # ---------------------------------------------------------------------------

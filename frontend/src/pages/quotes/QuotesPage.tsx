@@ -3,6 +3,7 @@ import {
   listFamilies,
   searchComponents,
   type ComponentVariant,
+  type FinishGroup,
   type ProductFamily,
 } from '../../api/catalog'
 import {
@@ -111,10 +112,17 @@ function ComponentPicker({
   families,
   onPick,
   pickLabel = 'Adicionar',
+  dimensionFilter,
+  finishGroupFilter,
 }: {
   families: ProductFamily[]
   onPick: (variant: ComponentVariant) => void
   pickLabel?: string
+  // RN-03: restringe os resultados à dimensão já escolhida para a linha.
+  dimensionFilter?: string | null
+  // RN-05 (camada 1): restringe os resultados ao finish_group compatível
+  // com o tipo de componente sendo selecionado.
+  finishGroupFilter?: FinishGroup | null
 }) {
   const [familyFilter, setFamilyFilter] = useState('')
   const [results, setResults] = useState<ComponentVariant[]>([])
@@ -124,7 +132,11 @@ function ComponentPicker({
   useEffect(() => {
     async function runSearch() {
       try {
-        const result = await searchComponents({ family: familyFilter || undefined })
+        const result = await searchComponents({
+          family: familyFilter || undefined,
+          dimension: dimensionFilter || undefined,
+          finish_group: finishGroupFilter || undefined,
+        })
         setResults(result.items)
         setError(null)
       } catch (err) {
@@ -132,7 +144,7 @@ function ComponentPicker({
       }
     }
     void runSearch()
-  }, [familyFilter])
+  }, [familyFilter, dimensionFilter, finishGroupFilter])
 
   function handlePick() {
     const variant = results.find((item) => item.component_variant_id === Number(variantId))
@@ -217,10 +229,19 @@ function NewItemForm({
 
   const pendingTotal = pending.reduce((sum, variant) => sum + (variant.price?.amount ?? 0), 0)
 
+  // RN-03: depois do primeiro componente escolhido, restringe os próximos à
+  // mesma dimensão (ex.: tampo e estrutura de uma mesma mesa).
+  const dimensionFilter = pending[0]?.dimension?.raw_label ?? null
+
   return (
     <section>
       <h3>Adicionar item</h3>
-      <ComponentPicker families={families} onPick={handlePick} pickLabel="+ componente" />
+      <ComponentPicker
+        families={families}
+        onPick={handlePick}
+        pickLabel="+ componente"
+        dimensionFilter={dimensionFilter}
+      />
       {pending.length > 0 && (
         <ul>
           {pending.map((variant, index) => (
@@ -266,6 +287,18 @@ function EditItemPanel({
 }) {
   const [error, setError] = useState<string | null>(null)
   const [swapResults, setSwapResults] = useState<Record<number, QuoteItemComponentSwap>>({})
+  const [justification, setJustification] = useState(item.composition_justification ?? '')
+
+  async function handleSaveJustification(event: React.FormEvent) {
+    event.preventDefault()
+    setError(null)
+    try {
+      await updateItem(quoteId, item.id, { composition_justification: justification || null })
+      onChanged()
+    } catch (err) {
+      setError(describeError(err))
+    }
+  }
 
   async function handleSwap(componentId: number, variant: ComponentVariant) {
     setError(null)
@@ -311,6 +344,24 @@ function EditItemPanel({
     <tr>
       <td colSpan={5} style={{ background: '#f7f7f7' }}>
         <strong>Editar composição — {item.label}</strong>
+        {item.missing_required_components.length > 0 && (
+          <div style={{ color: 'crimson', marginTop: '0.25rem' }}>
+            <p>
+              Pendências: faltam componente(s) obrigatório(s) —{' '}
+              {item.missing_required_components.join(', ')}.
+            </p>
+            <form onSubmit={handleSaveJustification} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+              <textarea
+                placeholder="Justificativa para linha incompleta"
+                value={justification}
+                onChange={(e) => setJustification(e.target.value)}
+                rows={2}
+                style={{ flex: 1 }}
+              />
+              <button type="submit">salvar justificativa</button>
+            </form>
+          </div>
+        )}
         <ul>
           {item.components.map((component) => {
             const swap = swapResults[component.id]

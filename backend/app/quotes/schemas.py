@@ -89,6 +89,7 @@ class QuoteItemPatchIn(BaseModel):
     discount_amount: float | None = None
     discount_reason: str | None = None
     notes: str | None = None
+    composition_justification: str | None = None
 
 
 class QuoteItemComponentOut(BaseModel):
@@ -109,6 +110,8 @@ class QuoteItemOut(BaseModel):
     discount_amount: float | None = None
     discount_reason: str | None = None
     notes: str | None = None
+    composition_justification: str | None = None
+    missing_required_components: list[str] = []
     components: list[QuoteItemComponentOut]
     line_subtotal: float
 

@@ -185,11 +185,14 @@ dimensions = SimpleRepository(
     "dimensions", ["width_mm", "depth_mm", "diameter_mm", "height_mm", "raw_label"]
 )
 finishes = SimpleRepository("finishes", ["name", "finish_group", "description"])
-product_components = SimpleRepository("product_components", ["name", "description"])
+product_components = SimpleRepository("product_components", ["name", "description", "finish_group"])
 products = SimpleRepository("products", ["family_id", "name", "dimension_id"])
 compatibility_rules = SimpleRepository(
     "component_compatibility_rules",
     ["component_a_id", "descriptor_a", "component_b_id", "descriptor_b", "notes"],
+)
+family_component_requirements = SimpleRepository(
+    "family_component_requirements", ["family_id", "component_id", "requirement"]
 )
 
 
@@ -211,6 +214,7 @@ _VARIANT_SEARCH_BASE = """
         d.height_mm AS dim_height_mm,
         d.raw_label AS dim_raw_label,
         f.name AS finish,
+        f.finish_group AS finish_group,
         s.code AS sku,
         pr.amount AS price_amount,
         pr.currency AS price_currency,
@@ -238,6 +242,7 @@ def search_variants(
     component: str | None = None,
     dimension: str | None = None,
     finish: str | None = None,
+    finish_group: str | None = None,
     q: str | None = None,
     page: int = 1,
     page_size: int = 50,
@@ -260,6 +265,9 @@ def search_variants(
     if finish:
         conditions.append("f.name = ?")
         params.append(finish)
+    if finish_group:
+        conditions.append("f.finish_group = ?")
+        params.append(finish_group)
     if q:
         conditions.append("(cv.description LIKE ? OR cv.descriptor LIKE ? OR s.code LIKE ?)")
         like = f"%{q}%"

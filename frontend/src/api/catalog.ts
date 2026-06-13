@@ -99,11 +99,16 @@ export interface ProductComponentType {
   id: number
   name: string
   description: string | null
+  finish_group: FinishGroup | null
 }
 
 export const listComponentTypes = () =>
   request<ProductComponentType[]>('/catalog/component-types')
-export const createComponentType = (data: { name: string; description?: string | null }) =>
+export const createComponentType = (data: {
+  name: string
+  description?: string | null
+  finish_group?: FinishGroup | null
+}) =>
   request<ProductComponentType>('/catalog/component-types', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -165,6 +170,7 @@ export interface ComponentVariant {
   description: string | null
   dimension: ComponentVariantDimension | null
   finish: string | null
+  finish_group: FinishGroup | null
   sku: string | null
   price: ComponentVariantPrice | null
   price_table: ComponentVariantPriceTable | null

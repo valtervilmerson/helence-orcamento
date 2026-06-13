@@ -42,6 +42,7 @@ def test_migrations_are_idempotent(connection) -> None:
         "0003_imported_files_status",
         "0004_import_processing",
         "0005_compatibility_rules",
+        "0006_family_component_requirements",
     ]
     assert second == []
 
@@ -52,6 +53,7 @@ def test_migrations_are_idempotent(connection) -> None:
         "0003_imported_files_status",
         "0004_import_processing",
         "0005_compatibility_rules",
+        "0006_family_component_requirements",
     ]
 
 
