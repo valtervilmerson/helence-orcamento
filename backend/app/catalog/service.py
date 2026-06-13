@@ -346,7 +346,7 @@ def _resolve_dimension(connection: sqlite3.Connection, dimension_raw: str | None
     )
 
 
-def _publish_item(connection: sqlite3.Connection, item: sqlite3.Row, price_table_id: int) -> None:
+def publish_item(connection: sqlite3.Connection, item: sqlite3.Row, price_table_id: int) -> None:
     item_id = item["id"]
 
     missing = [field for field in ("component_type_raw", "sku_raw", "price_raw") if not item[field]]
@@ -419,7 +419,7 @@ def _publish_item(connection: sqlite3.Connection, item: sqlite3.Row, price_table
     sku_id = repository.get_or_create_sku(connection, item["sku_raw"], None)
 
     try:
-        repository.insert_price(
+        repository.upsert_price(
             connection,
             component_variant_id=variant_id,
             sku_id=sku_id,
@@ -430,7 +430,7 @@ def _publish_item(connection: sqlite3.Connection, item: sqlite3.Row, price_table
         )
     except sqlite3.IntegrityError as exc:
         connection.rollback()
-        raise PrecoDuplicadoError(details={"extracted_item_id": item_id}) from exc
+        raise ItemPublicacaoInvalidoError(details={"extracted_item_id": item_id}) from exc
 
 
 def publish_price_table(
@@ -461,7 +461,7 @@ def publish_price_table(
         items = imports_repository.list_approved_items(connection, import_id)
 
     for item in items:
-        _publish_item(connection, item, price_table_id)
+        publish_item(connection, item, price_table_id)
 
     previous_vigente = None
     current_vigente = repository.get_vigente_price_table(connection)

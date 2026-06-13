@@ -7,7 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, Uplo
 from app.config import get_settings
 from app.db.connection import get_connection
 from app.files.storage import FileStorage
-from app.imports import repository, service
+from app.imports import json_ingest, repository, service
 from app.imports.schemas import (
     BatchCorrectionApplyIn,
     BatchCorrectionApplyOut,
@@ -16,6 +16,8 @@ from app.imports.schemas import (
     BatchReviewOut,
     ExtractedItemsListOut,
     ImportedFileOut,
+    ImportJsonIn,
+    ImportJsonOut,
     ImportListOut,
     ImportStatusOut,
     ProcessImportIn,
@@ -55,6 +57,15 @@ def upload_import(
         notes=notes,
         max_upload_size_bytes=settings.max_upload_size_mb * 1024 * 1024,
     )
+
+
+@router.post("/json", response_model=ImportJsonOut, status_code=status.HTTP_201_CREATED)
+def import_json(
+    body: ImportJsonIn,
+    connection: sqlite3.Connection = Depends(get_db),
+    storage: FileStorage = Depends(get_storage),
+) -> ImportJsonOut:
+    return json_ingest.ingest_json(connection, body, storage=storage)
 
 
 @router.get("", response_model=ImportListOut)

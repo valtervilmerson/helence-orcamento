@@ -891,13 +891,16 @@ caminho.
   `data/exemplo_importacao_reunioes.json` (concluído nesta entrega).
 - Endpoint `POST /api/v1/imports/json`, resolução/criação de entidades
   por nome, cálculo de `confidence_level`, fast path (auto-aprovação +
-  publicação) e geração de `import_warnings` (próxima rodada — ver
-  seção 6 de `docs/10`).
+  publicação) e geração de `import_warnings` (concluído nesta entrega
+  — `backend/app/imports/json_ingest.py`).
 
-**Arquivos/módulos prováveis**: novo módulo dentro de
-`backend/app/imports/` (ex.: `json_ingest.py`), reaproveitando
-`backend/app/catalog/` para resolução/criação de entidades e a fila de
-revisão já existente (`extracted_items`, `ReviewPage.tsx`).
+**Arquivos/módulos implementados**: `backend/app/imports/json_ingest.py`
+(novo), reaproveitando `backend/app/catalog/service.py::publish_item`
+(Fase 7, tornada pública para este fim) para resolução/criação de
+entidades e publicação, e a fila de revisão já existente
+(`extracted_items`, `ReviewPage.tsx`). `prices` ganhou um `upsert`
+(`catalog/repository.py::upsert_price`) para permitir reimportar a
+mesma `price_table.code` atualizando preços de variações já publicadas.
 
 **Critérios de aceite**:
 - Importar `data/exemplo_importacao_reunioes.json` cria os itens
@@ -907,12 +910,16 @@ revisão já existente (`extracted_items`, `ReviewPage.tsx`).
 - O pipeline de PDF (Fases 4-6) continua funcionando sem alterações —
   os dois caminhos convergem na mesma fila de revisão.
 
-**Testes mínimos**:
+**Testes mínimos** (`backend/tests/integration/test_imports_json.py`,
+6 testes, concluído):
 - Teste de fast path (item com tudo já cadastrado → vira preço/variação
   publicada sem passar pela fila).
 - Teste de revisão por entidade nova (família/produto/componente/
   acabamento inexistente → `pendente` + `import_warning` explicativo).
 - Teste de revisão por `notes`/`confidence` ausente.
+- Teste de import duplicado (`ARQUIVO_DUPLICADO`) e de reimportação do
+  mesmo `price_table.code` (reaproveita a tabela em rascunho e
+  atualiza o preço da variação via `upsert_price`).
 
 **Riscos**:
 - Drift entre o contrato documentado e o que o agente de IA externo

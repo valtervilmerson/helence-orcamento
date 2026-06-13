@@ -37,6 +37,26 @@ def insert_imported_file(
     return int(cursor.lastrowid)
 
 
+def insert_imported_file_json(
+    connection: sqlite3.Connection,
+    *,
+    file_path: str,
+    file_hash: str,
+    original_filename: str | None,
+    notes: str | None,
+) -> int:
+    cursor = connection.execute(
+        """
+        INSERT INTO imported_files
+            (file_path, file_hash, original_filename, status, notes, page_count)
+        VALUES (?, ?, ?, 'concluido', ?, 1)
+        """,
+        (file_path, file_hash, original_filename, notes),
+    )
+    connection.commit()
+    return int(cursor.lastrowid)
+
+
 def get_imported_file(connection: sqlite3.Connection, import_id: int) -> sqlite3.Row | None:
     return connection.execute(_IMPORT_BASE + " WHERE f.id = ?", (import_id,)).fetchone()
 

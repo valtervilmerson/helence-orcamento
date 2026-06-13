@@ -59,6 +59,28 @@ def get_price_table(connection: sqlite3.Connection, price_table_id: int) -> sqli
     ).fetchone()
 
 
+def get_price_table_by_code(connection: sqlite3.Connection, code: str) -> sqlite3.Row | None:
+    return connection.execute("SELECT * FROM price_tables WHERE code = ?", (code,)).fetchone()
+
+
+def insert_price_table(
+    connection: sqlite3.Connection,
+    *,
+    code: str,
+    name: str | None,
+    valid_from: str | None,
+    source_imported_file_id: int | None,
+) -> int:
+    cursor = connection.execute(
+        """
+        INSERT INTO price_tables (code, name, valid_from, source_imported_file_id)
+        VALUES (?, ?, ?, ?)
+        """,
+        (code, name, valid_from, source_imported_file_id),
+    )
+    return int(cursor.lastrowid)
+
+
 def get_vigente_price_table(connection: sqlite3.Connection) -> sqlite3.Row | None:
     return connection.execute("SELECT * FROM price_tables WHERE status = 'vigente'").fetchone()
 
@@ -327,6 +349,32 @@ def insert_price(
         (component_variant_id, sku_id, price_table_id, amount, currency, source_extracted_item_id),
     )
     return int(cursor.lastrowid)
+
+
+def upsert_price(
+    connection: sqlite3.Connection,
+    *,
+    component_variant_id: int,
+    sku_id: int,
+    price_table_id: int,
+    amount: float,
+    currency: str,
+    source_extracted_item_id: int | None = None,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO prices
+            (component_variant_id, sku_id, price_table_id, amount, currency,
+             source_extracted_item_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (component_variant_id, price_table_id) DO UPDATE SET
+            sku_id = excluded.sku_id,
+            amount = excluded.amount,
+            currency = excluded.currency,
+            source_extracted_item_id = excluded.source_extracted_item_id
+        """,
+        (component_variant_id, sku_id, price_table_id, amount, currency, source_extracted_item_id),
+    )
 
 
 def update_variant(connection: sqlite3.Connection, variant_id: int, data: dict[str, Any]) -> None:

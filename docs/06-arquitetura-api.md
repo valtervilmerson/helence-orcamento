@@ -825,6 +825,80 @@ vocabulário fechado de acabamentos da Fase 6).
 
 ---
 
+### 14.7a — Importação via contrato JSON (planilhas)
+**`POST /api/v1/imports/json`**
+
+Caminho alternativo ao pipeline de PDF (14.1-14.7), para fontes em
+planilha Excel normalizadas por um agente de IA externo no contrato
+JSON v1.0 (`docs/10-contrato-importacao-json.md`). Cada item do
+envelope gera uma linha em `extracted_items` (mesma trilha de auditoria
+do pipeline de PDF) e segue **revisão por exceção**:
+
+- **Fast path** (`review_status: "aprovado"`): `confidence >= 0.9`,
+  `notes` ausente e `family`/`product_context`/`component_type`/`finish`
+  já existem no catálogo — o item é publicado imediatamente em
+  `component_variants`/`skus`/`prices` (reaproveita a mesma lógica de
+  resolução/criação por nome de 14.7).
+- Qualquer outro caso → `review_status: "pendente"`, com um
+  `import_warning` por motivo (confiança baixa/média, `notes` do
+  agente, ou entidade nova) — segue o fluxo normal de revisão (14.5/14.6)
+  e publicação (14.7).
+
+`price_table.code`: se já existir, os itens novos são adicionados/
+atualizados nessa mesma versão (ainda em `rascunho`); senão, uma nova
+`price_tables` é criada em `rascunho`. Reimportar um SKU já publicado
+para a mesma `price_table.code` **atualiza o preço** (upsert por
+`(component_variant_id, price_table_id)`), sem gerar erro de duplicidade.
+
+Não há páginas reais para imports JSON — é criada uma única
+`imported_pages` sintética (`page_profile: "json_import"`).
+
+*Request* (resumido — ver contrato completo em docs/10):
+```json
+{
+  "contract_version": "1.0",
+  "price_table": { "code": "01-2026", "name": "Tabela de Preços 01-2026" },
+  "source": { "description": "TABELA DE PRECO 01-2026_REUNIOES.xlsx", "generated_by": "agente-ia-externo" },
+  "items": [
+    {
+      "ref": "REUNIOES.xlsx!P900!L6,9",
+      "family": "Mesas de Reunião",
+      "product_context": "Reunião 1200x900",
+      "component_type": "Tampo",
+      "dimension": "1200x900",
+      "finish": "Argila",
+      "sku": "3981113028",
+      "price": 421.03,
+      "confidence": 0.97,
+      "notes": null
+    }
+  ]
+}
+```
+
+*Response* `201 Created`:
+```json
+{
+  "imported_file_id": 42,
+  "price_table": { "id": 7, "code": "01-2026", "status": "rascunho" },
+  "items_total": 1,
+  "items_published": 1,
+  "items_pending_review": 0,
+  "warnings_count": 0,
+  "items": [
+    { "ref": "REUNIOES.xlsx!P900!L6,9", "extracted_item_id": 501, "review_status": "aprovado", "reasons": null }
+  ]
+}
+```
+
+*Erros*:
+| código | HTTP | quando |
+|---|---|---|
+| `ARQUIVO_DUPLICADO` | 409 | já existe um import com o mesmo conteúdo JSON (`details.existing_import_id`) |
+| `422` (validação padrão do FastAPI) | 422 | corpo fora do contrato (ex.: `contract_version` diferente de `"1.0"`, `items` vazio, `price < 0`, `confidence` fora de `[0,1]`) |
+
+---
+
 ### 14.8 — Busca de catálogo
 **`GET /api/v1/catalog/search?family=&product=&component=&dimension=&finish=&q=&page=`**
 

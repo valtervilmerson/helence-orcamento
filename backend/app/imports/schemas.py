@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.catalog.schemas import FinishGroup, PriceTableSummary
 from app.quotes.schemas import UserSummary
@@ -207,3 +207,62 @@ class BatchReviewOut(BaseModel):
     succeeded_count: int
     failed_count: int
     results: list[BatchReviewResultItem]
+
+
+# ---------------------------------------------------------------------------
+# Importação via contrato JSON (docs/10; docs/07, Fase 13)
+# ---------------------------------------------------------------------------
+
+ImportJsonReviewStatus = Literal["aprovado", "pendente"]
+
+
+class ImportJsonPriceTableIn(BaseModel):
+    code: str
+    name: str | None = None
+    valid_from: str | None = None
+
+
+class ImportJsonSourceIn(BaseModel):
+    description: str | None = None
+    generated_by: str | None = None
+    generated_at: str | None = None
+
+
+class ImportJsonItemIn(BaseModel):
+    ref: str | None = None
+    family: str
+    product_context: str
+    component_type: str
+    description: str | None = None
+    dimension: str
+    finish: str
+    finish_group: FinishGroup | None = None
+    sku: str
+    price: float = Field(ge=0)
+    currency: str = "BRL"
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    notes: str | None = None
+
+
+class ImportJsonIn(BaseModel):
+    contract_version: Literal["1.0"]
+    price_table: ImportJsonPriceTableIn
+    source: ImportJsonSourceIn | None = None
+    items: list[ImportJsonItemIn] = Field(min_length=1)
+
+
+class ImportJsonItemResult(BaseModel):
+    ref: str | None
+    extracted_item_id: int
+    review_status: ImportJsonReviewStatus
+    reasons: list[str] | None = None
+
+
+class ImportJsonOut(BaseModel):
+    imported_file_id: int
+    price_table: PriceTableSummary
+    items_total: int
+    items_published: int
+    items_pending_review: int
+    warnings_count: int
+    items: list[ImportJsonItemResult]
