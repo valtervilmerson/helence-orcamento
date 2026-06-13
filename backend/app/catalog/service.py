@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import sqlite3
 from typing import Any
@@ -39,6 +40,8 @@ from app.shared.errors import (
     TabelaPrecoStatusInvalidoError,
     VariacaoDuplicadaError,
 )
+
+logger = logging.getLogger("app.domain.catalog")
 
 # ---------------------------------------------------------------------------
 # CRUD genérico para entidades de referência simples
@@ -476,6 +479,14 @@ def publish_price_table(
 
     repository.set_price_table_status(connection, price_table_id, "vigente")
     connection.commit()
+
+    logger.info(
+        "Tabela de preços #%s (%s): publicada como vigente (%s itens, substitui %s)",
+        price_table_id,
+        table["code"],
+        len(items),
+        previous_vigente.code if previous_vigente else "nenhuma",
+    )
 
     return PublishOut(
         price_table_id=price_table_id,

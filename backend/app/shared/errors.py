@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger("app.error")
 
 
 class DomainError(Exception):
@@ -380,6 +383,15 @@ class ItemPublicacaoInvalidoError(DomainError):
 
 async def domain_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, DomainError)
+    request_id = getattr(request.state, "request_id", None)
+    logger.warning(
+        "%s %s -> %s %s",
+        request.method,
+        request.url.path,
+        exc.status_code,
+        exc.code,
+        extra={"request_id": request_id},
+    )
     return JSONResponse(
         status_code=exc.status_code,
         content=error_envelope(exc.code, exc.message, exc.details),
@@ -388,6 +400,13 @@ async def domain_error_handler(request: Request, exc: Exception) -> JSONResponse
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     request_id = getattr(request.state, "request_id", None)
+    logger.error(
+        "%s %s -> 500 ERRO_INTERNO",
+        request.method,
+        request.url.path,
+        exc_info=exc,
+        extra={"request_id": request_id},
+    )
     details = {"request_id": request_id} if request_id else {}
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

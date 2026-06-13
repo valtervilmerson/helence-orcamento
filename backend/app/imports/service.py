@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import sqlite3
 from datetime import datetime
 
@@ -57,6 +58,8 @@ from app.shared.errors import (
     ParametroInvalidoError,
     ValorIncompativelError,
 )
+
+logger = logging.getLogger("app.domain.imports")
 
 PDF_MAGIC = b"%PDF-"
 
@@ -214,6 +217,7 @@ def run_processing(import_id: int, file_path: str) -> None:
     conexão e faz commit incremental por página, para que o polling em
     `GET /imports/{id}/status` reflita o progresso real.
     """
+    logger.info("Importação #%s: processamento iniciado (%s)", import_id, file_path)
     with get_connection() as connection:
         try:
             document = fitz.open(file_path)
@@ -275,6 +279,11 @@ def run_processing(import_id: int, file_path: str) -> None:
             repository.mark_processing_finished(
                 connection, import_id, finished_at=_now(), page_count=document.page_count
             )
+            logger.info(
+                "Importação #%s: processamento concluído (%s páginas)",
+                import_id,
+                document.page_count,
+            )
         except Exception as exc:  # noqa: BLE001 - registrado como erro de domínio na importação
             connection.rollback()
             repository.mark_processing_error(
@@ -284,6 +293,7 @@ def run_processing(import_id: int, file_path: str) -> None:
                 error_code="ERRO_PROCESSAMENTO",
                 error_message=str(exc),
             )
+            logger.error("Importação #%s: processamento falhou", import_id, exc_info=exc)
 
 
 def _extracted_item_row_to_out(row: sqlite3.Row) -> ExtractedItemOut:
@@ -422,6 +432,7 @@ def review_item(
         new_review_status = "aprovado"
 
     repository.set_extracted_item_review_status(connection, item_id, new_review_status)
+    logger.info("Item extraído #%s: decisão de revisão -> %s", item_id, new_review_status)
 
     decision_id = repository.insert_review_decision(
         connection,

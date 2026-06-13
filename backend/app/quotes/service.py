@@ -7,6 +7,7 @@ Forma simplificada da Fase 3 (docs/07): cada `quote_item` tem exatamente um
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from datetime import datetime
 from typing import Any
@@ -53,6 +54,8 @@ from app.shared.errors import (
     VariacaoIncompativelError,
     VariacaoNaoEncontradaError,
 )
+
+logger = logging.getLogger("app.domain.quotes")
 
 ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
     "rascunho": {"enviado", "rejeitado", "expirado"},
@@ -735,6 +738,9 @@ def update_status(connection: sqlite3.Connection, quote_id: int, new_status: str
         _check_composition_completeness(connection, quote_id)
 
     repository.update_quote_status(connection, quote_id, new_status)
+    logger.info(
+        "Orçamento #%s: status %s -> %s", quote_id, current_status, new_status
+    )
     return get_quote(connection, quote_id)
 
 
@@ -798,6 +804,12 @@ def freeze_totals(connection: sqlite3.Connection, quote_id: int) -> QuoteTotalsO
         freight_amount=totals["freight_amount"],
         total=totals["total"],
         currency=totals["currency"],
+    )
+    logger.info(
+        "Orçamento #%s: totais congelados (total=%.2f %s)",
+        quote_id,
+        totals["total"],
+        totals["currency"],
     )
 
     return QuoteTotalsOut(
