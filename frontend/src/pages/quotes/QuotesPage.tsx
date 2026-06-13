@@ -13,6 +13,7 @@ import {
   createQuote,
   duplicateQuote,
   freezeTotals,
+  getReviewChecklist,
   getTotals,
   listCustomers,
   listItems,
@@ -26,6 +27,7 @@ import {
   type Quote,
   type QuoteItem,
   type QuoteItemComponentSwap,
+  type QuoteReviewChecklist,
   type QuoteStatus,
   type QuoteTotals,
 } from '../../api/quotes'
@@ -516,18 +518,21 @@ function QuoteDetail({
   const [items, setItems] = useState<QuoteItem[]>([])
   const [families, setFamilies] = useState<ProductFamily[]>([])
   const [totals, setTotals] = useState<QuoteTotals | null>(null)
+  const [checklist, setChecklist] = useState<QuoteReviewChecklist | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function reload() {
     try {
-      const [itemsData, familiesData, totalsData] = await Promise.all([
+      const [itemsData, familiesData, totalsData, checklistData] = await Promise.all([
         listItems(quote.id),
         listFamilies(),
         getTotals(quote.id),
+        getReviewChecklist(quote.id),
       ])
       setItems(itemsData)
       setFamilies(familiesData)
       setTotals(totalsData)
+      setChecklist(checklistData)
       setError(null)
     } catch (err) {
       setError(describeError(err))
@@ -629,6 +634,26 @@ function QuoteDetail({
         <NewItemForm quoteId={quote.id} families={families} onAdded={() => void reload()} />
       )}
 
+      {checklist && (
+        <section>
+          <h3>Checklist de revisão final (RN-18)</h3>
+          <ul>
+            {checklist.items.map((checkItem) => (
+              <li key={checkItem.code} style={{ color: checkItem.ok ? 'inherit' : 'crimson' }}>
+                {checkItem.ok ? '✓' : '✗'} {checkItem.label}
+                {!checkItem.ok && (
+                  <ul>
+                    {checkItem.pendencias.map((pendencia, index) => (
+                      <li key={index}>{pendencia}</li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {totals && (
         <section>
           <h3>Totais{totals.is_snapshot ? ' (congelado)' : ' (ao vivo)'}</h3>
@@ -642,7 +667,9 @@ function QuoteDetail({
               {warning.message}
             </p>
           ))}
-          <button onClick={handleFreeze}>Congelar total</button>
+          <button onClick={handleFreeze} disabled={!checklist?.ready}>
+            Congelar total
+          </button>
         </section>
       )}
 

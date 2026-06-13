@@ -1185,6 +1185,59 @@ true`.
 
 ---
 
+### 14.13b — Checklist de revisão final (RN-18)
+
+**`GET /api/v1/quotes/{quoteId}/review-checklist`** — retorna o
+checklist explícito de revisão final descrito em RN-18, com cada
+pendência nomeada e acionável. É o mesmo checklist usado para decidir
+o erro `REVISAO_PENDENTE` em `/totals/freeze`.
+
+*Response* `200 OK`:
+```json
+{
+  "quote_id": 245,
+  "ready": false,
+  "items": [
+    {
+      "code": "COMPOSICAO_COMPLETA",
+      "label": "Todas as linhas têm os componentes obrigatórios (RN-07)",
+      "ok": false,
+      "pendencias": ["Linha 'Reunião 1200x900' está sem: Estrutura."]
+    },
+    {
+      "code": "COMPONENTES_COM_PRECO_E_SKU",
+      "label": "Nenhum componente está sem preço ou SKU (RN-12/13)",
+      "ok": true,
+      "pendencias": []
+    },
+    {
+      "code": "CLIENTE_E_ITENS",
+      "label": "Cliente definido e ao menos um item",
+      "ok": true,
+      "pendencias": []
+    },
+    {
+      "code": "DESCONTOS_JUSTIFICADOS",
+      "label": "Descontos têm justificativa registrada (RN-09)",
+      "ok": true,
+      "pendencias": []
+    }
+  ]
+}
+```
+
+**Gap conhecido**: o item 5 da RN-18 (reconhecimento explícito de
+tabela não-vigente/mista, RN-15) ainda não está neste checklist —
+depende de definição comercial pendente (docs/05, pergunta de
+validação 5/10) e de um campo de confirmação ainda não modelado.
+
+*Erros*:
+| código | HTTP | quando |
+|---|---|---|
+| `ORCAMENTO_NAO_ENCONTRADO` | 404 | — |
+
+---
+
 ### 14.14 — Exportação de orçamento
 **`GET /api/v1/quotes/{quoteId}/export?format=pdf`**
 

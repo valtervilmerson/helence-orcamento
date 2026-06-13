@@ -212,3 +212,23 @@ export interface QuoteTotals {
 export const getTotals = (quoteId: number) => request<QuoteTotals>(`/quotes/${quoteId}/totals`)
 export const freezeTotals = (quoteId: number) =>
   request<QuoteTotals>(`/quotes/${quoteId}/totals/freeze`, { method: 'POST' })
+
+// ---------------------------------------------------------------------------
+// Checklist de revisão final — RN-18
+// ---------------------------------------------------------------------------
+
+export interface QuoteReviewChecklistItem {
+  code: string
+  label: string
+  ok: boolean
+  pendencias: string[]
+}
+
+export interface QuoteReviewChecklist {
+  quote_id: number
+  ready: boolean
+  items: QuoteReviewChecklistItem[]
+}
+
+export const getReviewChecklist = (quoteId: number) =>
+  request<QuoteReviewChecklist>(`/quotes/${quoteId}/review-checklist`)

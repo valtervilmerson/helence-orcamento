@@ -23,6 +23,8 @@ from app.quotes.schemas import (
     QuoteItemOut,
     QuoteItemPatchIn,
     QuoteOut,
+    QuoteReviewChecklistItem,
+    QuoteReviewChecklistOut,
     QuoteTotalsOut,
     QuoteTotalWarning,
     UserSummary,
@@ -42,6 +44,7 @@ from app.shared.errors import (
     OrcamentoNaoEncontradoError,
     OrcamentoVazioError,
     QuantidadeInvalidaError,
+    RevisaoPendenteError,
     StatusInvalidoError,
     TransicaoInvalidaError,
     UltimoComponenteError,
@@ -49,8 +52,6 @@ from app.shared.errors import (
     VariacaoNaoEncontradaError,
 )
 
-# RN-18 (revisão final) é deliberadamente adiada — aqui validamos apenas que
-# a transição respeita a ordem natural do ciclo de vida.
 ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
     "rascunho": {"enviado", "rejeitado", "expirado"},
     "enviado": {"aprovado", "rejeitado", "expirado"},
@@ -625,6 +626,98 @@ def _check_composition_completeness(connection: sqlite3.Connection, quote_id: in
         raise ComposicaoIncompletaError(details={"items": incomplete_items})
 
 
+def _build_review_checklist(
+    connection: sqlite3.Connection, quote_id: int
+) -> list[QuoteReviewChecklistItem]:
+    """RN-18: checklist explícito de revisão final, com cada pendência nomeada
+    e acionável.
+
+    Item 5 (reconhecimento de tabela não-vigente/mista, RN-15) depende de
+    definição comercial ainda em aberto (docs/05, pergunta de validação 5/10)
+    e de um campo de confirmação ainda não modelado — fica fora desta versão
+    do checklist.
+    """
+    item_rows = repository.list_items_with_components(connection, quote_id)
+    quote_row = repository.get_quote_row(connection, quote_id)
+
+    # 1. RN-07 — toda linha tem os componentes obrigatórios (ou justificativa).
+    composicao_pendencias = []
+    for item_row in item_rows:
+        if item_row["composition_justification"]:
+            continue
+        missing = _missing_required_components(connection, item_row)
+        if missing:
+            composicao_pendencias.append(
+                f"Linha '{item_row['label']}' está sem: {', '.join(missing)}."
+            )
+
+    # 2. RN-12/13 — nenhum componente sem SKU/preço congelado (rede de segurança).
+    preco_pendencias = []
+    for item_row in item_rows:
+        for component_row in repository.get_item_components(connection, item_row["id"]):
+            if component_row["frozen_unit_price"] is None or not component_row["sku"]:
+                preco_pendencias.append(
+                    f"Linha '{item_row['label']}' tem componente sem preço/SKU congelado."
+                )
+
+    # 3. Cliente definido e ao menos um item.
+    cliente_item_pendencias = []
+    if quote_row["customer_id"] is None:
+        cliente_item_pendencias.append("Orçamento sem cliente definido.")
+    if not item_rows:
+        cliente_item_pendencias.append("Orçamento não tem nenhuma linha.")
+
+    # 4. RN-09 — descontos com justificativa registrada.
+    desconto_pendencias = []
+    for item_row in item_rows:
+        has_discount = (
+            item_row["discount_percent"] is not None or item_row["discount_amount"] is not None
+        )
+        if has_discount and not item_row["discount_reason"]:
+            desconto_pendencias.append(
+                f"Linha '{item_row['label']}' tem desconto sem justificativa registrada."
+            )
+
+    return [
+        QuoteReviewChecklistItem(
+            code="COMPOSICAO_COMPLETA",
+            label="Todas as linhas têm os componentes obrigatórios (RN-07)",
+            ok=not composicao_pendencias,
+            pendencias=composicao_pendencias,
+        ),
+        QuoteReviewChecklistItem(
+            code="COMPONENTES_COM_PRECO_E_SKU",
+            label="Nenhum componente está sem preço ou SKU (RN-12/13)",
+            ok=not preco_pendencias,
+            pendencias=preco_pendencias,
+        ),
+        QuoteReviewChecklistItem(
+            code="CLIENTE_E_ITENS",
+            label="Cliente definido e ao menos um item",
+            ok=not cliente_item_pendencias,
+            pendencias=cliente_item_pendencias,
+        ),
+        QuoteReviewChecklistItem(
+            code="DESCONTOS_JUSTIFICADOS",
+            label="Descontos têm justificativa registrada (RN-09)",
+            ok=not desconto_pendencias,
+            pendencias=desconto_pendencias,
+        ),
+    ]
+
+
+def get_review_checklist(connection: sqlite3.Connection, quote_id: int) -> QuoteReviewChecklistOut:
+    if not repository.quote_exists(connection, quote_id):
+        raise OrcamentoNaoEncontradoError(details={"id": quote_id})
+
+    checklist = _build_review_checklist(connection, quote_id)
+    return QuoteReviewChecklistOut(
+        quote_id=quote_id,
+        ready=all(item.ok for item in checklist),
+        items=checklist,
+    )
+
+
 def update_status(connection: sqlite3.Connection, quote_id: int, new_status: str) -> QuoteOut:
     current_status = repository.get_quote_status(connection, quote_id)
     if current_status is None:
@@ -684,6 +777,13 @@ def freeze_totals(connection: sqlite3.Connection, quote_id: int) -> QuoteTotalsO
     entries = _items_with_components(connection, quote_id)
     if not entries:
         raise OrcamentoVazioError(details={"quote_id": quote_id})
+
+    checklist = _build_review_checklist(connection, quote_id)
+    pending = [item for item in checklist if not item.ok]
+    if pending:
+        raise RevisaoPendenteError(
+            details={"checklist": [item.model_dump() for item in pending]}
+        )
 
     totals = pricing.compute_totals(entries)
     row = repository.upsert_quote_totals(

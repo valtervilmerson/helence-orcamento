@@ -974,3 +974,120 @@ def test_duplicate_unknown_quote_is_not_found(client) -> None:
     response = client.post("/api/v1/quotes/999999/duplicate")
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "ORCAMENTO_NAO_ENCONTRADO"
+
+
+# ---------------------------------------------------------------------------
+# RN-18 — checklist de revisão final
+# ---------------------------------------------------------------------------
+
+
+def test_review_checklist_ready_for_simple_quote(client) -> None:
+    family = client.post(
+        "/api/v1/catalog/families", json={"name": "Família RN18 Checklist"}
+    ).json()
+    product = client.post(
+        "/api/v1/catalog/products",
+        json={"family_id": family["id"], "name": "Produto RN18 Checklist"},
+    ).json()
+    component_type = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Tampo RN18 Checklist"}
+    ).json()
+    variant = _create_variant_with_product(
+        client,
+        product_id=product["id"],
+        component_id=component_type["id"],
+        descriptor="Tampo RN18 Checklist",
+        sku="TOP-RN18-CHECKLIST",
+    )
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": variant["component_variant_id"],
+            "label": "Item RN18 Checklist",
+            "quantity": 1,
+        },
+    )
+
+    checklist = client.get(f"/api/v1/quotes/{quote['id']}/review-checklist")
+    assert checklist.status_code == 200
+    body = checklist.json()
+    assert body["ready"] is True
+    assert all(item["ok"] for item in body["items"])
+
+    frozen = client.post(f"/api/v1/quotes/{quote['id']}/totals/freeze")
+    assert frozen.status_code == 200
+
+
+def test_review_checklist_empty_quote_is_not_ready(client) -> None:
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+
+    checklist = client.get(f"/api/v1/quotes/{quote['id']}/review-checklist").json()
+    assert checklist["ready"] is False
+    cliente_item = next(item for item in checklist["items"] if item["code"] == "CLIENTE_E_ITENS")
+    assert cliente_item["ok"] is False
+    assert "nenhuma linha" in cliente_item["pendencias"][0]
+
+
+def test_review_checklist_not_found(client) -> None:
+    response = client.get("/api/v1/quotes/999999/review-checklist")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "ORCAMENTO_NAO_ENCONTRADO"
+
+
+def test_freeze_blocked_by_incomplete_composition_checklist(client) -> None:
+    family = client.post("/api/v1/catalog/families", json={"name": "Família RN18 Teste"}).json()
+    product = client.post(
+        "/api/v1/catalog/products",
+        json={"family_id": family["id"], "name": "Produto RN18 Teste"},
+    ).json()
+    tampo_type = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Tampo RN18 Teste"}
+    ).json()
+    estrutura_type = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Estrutura RN18 Teste"}
+    ).json()
+
+    for component_type in (tampo_type, estrutura_type):
+        rule = client.post(
+            "/api/v1/catalog/family-component-requirements",
+            json={
+                "family_id": family["id"],
+                "component_id": component_type["id"],
+                "requirement": "obrigatorio",
+            },
+        )
+        assert rule.status_code == 201
+
+    tampo_variant = _create_variant_with_product(
+        client,
+        product_id=product["id"],
+        component_id=tampo_type["id"],
+        descriptor="Tampo RN18 Teste",
+        sku="TOP-RN18",
+    )
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "label": "Item RN18 Teste",
+            "product_id": product["id"],
+            "components": [{"component_variant_id": tampo_variant["component_variant_id"]}],
+        },
+    )
+
+    checklist = client.get(f"/api/v1/quotes/{quote['id']}/review-checklist").json()
+    assert checklist["ready"] is False
+    composicao_item = next(
+        item for item in checklist["items"] if item["code"] == "COMPOSICAO_COMPLETA"
+    )
+    assert composicao_item["ok"] is False
+    assert "Estrutura RN18 Teste" in composicao_item["pendencias"][0]
+
+    frozen = client.post(f"/api/v1/quotes/{quote['id']}/totals/freeze")
+    assert frozen.status_code == 409
+    assert frozen.json()["error"]["code"] == "REVISAO_PENDENTE"
+    details = frozen.json()["error"]["details"]
+    assert details["checklist"][0]["code"] == "COMPOSICAO_COMPLETA"

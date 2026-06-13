@@ -128,6 +128,24 @@ class QuoteStatusPatchIn(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Checklist de revisão final — RN-18 (docs/05)
+# ---------------------------------------------------------------------------
+
+
+class QuoteReviewChecklistItem(BaseModel):
+    code: str
+    label: str
+    ok: bool
+    pendencias: list[str] = []
+
+
+class QuoteReviewChecklistOut(BaseModel):
+    quote_id: int
+    ready: bool
+    items: list[QuoteReviewChecklistItem]
+
+
+# ---------------------------------------------------------------------------
 # Totais — 14.13
 # ---------------------------------------------------------------------------
 

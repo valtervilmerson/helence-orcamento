@@ -210,6 +210,15 @@ class ComposicaoIncompletaError(DomainError):
     )
 
 
+class RevisaoPendenteError(DomainError):
+    code = "REVISAO_PENDENTE"
+    status_code = status.HTTP_409_CONFLICT
+    message = (
+        "O checklist de revisão final (RN-18) aponta pendências — resolva-as "
+        "antes de congelar os totais."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Importações (docs/06, seção 14.1/14.2)
 # ---------------------------------------------------------------------------

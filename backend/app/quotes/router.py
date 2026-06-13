@@ -16,6 +16,7 @@ from app.quotes.schemas import (
     QuoteItemOut,
     QuoteItemPatchIn,
     QuoteOut,
+    QuoteReviewChecklistOut,
     QuoteStatusPatchIn,
     QuoteTotalsOut,
 )
@@ -137,6 +138,13 @@ def remove_component(
     connection: sqlite3.Connection = Depends(get_db),
 ) -> QuoteItemOut:
     return service.remove_component(connection, quote_id, item_id, component_id)
+
+
+@router.get("/{quote_id}/review-checklist", response_model=QuoteReviewChecklistOut)
+def get_review_checklist(
+    quote_id: int, connection: sqlite3.Connection = Depends(get_db)
+) -> QuoteReviewChecklistOut:
+    return service.get_review_checklist(connection, quote_id)
 
 
 @router.get("/{quote_id}/totals", response_model=QuoteTotalsOut)
