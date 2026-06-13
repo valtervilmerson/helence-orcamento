@@ -46,13 +46,14 @@ def insert_quote(
     price_table_id: int,
     valid_until: str | None,
     notes: str | None,
+    source_quote_id: int | None = None,
 ) -> int:
     cursor = connection.execute(
         """
-        INSERT INTO quotes (quote_number, customer_id, price_table_id, status, valid_until, notes)
-        VALUES (?, ?, ?, 'rascunho', ?, ?)
+        INSERT INTO quotes (quote_number, customer_id, price_table_id, status, valid_until, notes, source_quote_id)
+        VALUES (?, ?, ?, 'rascunho', ?, ?, ?)
         """,
-        (quote_number, customer_id, price_table_id, valid_until, notes),
+        (quote_number, customer_id, price_table_id, valid_until, notes, source_quote_id),
     )
     connection.commit()
     return int(cursor.lastrowid)
@@ -66,6 +67,7 @@ _QUOTE_BASE = """
         q.created_at AS created_at,
         q.valid_until AS valid_until,
         q.notes AS notes,
+        q.source_quote_id AS source_quote_id,
         c.id AS customer_id,
         c.name AS customer_name,
         pt.id AS price_table_id,
@@ -337,6 +339,7 @@ def update_item(connection: sqlite3.Connection, item_id: int, data: dict[str, An
             "discount_reason",
             "notes",
             "composition_justification",
+            "duplication_pendencias",
         )
         if c in data
     ]

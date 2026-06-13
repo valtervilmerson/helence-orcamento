@@ -42,6 +42,7 @@ class QuoteOut(BaseModel):
     created_at: str
     valid_until: str | None = None
     notes: str | None = None
+    source_quote_id: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +113,7 @@ class QuoteItemOut(BaseModel):
     notes: str | None = None
     composition_justification: str | None = None
     missing_required_components: list[str] = []
+    pricing_pendencias: list[str] = []
     components: list[QuoteItemComponentOut]
     line_subtotal: float
 

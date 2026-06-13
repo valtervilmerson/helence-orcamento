@@ -892,3 +892,85 @@ def test_item_without_known_family_requirements_never_blocks_enviado(client) -> 
 
     sent = client.patch(f"/api/v1/quotes/{quote['id']}", json={"status": "enviado"})
     assert sent.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Duplicação de orçamento (RN-17, Fase 9)
+# ---------------------------------------------------------------------------
+
+
+def test_duplicate_quote_clean_copy(client) -> None:
+    variant = _seeded_variant(client)
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": variant["component_variant_id"],
+            "label": "Mesa Reunião 1200x900 — Carvalho",
+            "quantity": 2,
+        },
+    )
+
+    response = client.post(f"/api/v1/quotes/{quote['id']}/duplicate")
+    assert response.status_code == 201
+
+    duplicated = response.json()
+    assert duplicated["id"] != quote["id"]
+    assert duplicated["quote_number"] != quote["quote_number"]
+    assert duplicated["status"] == "rascunho"
+    assert duplicated["source_quote_id"] == quote["id"]
+    assert duplicated["customer"]["id"] == quote["customer"]["id"]
+
+    items = client.get(f"/api/v1/quotes/{duplicated['id']}/items").json()
+    assert len(items) == 1
+    assert items[0]["label"] == "Mesa Reunião 1200x900 — Carvalho"
+    assert items[0]["quantity"] == 2
+    assert items[0]["pricing_pendencias"] == []
+    assert len(items[0]["components"]) == 1
+    assert items[0]["components"][0]["component_variant_id"] == variant["component_variant_id"]
+
+
+def test_duplicate_quote_flags_pricing_pendencia_when_repricing_fails(client) -> None:
+    variant = _seeded_variant(client)
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": variant["component_variant_id"],
+            "label": "Mesa Reunião 1200x900 — Carvalho",
+            "quantity": 1,
+        },
+    )
+
+    # Publica uma nova tabela vigente sem preço cadastrado para essa variação
+    with get_connection() as connection:
+        connection.execute(
+            "UPDATE price_tables SET status = 'substituida' WHERE status = 'vigente'"
+        )
+        connection.execute(
+            "INSERT INTO price_tables (code, name, status) "
+            "VALUES ('NOVA-VIGENTE-RN17', 'Nova', 'vigente')"
+        )
+        connection.commit()
+
+    response = client.post(f"/api/v1/quotes/{quote['id']}/duplicate")
+    assert response.status_code == 201
+    duplicated = response.json()
+
+    items = client.get(f"/api/v1/quotes/{duplicated['id']}/items").json()
+    assert len(items) == 1
+    assert items[0]["components"] == []
+    assert len(items[0]["pricing_pendencias"]) == 1
+    assert variant["sku"] in items[0]["pricing_pendencias"][0]
+
+    # Pendência persiste em consultas subsequentes (não só na resposta da duplicação)
+    refetched = client.get(f"/api/v1/quotes/{duplicated['id']}/items/{items[0]['id']}").json()
+    assert refetched["pricing_pendencias"] == items[0]["pricing_pendencias"]
+
+
+def test_duplicate_unknown_quote_is_not_found(client) -> None:
+    response = client.post("/api/v1/quotes/999999/duplicate")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "ORCAMENTO_NAO_ENCONTRADO"

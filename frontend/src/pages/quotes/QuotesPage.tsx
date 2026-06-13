@@ -11,6 +11,7 @@ import {
   addComponent,
   addItem,
   createQuote,
+  duplicateQuote,
   freezeTotals,
   getTotals,
   listCustomers,
@@ -452,6 +453,13 @@ function ItemRow({
               {c.sku} — {c.frozen_currency} {c.frozen_unit_price.toFixed(2)}
             </div>
           ))}
+          {item.pricing_pendencias.length > 0 && (
+            <div style={{ color: 'crimson', marginTop: '0.25rem' }}>
+              {item.pricing_pendencias.map((pendencia, index) => (
+                <p key={index}>{pendencia}</p>
+              ))}
+            </div>
+          )}
         </td>
         <td>
           <form onSubmit={handleSave} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
@@ -496,7 +504,15 @@ function ItemRow({
   )
 }
 
-function QuoteDetail({ quote, onChanged }: { quote: Quote; onChanged: () => void }) {
+function QuoteDetail({
+  quote,
+  onChanged,
+  onDuplicated,
+}: {
+  quote: Quote
+  onChanged: () => void
+  onDuplicated: (quote: Quote) => void
+}) {
   const [items, setItems] = useState<QuoteItem[]>([])
   const [families, setFamilies] = useState<ProductFamily[]>([])
   const [totals, setTotals] = useState<QuoteTotals | null>(null)
@@ -548,6 +564,22 @@ function QuoteDetail({ quote, onChanged }: { quote: Quote; onChanged: () => void
     void reload()
   }
 
+  async function handleDuplicate() {
+    setError(null)
+    const confirmed = window.confirm(
+      `Este orçamento será duplicado com os preços da tabela vigente atual. ` +
+        `Os valores podem ser diferentes dos deste orçamento (tabela ${quote.price_table.code}). Continuar?`,
+    )
+    if (!confirmed) return
+
+    try {
+      const duplicated = await duplicateQuote(quote.id)
+      onDuplicated(duplicated)
+    } catch (err) {
+      setError(describeError(err))
+    }
+  }
+
   const transitions = STATUS_TRANSITIONS[quote.status] ?? []
 
   return (
@@ -558,6 +590,12 @@ function QuoteDetail({ quote, onChanged }: { quote: Quote; onChanged: () => void
       <p>
         Status: <strong>{quote.status}</strong> | Tabela de preço: {quote.price_table.code} (
         {quote.price_table.status})
+      </p>
+      {quote.source_quote_id !== null && <p>Duplicado do orçamento #{quote.source_quote_id}.</p>}
+      <p>
+        <button type="button" onClick={() => void handleDuplicate()}>
+          Duplicar orçamento
+        </button>
       </p>
       {transitions.length > 0 && (
         <p>
@@ -640,6 +678,11 @@ export function QuotesPage() {
     setSelectedQuoteId(quote.id)
   }
 
+  function handleDuplicated(quote: Quote) {
+    setQuotes((prev) => [...prev, quote])
+    setSelectedQuoteId(quote.id)
+  }
+
   const selectedQuote = quotes.find((q) => q.id === selectedQuoteId) ?? null
 
   async function handleSelectionChanged() {
@@ -666,7 +709,13 @@ export function QuotesPage() {
 
       <NewQuoteForm customers={customers} onCreated={handleCreated} />
 
-      {selectedQuote && <QuoteDetail quote={selectedQuote} onChanged={() => void handleSelectionChanged()} />}
+      {selectedQuote && (
+        <QuoteDetail
+          quote={selectedQuote}
+          onChanged={() => void handleSelectionChanged()}
+          onDuplicated={handleDuplicated}
+        />
+      )}
     </div>
   )
 }

@@ -72,6 +72,7 @@ export interface Quote {
   created_at: string
   valid_until: string | null
   notes: string | null
+  source_quote_id: number | null
 }
 
 export const listQuotes = () => request<Quote[]>('/quotes')
@@ -80,6 +81,8 @@ export const createQuote = (data: { customer_id: number; valid_until?: string | 
   request<Quote>('/quotes', { method: 'POST', body: JSON.stringify(data) })
 export const updateQuoteStatus = (id: number, status: QuoteStatus) =>
   request<Quote>(`/quotes/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) })
+export const duplicateQuote = (id: number) =>
+  request<Quote>(`/quotes/${id}/duplicate`, { method: 'POST' })
 
 // ---------------------------------------------------------------------------
 // Itens — 14.11/14.12 (um único componente por item)
@@ -105,6 +108,7 @@ export interface QuoteItem {
   notes: string | null
   composition_justification: string | null
   missing_required_components: string[]
+  pricing_pendencias: string[]
   components: QuoteItemComponent[]
   line_subtotal: number
 }

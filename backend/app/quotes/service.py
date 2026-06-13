@@ -6,6 +6,7 @@ Forma simplificada da Fase 3 (docs/07): cada `quote_item` tem exatamente um
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import datetime
 from typing import Any
@@ -81,6 +82,7 @@ def _row_to_quote_out(row: sqlite3.Row) -> QuoteOut:
         created_at=row["created_at"],
         valid_until=row["valid_until"],
         notes=row["notes"],
+        source_quote_id=row["source_quote_id"],
     )
 
 
@@ -126,6 +128,90 @@ def create_quote(
         notes=notes,
     )
     return get_quote(connection, quote_id)
+
+
+def duplicate_quote(connection: sqlite3.Connection, quote_id: int) -> QuoteOut:
+    """RN-17: duplica a estrutura do orçamento, reprecificando contra a
+    tabela vigente atual.
+
+    Componentes que não existirem mais (ou não tiverem preço/SKU) na nova
+    tabela vigente não bloqueiam a duplicação — ficam de fora da linha e a
+    pendência é registrada em `duplication_pendencias` para revisão.
+    """
+    source_row = repository.get_quote_row(connection, quote_id)
+    if source_row is None:
+        raise OrcamentoNaoEncontradoError(details={"id": quote_id})
+
+    price_table = repository.get_current_price_table(connection)
+    if price_table is None:
+        raise NenhumaTabelaVigenteError()
+
+    quote_number = repository.next_quote_number(connection)
+    new_quote_id = repository.insert_quote(
+        connection,
+        quote_number=quote_number,
+        customer_id=source_row["customer_id"],
+        price_table_id=price_table["id"],
+        valid_until=None,
+        notes=source_row["notes"],
+        source_quote_id=quote_id,
+    )
+
+    for item_row in repository.list_items_with_components(connection, quote_id):
+        new_item_id = repository.insert_item(
+            connection,
+            quote_id=new_quote_id,
+            product_id=item_row["product_id"],
+            label=item_row["label"],
+            quantity=item_row["quantity"],
+            notes=item_row["notes"],
+        )
+
+        if (
+            item_row["discount_percent"] is not None
+            or item_row["discount_amount"] is not None
+            or item_row["discount_reason"] is not None
+        ):
+            repository.update_item(
+                connection,
+                new_item_id,
+                {
+                    "discount_percent": item_row["discount_percent"],
+                    "discount_amount": item_row["discount_amount"],
+                    "discount_reason": item_row["discount_reason"],
+                },
+            )
+
+        pendencias: list[str] = []
+        for component_row in repository.get_item_components(connection, item_row["id"]):
+            variant_id = component_row["component_variant_id"]
+            try:
+                price_row = _get_frozen_price_row(connection, new_quote_id, variant_id)
+            except (VariacaoNaoEncontradaError, ItemSemPrecoError, ItemSemSkuError):
+                descriptor = repository.get_variant_descriptor(connection, variant_id)
+                descricao = descriptor["descriptor"] if descriptor is not None else f"variação {variant_id}"
+                pendencias.append(
+                    f"Componente '{descricao}' (SKU {component_row['sku']}) sem preço/SKU "
+                    "na tabela vigente — revisar."
+                )
+                continue
+
+            repository.insert_item_component(
+                connection,
+                quote_item_id=new_item_id,
+                component_variant_id=variant_id,
+                sku_id=price_row["sku_id"],
+                frozen_unit_price=price_row["amount"],
+                frozen_currency=price_row["currency"],
+                price_source_id=price_row["price_id"],
+            )
+
+        if pendencias:
+            repository.update_item(
+                connection, new_item_id, {"duplication_pendencias": json.dumps(pendencias)}
+            )
+
+    return get_quote(connection, new_quote_id)
 
 
 def _require_draft_quote(connection: sqlite3.Connection, quote_id: int) -> str:
@@ -177,6 +263,12 @@ def _missing_required_components(connection: sqlite3.Connection, item_row: sqlit
     return [row["name"] for row in required if row["component_id"] not in present_component_ids]
 
 
+def _pricing_pendencias(item_row: sqlite3.Row) -> list[str]:
+    """RN-17: pendências de reprecificação registradas ao duplicar o orçamento."""
+    raw = item_row["duplication_pendencias"]
+    return json.loads(raw) if raw else []
+
+
 def _build_item_out(connection: sqlite3.Connection, item_row: sqlite3.Row) -> QuoteItemOut:
     component_rows = repository.get_item_components(connection, item_row["id"])
     components = [_component_row_to_out(row) for row in component_rows]
@@ -197,6 +289,7 @@ def _build_item_out(connection: sqlite3.Connection, item_row: sqlite3.Row) -> Qu
         notes=item_row["notes"],
         composition_justification=item_row["composition_justification"],
         missing_required_components=_missing_required_components(connection, item_row),
+        pricing_pendencias=_pricing_pendencias(item_row),
         components=components,
         line_subtotal=round(subtotal, 2),
     )

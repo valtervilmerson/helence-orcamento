@@ -58,6 +58,11 @@ def update_quote_status(
     return service.update_status(connection, quote_id, payload.status)
 
 
+@router.post("/{quote_id}/duplicate", response_model=QuoteOut, status_code=status.HTTP_201_CREATED)
+def duplicate_quote(quote_id: int, connection: sqlite3.Connection = Depends(get_db)) -> QuoteOut:
+    return service.duplicate_quote(connection, quote_id)
+
+
 @router.post("/{quote_id}/items", response_model=QuoteItemOut, status_code=status.HTTP_201_CREATED)
 def add_item(
     quote_id: int, payload: QuoteItemCreateIn, connection: sqlite3.Connection = Depends(get_db)
