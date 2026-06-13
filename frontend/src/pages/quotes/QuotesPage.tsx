@@ -12,6 +12,7 @@ import {
   addItem,
   createQuote,
   duplicateQuote,
+  exportQuotePdf,
   freezeTotals,
   getReviewChecklist,
   getTotals,
@@ -569,6 +570,21 @@ function QuoteDetail({
     void reload()
   }
 
+  async function handleExportPdf() {
+    setError(null)
+    try {
+      const blob = await exportQuotePdf(quote.id)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${quote.quote_number}.pdf`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(describeError(err))
+    }
+  }
+
   async function handleDuplicate() {
     setError(null)
     const confirmed = window.confirm(
@@ -669,6 +685,9 @@ function QuoteDetail({
           ))}
           <button onClick={handleFreeze} disabled={!checklist?.ready}>
             Congelar total
+          </button>
+          <button onClick={() => void handleExportPdf()} disabled={!totals.is_snapshot} style={{ marginLeft: '0.5rem' }}>
+            Exportar PDF
           </button>
         </section>
       )}

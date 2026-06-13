@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from app.catalog.schemas import PriceTableSummary
-from app.quotes import pricing, repository
+from app.quotes import export, pricing, repository
 from app.quotes.schemas import (
     CustomerSummary,
     QuoteItemComponentCreateIn,
@@ -37,6 +37,7 @@ from app.shared.errors import (
     DescontoInvalidoError,
     DescontoSemJustificativaError,
     DescritorIncompativelError,
+    FormatoInvalidoError,
     ItemNaoEncontradoError,
     ItemSemPrecoError,
     ItemSemSkuError,
@@ -46,6 +47,7 @@ from app.shared.errors import (
     QuantidadeInvalidaError,
     RevisaoPendenteError,
     StatusInvalidoError,
+    TotaisNaoCalculadosError,
     TransicaoInvalidaError,
     UltimoComponenteError,
     VariacaoIncompativelError,
@@ -815,3 +817,30 @@ def freeze_totals(connection: sqlite3.Connection, quote_id: int) -> QuoteTotalsO
 
 def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
+
+
+# ---------------------------------------------------------------------------
+# Exportação — 14.14
+# ---------------------------------------------------------------------------
+
+
+def export_quote(connection: sqlite3.Connection, quote_id: int, format: str) -> tuple[bytes, str]:
+    """RN-11/16: exporta o snapshot congelado do orçamento em PDF.
+
+    Retorna `(conteúdo, nome_do_arquivo)`. Exige que os totais já tenham
+    sido congelados (`POST /totals/freeze`) — caso contrário, falha com
+    `TOTAIS_NAO_CALCULADOS`.
+    """
+    if format != "pdf":
+        raise FormatoInvalidoError(details={"format": format})
+
+    quote_row = repository.get_quote_row(connection, quote_id)
+    if quote_row is None:
+        raise OrcamentoNaoEncontradoError(details={"id": quote_id})
+
+    if repository.get_quote_totals_row(connection, quote_id) is None:
+        raise TotaisNaoCalculadosError(details={"id": quote_id})
+
+    pdf_bytes = export.generate_pdf(connection, quote_id)
+    filename = f"{quote_row['quote_number']}.pdf"
+    return pdf_bytes, filename

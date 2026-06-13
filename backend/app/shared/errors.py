@@ -219,6 +219,21 @@ class RevisaoPendenteError(DomainError):
     )
 
 
+class TotaisNaoCalculadosError(DomainError):
+    code = "TOTAIS_NAO_CALCULADOS"
+    status_code = status.HTTP_409_CONFLICT
+    message = (
+        "Os totais deste orçamento ainda não foram congelados — chame "
+        "POST /quotes/{id}/totals/freeze antes de exportar."
+    )
+
+
+class FormatoInvalidoError(DomainError):
+    code = "FORMATO_INVALIDO"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = "Formato de exportação inválido — apenas 'pdf' é suportado."
+
+
 # ---------------------------------------------------------------------------
 # Importações (docs/06, seção 14.1/14.2)
 # ---------------------------------------------------------------------------

@@ -232,3 +232,18 @@ export interface QuoteReviewChecklist {
 
 export const getReviewChecklist = (quoteId: number) =>
   request<QuoteReviewChecklist>(`/quotes/${quoteId}/review-checklist`)
+
+// ---------------------------------------------------------------------------
+// Exportação — 14.14
+// ---------------------------------------------------------------------------
+
+export const exportQuotePdf = async (quoteId: number): Promise<Blob> => {
+  const response = await fetch(`${API_BASE_URL}/quotes/${quoteId}/export?format=pdf`)
+
+  if (!response.ok) {
+    const body = await response.json()
+    throw new QuotesApiError(body as ApiError)
+  }
+
+  return response.blob()
+}

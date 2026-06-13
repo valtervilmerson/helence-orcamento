@@ -3,6 +3,7 @@
 import sqlite3
 
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import Response
 
 from app.db.connection import get_connection
 from app.quotes import service
@@ -157,3 +158,15 @@ def freeze_totals(
     quote_id: int, connection: sqlite3.Connection = Depends(get_db)
 ) -> QuoteTotalsOut:
     return service.freeze_totals(connection, quote_id)
+
+
+@router.get("/{quote_id}/export")
+def export_quote(
+    quote_id: int, format: str = "pdf", connection: sqlite3.Connection = Depends(get_db)
+) -> Response:
+    content, filename = service.export_quote(connection, quote_id, format)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

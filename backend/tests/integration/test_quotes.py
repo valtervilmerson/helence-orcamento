@@ -1091,3 +1091,76 @@ def test_freeze_blocked_by_incomplete_composition_checklist(client) -> None:
     assert frozen.json()["error"]["code"] == "REVISAO_PENDENTE"
     details = frozen.json()["error"]["details"]
     assert details["checklist"][0]["code"] == "COMPOSICAO_COMPLETA"
+
+
+# ---------------------------------------------------------------------------
+# Exportação — 14.14
+# ---------------------------------------------------------------------------
+
+
+def test_export_pdf_after_freeze(client) -> None:
+    family = client.post("/api/v1/catalog/families", json={"name": "Família Export"}).json()
+    product = client.post(
+        "/api/v1/catalog/products",
+        json={"family_id": family["id"], "name": "Produto Export"},
+    ).json()
+    component_type = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Tampo Export"}
+    ).json()
+    variant = _create_variant_with_product(
+        client,
+        product_id=product["id"],
+        component_id=component_type["id"],
+        descriptor="Tampo Export",
+        sku="TOP-EXPORT",
+    )
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": variant["component_variant_id"],
+            "label": "Item Export",
+            "quantity": 1,
+        },
+    )
+
+    freeze = client.post(f"/api/v1/quotes/{quote['id']}/totals/freeze")
+    assert freeze.status_code == 200
+
+    response = client.get(f"/api/v1/quotes/{quote['id']}/export?format=pdf")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert quote["quote_number"] in response.headers["content-disposition"]
+    assert response.content[:4] == b"%PDF"
+
+
+def test_export_blocked_before_freeze(client) -> None:
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    variant = _seeded_variant(client)
+    client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": variant["component_variant_id"],
+            "label": "Item Export Sem Freeze",
+            "quantity": 1,
+        },
+    )
+
+    response = client.get(f"/api/v1/quotes/{quote['id']}/export?format=pdf")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "TOTAIS_NAO_CALCULADOS"
+
+
+def test_export_invalid_format(client) -> None:
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+
+    response = client.get(f"/api/v1/quotes/{quote['id']}/export?format=xlsx")
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "FORMATO_INVALIDO"
+
+
+def test_export_unknown_quote(client) -> None:
+    response = client.get("/api/v1/quotes/999999/export?format=pdf")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "ORCAMENTO_NAO_ENCONTRADO"

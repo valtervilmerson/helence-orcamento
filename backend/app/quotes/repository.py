@@ -391,6 +391,44 @@ def get_family_required_components(connection: sqlite3.Connection, family_id: in
 
 
 # ---------------------------------------------------------------------------
+# Observações de catálogo/fabricante (RN-11)
+# ---------------------------------------------------------------------------
+
+
+def get_catalog_observations_for_quote(connection: sqlite3.Connection, quote_id: int) -> list[str]:
+    """RN-11: observações cadastradas em `business_rules` que se aplicam aos
+    produtos/componentes/tabela de preço usados neste orçamento.
+
+    Distinta das observações do vendedor (`quote_items.notes`) — esta função
+    cobre apenas a fonte "informação do fabricante/catálogo".
+    """
+    rows = connection.execute(
+        """
+        SELECT DISTINCT br.rule_text AS rule_text
+        FROM business_rules br
+        WHERE br.applies_to_price_table_id = (SELECT price_table_id FROM quotes WHERE id = ?)
+           OR br.applies_to_product_id IN (
+               SELECT DISTINCT cv.product_id
+               FROM quote_item_components qic
+               JOIN quote_items qi ON qi.id = qic.quote_item_id
+               JOIN component_variants cv ON cv.id = qic.component_variant_id
+               WHERE qi.quote_id = ? AND cv.product_id IS NOT NULL
+           )
+           OR br.applies_to_component_id IN (
+               SELECT DISTINCT cv.component_id
+               FROM quote_item_components qic
+               JOIN quote_items qi ON qi.id = qic.quote_item_id
+               JOIN component_variants cv ON cv.id = qic.component_variant_id
+               WHERE qi.quote_id = ?
+           )
+        ORDER BY rule_text
+        """,
+        (quote_id, quote_id, quote_id),
+    ).fetchall()
+    return [row["rule_text"] for row in rows]
+
+
+# ---------------------------------------------------------------------------
 # Totais (14.13)
 # ---------------------------------------------------------------------------
 
