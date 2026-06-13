@@ -40,6 +40,34 @@ def test_search_filters_by_finish_and_text(client) -> None:
     assert by_text.json()["items"][0]["finish"] == "Amêndoa"
 
 
+def test_search_combines_filters_as_intersection(client) -> None:
+    combined = client.get(
+        "/api/v1/components",
+        params={
+            "family": "Mesas de Reunião",
+            "product": "Reunião 1200x900",
+            "component": "Tampo",
+            "dimension": "1200x900",
+            "finish": "Carvalho",
+        },
+    )
+    assert combined.status_code == 200
+    body = combined.json()
+    assert body["total"] == 1
+    assert body["items"][0]["finish"] == "Carvalho"
+
+
+def test_search_filter_combination_without_match_returns_empty(client) -> None:
+    response = client.get(
+        "/api/v1/components",
+        params={"family": "Mesas de Reunião", "finish": "Inexistente"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 0
+    assert body["items"] == []
+
+
 def test_get_component_includes_price_history(client) -> None:
     search = client.get("/api/v1/components", params={"finish": "Branco"})
     variant_id = search.json()["items"][0]["component_variant_id"]

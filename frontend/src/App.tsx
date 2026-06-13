@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getHealth } from './api/client'
 import { CatalogPage } from './pages/catalog/CatalogPage'
+import { ConsultaPage } from './pages/catalog/consulta/ConsultaPage'
 import { ImportsPage } from './pages/imports/upload/ImportsPage'
 import { QuotesPage } from './pages/quotes/QuotesPage'
 
@@ -24,6 +25,8 @@ function App() {
         {apiStatus === 'ok' && 'conectada ✅'}
         {apiStatus === 'error' && 'indisponível ❌'}
       </p>
+      <hr />
+      <ConsultaPage />
       <hr />
       <CatalogPage />
       <hr />

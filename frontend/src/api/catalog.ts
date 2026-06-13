@@ -151,6 +151,11 @@ export interface ComponentVariantPriceTable {
   status: string
 }
 
+export interface ComponentVariantPriceHistoryEntry {
+  price_table: ComponentVariantPriceTable
+  price: ComponentVariantPrice
+}
+
 export interface ComponentVariant {
   component_variant_id: number
   family: string | null
@@ -164,6 +169,7 @@ export interface ComponentVariant {
   price: ComponentVariantPrice | null
   price_table: ComponentVariantPriceTable | null
   source: string
+  price_history?: ComponentVariantPriceHistoryEntry[] | null
 }
 
 export interface ComponentVariantSearchResult {
@@ -197,6 +203,7 @@ export interface ComponentVariantInput {
 
 export const createComponent = (data: ComponentVariantInput) =>
   request<ComponentVariant>('/components', { method: 'POST', body: JSON.stringify(data) })
+export const getComponent = (id: number) => request<ComponentVariant>(`/components/${id}`)
 export const deleteComponent = (id: number) =>
   request<void>(`/components/${id}`, { method: 'DELETE' })
 
