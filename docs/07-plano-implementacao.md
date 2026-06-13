@@ -863,6 +863,72 @@ rodar em desenvolvimento").
 
 ---
 
+## Fase 13 — Importação via contrato JSON (planilhas, caminho alternativo ao PDF)
+
+**Objetivo**: oferecer um segundo caminho de importação, paralelo ao
+pipeline de PDF (Fases 4-7), para a nova fonte de preços em planilhas
+Excel — sem que o sistema precise "entender" Excel.
+
+**Por que essa fase vem nessa ordem**: a fonte de preços mudou de PDF
+para planilhas (`data/TABELA DE PRECO 01-2026_*.xlsx`) depois que as
+Fases 4-6 já estavam implementadas. Em vez de construir um novo
+extrator específico para Excel (repetindo o custo/risco descrito na
+Fase 5), a responsabilidade de normalizar a planilha passa para um
+**agente de IA externo**, que produz um JSON seguindo um contrato fixo
+(`docs/10-contrato-importacao-json.md`). O sistema só assume a
+responsabilidade a partir desse JSON — validar, popular
+`extracted_items` e, para itens "limpos", publicar direto no catálogo
+(revisão por exceção). Essa fase depende da Fase 7 (publicação
+`extracted_items` → catálogo), que se torna pré-requisito também deste
+caminho.
+
+**Entregáveis**:
+- Contrato JSON v1.0 (campos, regras de validação e de fast path) e
+  exemplo real gerado a partir de
+  `TABELA DE PRECO 01-2026_REUNIOES.xlsx` e
+  `TABELA DE PRECO 01-2026_REUNIOES BISTRO.xlsx` —
+  `docs/10-contrato-importacao-json.md` e
+  `data/exemplo_importacao_reunioes.json` (concluído nesta entrega).
+- Endpoint `POST /api/v1/imports/json`, resolução/criação de entidades
+  por nome, cálculo de `confidence_level`, fast path (auto-aprovação +
+  publicação) e geração de `import_warnings` (próxima rodada — ver
+  seção 6 de `docs/10`).
+
+**Arquivos/módulos prováveis**: novo módulo dentro de
+`backend/app/imports/` (ex.: `json_ingest.py`), reaproveitando
+`backend/app/catalog/` para resolução/criação de entidades e a fila de
+revisão já existente (`extracted_items`, `ReviewPage.tsx`).
+
+**Critérios de aceite**:
+- Importar `data/exemplo_importacao_reunioes.json` cria os itens
+  esperados em `extracted_items`, com os itens "fast path" já
+  publicados no catálogo e os demais na fila de revisão com os
+  `import_warnings` corretos.
+- O pipeline de PDF (Fases 4-6) continua funcionando sem alterações —
+  os dois caminhos convergem na mesma fila de revisão.
+
+**Testes mínimos**:
+- Teste de fast path (item com tudo já cadastrado → vira preço/variação
+  publicada sem passar pela fila).
+- Teste de revisão por entidade nova (família/produto/componente/
+  acabamento inexistente → `pendente` + `import_warning` explicativo).
+- Teste de revisão por `notes`/`confidence` ausente.
+
+**Riscos**:
+- Drift entre o contrato documentado e o que o agente de IA externo
+  realmente produz. Mitigação: `contract_version` no envelope e
+  validação estrita (`pydantic`) que rejeita JSON fora do formato com
+  erro claro, nunca uma gravação parcial.
+
+**O que não deve ser feito ainda**:
+- Não remover nem alterar o pipeline de PDF — ele permanece como
+  caminho legado válido.
+- Não implementar a migração de `imported_files`/`imported_pages`
+  descrita na seção 3.4 de `docs/10` enquanto a página sintética
+  resolver o caso sem atrito.
+
+---
+
 ## Visão consolidada — o que cada "marco" prova
 
 | Após a fase | O que já está provado, de ponta a ponta |
