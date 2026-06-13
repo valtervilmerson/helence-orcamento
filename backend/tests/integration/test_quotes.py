@@ -17,6 +17,11 @@ def _seeded_variant(client) -> dict:
     return search["items"][0]
 
 
+def _seeded_variant_by_finish(client, finish: str) -> dict:
+    search = client.get("/api/v1/components", params={"finish": finish}).json()
+    return search["items"][0]
+
+
 def test_create_quote_anchors_to_vigente_price_table(client) -> None:
     response = client.post(
         "/api/v1/quotes",
@@ -241,14 +246,16 @@ def _vigente_price_table_id() -> int:
         return row["id"]
 
 
-def _create_variant_with_price(client, *, component_id: int, descriptor: str, sku: str) -> dict:
+def _create_variant_with_price(
+    client, *, component_id: int, descriptor: str, sku: str, amount: float = 100
+) -> dict:
     response = client.post(
         "/api/v1/components",
         json={
             "component_id": component_id,
             "descriptor": descriptor,
             "sku": {"code": sku},
-            "price": {"amount": 100, "price_table_id": _vigente_price_table_id()},
+            "price": {"amount": amount, "price_table_id": _vigente_price_table_id()},
         },
     )
     assert response.status_code == 201
@@ -427,3 +434,207 @@ def test_invalid_quantity_is_blocked(client) -> None:
     )
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "QUANTIDADE_INVALIDA"
+
+
+# ---------------------------------------------------------------------------
+# Composição completa na criação (components[], docs/06 §14.11)
+# ---------------------------------------------------------------------------
+
+
+def test_create_item_with_multiple_components(client) -> None:
+    component_types = client.get("/api/v1/catalog/component-types").json()
+    tampo_id = next(c["id"] for c in component_types if c["name"] == "Tampo")
+
+    tampo_a = _create_variant_with_price(
+        client, component_id=tampo_id, descriptor="Tampo Multi A", sku="TOP-MULTI-A", amount=100
+    )
+    tampo_b = _create_variant_with_price(
+        client, component_id=tampo_id, descriptor="Tampo Multi B", sku="TOP-MULTI-B", amount=150
+    )
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    response = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "label": "Mesa Reunião 1200x900 — composição",
+            "quantity": 1,
+            "components": [
+                {"component_variant_id": tampo_a["component_variant_id"]},
+                {"component_variant_id": tampo_b["component_variant_id"]},
+            ],
+        },
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert len(body["components"]) == 2
+    assert {c["component_variant_id"] for c in body["components"]} == {
+        tampo_a["component_variant_id"],
+        tampo_b["component_variant_id"],
+    }
+    expected_subtotal = tampo_a["price"]["amount"] + tampo_b["price"]["amount"]
+    assert body["line_subtotal"] == round(expected_subtotal, 2)
+
+
+def test_create_item_without_component_variant_id_or_components_is_blocked(client) -> None:
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+
+    response = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={"label": "Sem componentes", "quantity": 1},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "CAMPO_OBRIGATORIO_AUSENTE"
+
+
+def test_create_item_with_components_validates_rn04(client) -> None:
+    component_types = client.get("/api/v1/catalog/component-types").json()
+    tampo_id = next(c["id"] for c in component_types if c["name"] == "Tampo")
+
+    estrutura_type = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Estrutura RN04 Teste D"}
+    ).json()
+
+    tampo_variant = _create_variant_with_price(
+        client, component_id=tampo_id, descriptor="Tampo Inteiro RN04 Teste D", sku="TOP-RN04-D"
+    )
+    estrutura_incompativel = _create_variant_with_price(
+        client,
+        component_id=estrutura_type["id"],
+        descriptor="Estrutura Reunião Tampo Tri-Partido RN04 Teste D",
+        sku="EST-RN04-D",
+    )
+
+    client.post(
+        "/api/v1/catalog/compatibility-rules",
+        json={
+            "component_a_id": tampo_id,
+            "descriptor_a": "Tampo Inteiro RN04 Teste D",
+            "component_b_id": estrutura_type["id"],
+            "descriptor_b": "Estrutura Reunião Tampo Inteiro RN04 Teste D",
+        },
+    )
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    response = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "label": "Mesa Reunião RN04 Teste D",
+            "quantity": 1,
+            "components": [
+                {"component_variant_id": tampo_variant["component_variant_id"]},
+                {"component_variant_id": estrutura_incompativel["component_variant_id"]},
+            ],
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "DESCRITOR_INCOMPATIVEL"
+
+
+# ---------------------------------------------------------------------------
+# Troca de variação com recongelamento (docs/06 §14.12)
+# ---------------------------------------------------------------------------
+
+
+def test_swap_component_variant_recongela_preco(client) -> None:
+    component_types = client.get("/api/v1/catalog/component-types").json()
+    tampo_id = next(c["id"] for c in component_types if c["name"] == "Tampo")
+
+    tampo_a = _create_variant_with_price(
+        client, component_id=tampo_id, descriptor="Tampo Swap A", sku="TOP-SWAP-A", amount=100
+    )
+    tampo_b = _create_variant_with_price(
+        client, component_id=tampo_id, descriptor="Tampo Swap B", sku="TOP-SWAP-B", amount=150
+    )
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    item = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": tampo_a["component_variant_id"],
+            "label": "Mesa Reunião — Tampo Swap A",
+            "quantity": 1,
+        },
+    ).json()
+    component_id = item["components"][0]["id"]
+    previous_price = item["components"][0]["frozen_unit_price"]
+
+    response = client.patch(
+        f"/api/v1/quotes/{quote['id']}/items/{item['id']}/components/{component_id}",
+        json={"component_variant_id": tampo_b["component_variant_id"]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["component_variant_id"] == tampo_b["component_variant_id"]
+    assert body["sku"] == tampo_b["sku"]
+    assert body["previous_frozen_unit_price"] == previous_price
+    assert body["frozen_unit_price"] == tampo_b["price"]["amount"]
+    assert body["price_changed"] is True
+
+    updated_item = client.get(f"/api/v1/quotes/{quote['id']}/items/{item['id']}").json()
+    assert updated_item["components"][0]["frozen_unit_price"] == tampo_b["price"]["amount"]
+
+
+def test_swap_component_variant_to_different_component_type_is_blocked(client) -> None:
+    component_types = client.get("/api/v1/catalog/component-types").json()
+    tampo_id = next(c["id"] for c in component_types if c["name"] == "Tampo")
+
+    tampo = _create_variant_with_price(
+        client, component_id=tampo_id, descriptor="Tampo SWAP Teste", sku="TOP-SWAP-TESTE"
+    )
+
+    estrutura_type = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Estrutura SWAP Teste"}
+    ).json()
+    estrutura_variant = _create_variant_with_price(
+        client,
+        component_id=estrutura_type["id"],
+        descriptor="Estrutura SWAP Teste",
+        sku="EST-SWAP-TESTE",
+    )
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    item = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": tampo["component_variant_id"],
+            "label": "Mesa Reunião — Tampo SWAP Teste",
+            "quantity": 1,
+        },
+    ).json()
+    component_id = item["components"][0]["id"]
+
+    response = client.patch(
+        f"/api/v1/quotes/{quote['id']}/items/{item['id']}/components/{component_id}",
+        json={"component_variant_id": estrutura_variant["component_variant_id"]},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VARIACAO_INCOMPATIVEL"
+
+
+def test_swap_unknown_component_is_not_found(client) -> None:
+    component_types = client.get("/api/v1/catalog/component-types").json()
+    tampo_id = next(c["id"] for c in component_types if c["name"] == "Tampo")
+
+    tampo_a = _create_variant_with_price(
+        client, component_id=tampo_id, descriptor="Tampo Swap C", sku="TOP-SWAP-C"
+    )
+    tampo_b = _create_variant_with_price(
+        client, component_id=tampo_id, descriptor="Tampo Swap D", sku="TOP-SWAP-D"
+    )
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    item = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": tampo_a["component_variant_id"],
+            "label": "Mesa Reunião — Tampo Swap C",
+            "quantity": 1,
+        },
+    ).json()
+
+    response = client.patch(
+        f"/api/v1/quotes/{quote['id']}/items/{item['id']}/components/999999",
+        json={"component_variant_id": tampo_b["component_variant_id"]},
+    )
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "COMPONENTE_NAO_ENCONTRADO"

@@ -49,16 +49,38 @@ class QuoteOut(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class QuoteItemCreateIn(BaseModel):
+class QuoteItemComponentInput(BaseModel):
     component_variant_id: int
+
+
+class QuoteItemCreateIn(BaseModel):
     label: str
     product_id: int | None = None
     quantity: int = Field(default=1, gt=0)
     notes: str | None = None
+    # Forma simplificada (Fase 3, retrocompatível) ou composição completa
+    # (Fase 9, docs/06 §14.11) — exatamente um dos dois deve ser informado.
+    component_variant_id: int | None = None
+    components: list[QuoteItemComponentInput] | None = None
 
 
 class QuoteItemComponentCreateIn(BaseModel):
     component_variant_id: int
+
+
+class QuoteItemComponentSwapIn(BaseModel):
+    component_variant_id: int
+
+
+class QuoteItemComponentSwapOut(BaseModel):
+    id: int
+    component_variant_id: int
+    sku: str
+    previous_frozen_unit_price: float
+    frozen_unit_price: float
+    frozen_currency: str
+    frozen_at: str
+    price_changed: bool
 
 
 class QuoteItemPatchIn(BaseModel):

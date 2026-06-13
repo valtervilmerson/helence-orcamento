@@ -16,6 +16,8 @@ from app.quotes.schemas import (
     CustomerSummary,
     QuoteItemComponentCreateIn,
     QuoteItemComponentOut,
+    QuoteItemComponentSwapIn,
+    QuoteItemComponentSwapOut,
     QuoteItemCreateIn,
     QuoteItemOut,
     QuoteItemPatchIn,
@@ -25,7 +27,9 @@ from app.quotes.schemas import (
     UserSummary,
 )
 from app.shared.errors import (
+    CampoObrigatorioAusenteError,
     ClienteNaoEncontradoError,
+    ComponenteNaoEncontradoError,
     DescontoInvalidoError,
     DescontoSemJustificativaError,
     DescritorIncompativelError,
@@ -38,6 +42,7 @@ from app.shared.errors import (
     QuantidadeInvalidaError,
     StatusInvalidoError,
     TransicaoInvalidaError,
+    VariacaoIncompativelError,
     VariacaoNaoEncontradaError,
 )
 
@@ -242,12 +247,33 @@ def _check_rn04_compatibility(
             )
 
 
+def _resolve_component_variant_ids(payload: QuoteItemCreateIn) -> list[int]:
+    """Aceita a forma simplificada (`component_variant_id`, Fase 3) ou a
+    composição completa (`components`, docs/06 §14.11) — exatamente uma."""
+    if payload.components:
+        return [c.component_variant_id for c in payload.components]
+    if payload.component_variant_id is not None:
+        return [payload.component_variant_id]
+    raise CampoObrigatorioAusenteError(
+        details={"message": "Informe component_variant_id ou components."}
+    )
+
+
 def add_item(
     connection: sqlite3.Connection, quote_id: int, payload: QuoteItemCreateIn
 ) -> QuoteItemOut:
     _require_draft_quote(connection, quote_id)
 
-    price_row = _get_frozen_price_row(connection, quote_id, payload.component_variant_id)
+    component_variant_ids = _resolve_component_variant_ids(payload)
+
+    # Validações primeiro (RN-12/13/15 + RN-04): a linha inteira é criada com
+    # todos os componentes precificados, ou nada é criado.
+    price_rows = [
+        _get_frozen_price_row(connection, quote_id, variant_id)
+        for variant_id in component_variant_ids
+    ]
+    for index, variant_id in enumerate(component_variant_ids):
+        _check_rn04_compatibility(connection, variant_id, component_variant_ids[:index])
 
     item_id = repository.insert_item(
         connection,
@@ -257,15 +283,16 @@ def add_item(
         quantity=payload.quantity,
         notes=payload.notes,
     )
-    repository.insert_item_component(
-        connection,
-        quote_item_id=item_id,
-        component_variant_id=payload.component_variant_id,
-        sku_id=price_row["sku_id"],
-        frozen_unit_price=price_row["amount"],
-        frozen_currency=price_row["currency"],
-        price_source_id=price_row["price_id"],
-    )
+    for variant_id, price_row in zip(component_variant_ids, price_rows, strict=True):
+        repository.insert_item_component(
+            connection,
+            quote_item_id=item_id,
+            component_variant_id=variant_id,
+            sku_id=price_row["sku_id"],
+            frozen_unit_price=price_row["amount"],
+            frozen_currency=price_row["currency"],
+            price_source_id=price_row["price_id"],
+        )
 
     item_row = repository.get_item_row(connection, quote_id, item_id)
     return _build_item_out(connection, item_row)
@@ -317,6 +344,69 @@ def add_component(
 
     item_row = repository.get_item_row(connection, quote_id, item_id)
     return _build_item_out(connection, item_row)
+
+
+def update_item_component(
+    connection: sqlite3.Connection,
+    quote_id: int,
+    item_id: int,
+    component_id: int,
+    payload: QuoteItemComponentSwapIn,
+) -> QuoteItemComponentSwapOut:
+    """Troca a variação/acabamento de um componente já incluído, com
+    recongelamento explícito (RN-06/16, docs/06 §14.12)."""
+    _require_draft_quote(connection, quote_id)
+
+    item_row = repository.get_item_row(connection, quote_id, item_id)
+    if item_row is None:
+        raise ItemNaoEncontradoError(details={"id": item_id})
+
+    component_row = repository.get_item_component_row(connection, component_id)
+    if component_row is None or component_row["quote_item_id"] != item_id:
+        raise ComponenteNaoEncontradoError(details={"id": component_id})
+
+    new_descriptor = repository.get_variant_descriptor(connection, payload.component_variant_id)
+    if new_descriptor is None:
+        raise VariacaoNaoEncontradaError(
+            details={"component_variant_id": payload.component_variant_id}
+        )
+
+    old_descriptor = repository.get_variant_descriptor(
+        connection, component_row["component_variant_id"]
+    )
+    if old_descriptor is None or old_descriptor["component_id"] != new_descriptor["component_id"]:
+        raise VariacaoIncompativelError(
+            details={
+                "component_variant_id": payload.component_variant_id,
+                "expected_component_id": old_descriptor["component_id"] if old_descriptor else None,
+                "actual_component_id": new_descriptor["component_id"],
+            }
+        )
+
+    price_row = _get_frozen_price_row(connection, quote_id, payload.component_variant_id)
+    previous_price = component_row["frozen_unit_price"]
+
+    repository.update_item_component(
+        connection,
+        component_id,
+        component_variant_id=payload.component_variant_id,
+        sku_id=price_row["sku_id"],
+        frozen_unit_price=price_row["amount"],
+        frozen_currency=price_row["currency"],
+        price_source_id=price_row["price_id"],
+    )
+
+    updated = repository.get_item_component_detail(connection, component_id)
+    return QuoteItemComponentSwapOut(
+        id=updated["id"],
+        component_variant_id=updated["component_variant_id"],
+        sku=updated["sku"],
+        previous_frozen_unit_price=previous_price,
+        frozen_unit_price=updated["frozen_unit_price"],
+        frozen_currency=updated["frozen_currency"],
+        frozen_at=updated["frozen_at"],
+        price_changed=updated["frozen_unit_price"] != previous_price,
+    )
 
 
 def update_item(

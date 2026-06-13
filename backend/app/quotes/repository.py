@@ -225,6 +225,57 @@ def get_item_row(connection: sqlite3.Connection, quote_id: int, item_id: int) ->
     ).fetchone()
 
 
+def get_item_component_row(connection: sqlite3.Connection, component_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        "SELECT * FROM quote_item_components WHERE id = ?", (component_id,)
+    ).fetchone()
+
+
+def get_item_component_detail(
+    connection: sqlite3.Connection, component_id: int
+) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT qic.id AS id, qic.component_variant_id AS component_variant_id,
+               s.code AS sku, qic.frozen_unit_price AS frozen_unit_price,
+               qic.frozen_currency AS frozen_currency, qic.frozen_at AS frozen_at
+        FROM quote_item_components qic
+        JOIN skus s ON s.id = qic.sku_id
+        WHERE qic.id = ?
+        """,
+        (component_id,),
+    ).fetchone()
+
+
+def update_item_component(
+    connection: sqlite3.Connection,
+    component_id: int,
+    *,
+    component_variant_id: int,
+    sku_id: int,
+    frozen_unit_price: float,
+    frozen_currency: str,
+    price_source_id: int,
+) -> None:
+    connection.execute(
+        """
+        UPDATE quote_item_components
+        SET component_variant_id = ?, sku_id = ?, frozen_unit_price = ?,
+            frozen_currency = ?, price_source_id = ?, frozen_at = datetime('now')
+        WHERE id = ?
+        """,
+        (
+            component_variant_id,
+            sku_id,
+            frozen_unit_price,
+            frozen_currency,
+            price_source_id,
+            component_id,
+        ),
+    )
+    connection.commit()
+
+
 def get_item_components(connection: sqlite3.Connection, item_id: int) -> list[sqlite3.Row]:
     return connection.execute(
         """

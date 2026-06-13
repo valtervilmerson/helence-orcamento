@@ -183,6 +183,15 @@ class DescritorIncompativelError(DomainError):
     )
 
 
+class VariacaoIncompativelError(DomainError):
+    code = "VARIACAO_INCOMPATIVEL"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = (
+        "A nova variação não é do mesmo tipo de componente do item original — "
+        "não é possível trocar, por exemplo, um Tampo por uma Estrutura."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Importações (docs/06, seção 14.1/14.2)
 # ---------------------------------------------------------------------------

@@ -10,6 +10,8 @@ from app.quotes.schemas import (
     CustomerSummary,
     QuoteCreateIn,
     QuoteItemComponentCreateIn,
+    QuoteItemComponentSwapIn,
+    QuoteItemComponentSwapOut,
     QuoteItemCreateIn,
     QuoteItemOut,
     QuoteItemPatchIn,
@@ -36,9 +38,7 @@ def list_customers(connection: sqlite3.Connection = Depends(get_db)) -> list[Cus
 def create_quote(
     payload: QuoteCreateIn, connection: sqlite3.Connection = Depends(get_db)
 ) -> QuoteOut:
-    return service.create_quote(
-        connection, payload.customer_id, payload.valid_until, payload.notes
-    )
+    return service.create_quote(connection, payload.customer_id, payload.valid_until, payload.notes)
 
 
 @router.get("", response_model=list[QuoteOut])
@@ -91,6 +91,20 @@ def add_component(
     connection: sqlite3.Connection = Depends(get_db),
 ) -> QuoteItemOut:
     return service.add_component(connection, quote_id, item_id, payload)
+
+
+@router.patch(
+    "/{quote_id}/items/{item_id}/components/{component_id}",
+    response_model=QuoteItemComponentSwapOut,
+)
+def update_item_component(
+    quote_id: int,
+    item_id: int,
+    component_id: int,
+    payload: QuoteItemComponentSwapIn,
+    connection: sqlite3.Connection = Depends(get_db),
+) -> QuoteItemComponentSwapOut:
+    return service.update_item_component(connection, quote_id, item_id, component_id, payload)
 
 
 @router.patch("/{quote_id}/items/{item_id}", response_model=QuoteItemOut)

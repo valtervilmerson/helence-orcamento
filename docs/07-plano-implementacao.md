@@ -683,17 +683,25 @@ regra de composição, dificultando o diagnóstico de ambos).
   incremental, conforme o catálogo real for revelando os casos reais
   (e não os hipotéticos).
 
-**Status (entrega parcial 2026-06-13)**: implementada apenas a primeira
-parte — tabela `component_compatibility_rules` (dado de configuração
+**Status (entrega parcial 2026-06-13)**: implementadas duas partes.
+Primeira — tabela `component_compatibility_rules` (dado de configuração
 revisável, CRUD em `/api/v1/catalog/compatibility-rules`), a validação
 RN-04 (`DESCRITOR_INCOMPATIVEL`) e o endpoint
 `POST /quotes/{quoteId}/items/{itemId}/components` para adicionar um
-componente adicional a uma linha existente. Ainda faltam: reescrever
-`POST /quotes/{quoteId}/items` para aceitar `components: [...]` desde a
-criação, RN-03/RN-05/RN-07, troca de variação com recongelamento
-(14.12) e duplicação (RN-17), além das Telas 7/8. O catálogo seedado
-ainda não tem variações de "Estrutura" — os testes de RN-04 criam
-tipos/variações ad-hoc, como já era feito em `test_catalog_components.py`.
+componente adicional a uma linha existente. Segunda — `POST
+/quotes/{quoteId}/items` reescrito para aceitar `components: [...]`
+desde a criação (composição múltipla, com RN-04 validada par a par
+entre todos os componentes informados, mantendo retrocompatibilidade
+com a forma simplificada `component_variant_id` da Fase 3), e o
+endpoint `PATCH /quotes/{quoteId}/items/{itemId}/components/{componentId}`
+(14.12) para troca de variação com recongelamento de preço/SKU
+(RN-06/16), retornando `VARIACAO_INCOMPATIVEL` quando a nova variação
+não é do mesmo tipo de componente da original. Ainda faltam:
+RN-03/RN-05/RN-07 (dependem de definições comerciais em aberto em
+`docs/05`), duplicação (RN-17) e as Telas 7/8. O catálogo seedado ainda
+não tem variações de "Estrutura" — os testes de RN-04 e de troca de
+variação criam tipos/variações ad-hoc, como já era feito em
+`test_catalog_components.py`.
 
 ---
 
