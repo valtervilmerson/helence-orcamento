@@ -6,6 +6,12 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+
+# A Railway injeta as variaveis do servico como build args (docs/09);
+# o Vite so embute VITE_API_BASE_URL no bundle se ela existir em build time.
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
 RUN npm run build
 
 FROM node:20-slim
