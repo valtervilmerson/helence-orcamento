@@ -7,6 +7,7 @@ import {
 } from '../../api/catalog'
 import {
   QuotesApiError,
+  addComponent,
   addItem,
   createQuote,
   freezeTotals,
@@ -14,11 +15,15 @@ import {
   listCustomers,
   listItems,
   listQuotes,
+  removeComponent,
+  removeItem,
+  swapComponent,
   updateItem,
   updateQuoteStatus,
   type Customer,
   type Quote,
   type QuoteItem,
+  type QuoteItemComponentSwap,
   type QuoteStatus,
   type QuoteTotals,
 } from '../../api/quotes'
@@ -41,6 +46,11 @@ function describeError(err: unknown): string {
     return `${err.code}: ${err.message}`
   }
   return String(err)
+}
+
+function describeVariant(variant: ComponentVariant): string {
+  const price = variant.price ? `${variant.price.currency} ${variant.price.amount.toFixed(2)}` : 'sem preço'
+  return `${variant.product ?? variant.component} — ${variant.component} — ${variant.descriptor ?? ''} — ${variant.finish ?? '—'} — ${variant.sku ?? 'sem SKU'} — ${price}`
 }
 
 function NewQuoteForm({ customers, onCreated }: { customers: Customer[]; onCreated: (quote: Quote) => void }) {
@@ -92,7 +102,76 @@ function NewQuoteForm({ customers, onCreated }: { customers: Customer[]; onCreat
   )
 }
 
-function AddItemForm({
+// ---------------------------------------------------------------------------
+// Buscador de catálogo reutilizável (Tela 7/8): filtra por família e permite
+// escolher uma variação para adicionar/trocar num componente da composição.
+// ---------------------------------------------------------------------------
+
+function ComponentPicker({
+  families,
+  onPick,
+  pickLabel = 'Adicionar',
+}: {
+  families: ProductFamily[]
+  onPick: (variant: ComponentVariant) => void
+  pickLabel?: string
+}) {
+  const [familyFilter, setFamilyFilter] = useState('')
+  const [results, setResults] = useState<ComponentVariant[]>([])
+  const [variantId, setVariantId] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function runSearch() {
+      try {
+        const result = await searchComponents({ family: familyFilter || undefined })
+        setResults(result.items)
+        setError(null)
+      } catch (err) {
+        setError(describeError(err))
+      }
+    }
+    void runSearch()
+  }, [familyFilter])
+
+  function handlePick() {
+    const variant = results.find((item) => item.component_variant_id === Number(variantId))
+    if (!variant) return
+    onPick(variant)
+    setVariantId('')
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
+      <select value={familyFilter} onChange={(e) => setFamilyFilter(e.target.value)}>
+        <option value="">(todas as famílias)</option>
+        {families.map((family) => (
+          <option key={family.id} value={family.name}>
+            {family.name}
+          </option>
+        ))}
+      </select>
+      <select value={variantId} onChange={(e) => setVariantId(e.target.value)}>
+        <option value="">(selecione uma variação)</option>
+        {results.map((item) => (
+          <option key={item.component_variant_id} value={item.component_variant_id}>
+            {describeVariant(item)}
+          </option>
+        ))}
+      </select>
+      <button type="button" onClick={handlePick} disabled={!variantId}>
+        {pickLabel}
+      </button>
+      <ErrorMessage error={error} />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Tela 7 — montagem: adicionar item com composição (1+ componentes)
+// ---------------------------------------------------------------------------
+
+function NewItemForm({
   quoteId,
   families,
   onAdded,
@@ -101,74 +180,60 @@ function AddItemForm({
   families: ProductFamily[]
   onAdded: () => void
 }) {
-  const [familyFilter, setFamilyFilter] = useState('')
-  const [results, setResults] = useState<ComponentVariant[]>([])
-  const [variantId, setVariantId] = useState('')
   const [label, setLabel] = useState('')
   const [quantity, setQuantity] = useState('1')
+  const [pending, setPending] = useState<ComponentVariant[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  async function runSearch() {
-    try {
-      const result = await searchComponents({ family: familyFilter || undefined })
-      setResults(result.items)
-      setError(null)
-    } catch (err) {
-      setError(describeError(err))
-    }
+  function handlePick(variant: ComponentVariant) {
+    setPending((prev) => [...prev, variant])
   }
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- busca de variações ao filtrar
-    void runSearch()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [familyFilter])
+  function handleRemovePending(index: number) {
+    setPending((prev) => prev.filter((_, i) => i !== index))
+  }
 
-  async function handleAdd(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    if (pending.length === 0) {
+      setError('Adicione ao menos um componente à composição.')
+      return
+    }
     try {
       await addItem(quoteId, {
-        component_variant_id: Number(variantId),
         label,
         quantity: Number(quantity) || 1,
+        components: pending.map((variant) => ({ component_variant_id: variant.component_variant_id })),
       })
       setLabel('')
       setQuantity('1')
-      setVariantId('')
+      setPending([])
       onAdded()
     } catch (err) {
       setError(describeError(err))
     }
   }
 
+  const pendingTotal = pending.reduce((sum, variant) => sum + (variant.price?.amount ?? 0), 0)
+
   return (
     <section>
       <h3>Adicionar item</h3>
-      <div>
-        <label>
-          Família:{' '}
-          <select value={familyFilter} onChange={(e) => setFamilyFilter(e.target.value)}>
-            <option value="">(todas)</option>
-            {families.map((family) => (
-              <option key={family.id} value={family.name}>
-                {family.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <form onSubmit={handleAdd}>
-        <select value={variantId} onChange={(e) => setVariantId(e.target.value)} required>
-          <option value="">(variação)</option>
-          {results.map((item) => (
-            <option key={item.component_variant_id} value={item.component_variant_id}>
-              {item.product ?? item.component} — {item.descriptor ?? ''} — {item.finish ?? '—'} —{' '}
-              {item.sku ?? 'sem SKU'} —{' '}
-              {item.price ? `${item.price.currency} ${item.price.amount.toFixed(2)}` : 'sem preço'}
-            </option>
+      <ComponentPicker families={families} onPick={handlePick} pickLabel="+ componente" />
+      {pending.length > 0 && (
+        <ul>
+          {pending.map((variant, index) => (
+            <li key={`${variant.component_variant_id}-${index}`}>
+              {describeVariant(variant)}{' '}
+              <button type="button" onClick={() => handleRemovePending(index)}>
+                remover
+              </button>
+            </li>
           ))}
-        </select>
+        </ul>
+      )}
+      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
         <input placeholder="Descrição do item" value={label} onChange={(e) => setLabel(e.target.value)} required />
         <input
           type="number"
@@ -177,17 +242,126 @@ function AddItemForm({
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
         />
-        <button type="submit">Adicionar</button>
+        <button type="submit">Adicionar item (composição: {pendingTotal.toFixed(2)})</button>
       </form>
       <ErrorMessage error={error} />
     </section>
   )
 }
 
-function ItemRow({ item, quoteId, onChanged }: { item: QuoteItem; quoteId: number; onChanged: () => void }) {
+// ---------------------------------------------------------------------------
+// Tela 8 — edição de item: trocar/adicionar/remover componentes da composição
+// ---------------------------------------------------------------------------
+
+function EditItemPanel({
+  item,
+  quoteId,
+  families,
+  onChanged,
+}: {
+  item: QuoteItem
+  quoteId: number
+  families: ProductFamily[]
+  onChanged: () => void
+}) {
+  const [error, setError] = useState<string | null>(null)
+  const [swapResults, setSwapResults] = useState<Record<number, QuoteItemComponentSwap>>({})
+
+  async function handleSwap(componentId: number, variant: ComponentVariant) {
+    setError(null)
+    try {
+      const result = await swapComponent(quoteId, item.id, componentId, {
+        component_variant_id: variant.component_variant_id,
+      })
+      setSwapResults((prev) => ({ ...prev, [componentId]: result }))
+      onChanged()
+    } catch (err) {
+      setError(describeError(err))
+    }
+  }
+
+  async function handleRemoveComponent(componentId: number) {
+    setError(null)
+    try {
+      await removeComponent(quoteId, item.id, componentId)
+      onChanged()
+    } catch (err) {
+      if (err instanceof QuotesApiError && err.code === 'ULTIMO_COMPONENTE_DA_LINHA') {
+        if (window.confirm('Este é o único componente da linha. Remover a linha inteira?')) {
+          await removeItem(quoteId, item.id)
+          onChanged()
+        }
+        return
+      }
+      setError(describeError(err))
+    }
+  }
+
+  async function handleAddComponent(variant: ComponentVariant) {
+    setError(null)
+    try {
+      await addComponent(quoteId, item.id, { component_variant_id: variant.component_variant_id })
+      onChanged()
+    } catch (err) {
+      setError(describeError(err))
+    }
+  }
+
+  return (
+    <tr>
+      <td colSpan={5} style={{ background: '#f7f7f7' }}>
+        <strong>Editar composição — {item.label}</strong>
+        <ul>
+          {item.components.map((component) => {
+            const swap = swapResults[component.id]
+            return (
+              <li key={component.id} style={{ marginBottom: '0.5rem' }}>
+                <div>
+                  {component.sku} — {component.frozen_currency} {component.frozen_unit_price.toFixed(2)}{' '}
+                  <button type="button" onClick={() => handleRemoveComponent(component.id)}>
+                    remover componente
+                  </button>
+                </div>
+                {swap && swap.price_changed && (
+                  <p style={{ color: 'darkorange' }}>
+                    Preço atualizado de {swap.frozen_currency} {swap.previous_frozen_unit_price.toFixed(2)} para{' '}
+                    {swap.frozen_currency} {swap.frozen_unit_price.toFixed(2)}.
+                  </p>
+                )}
+                <ComponentPicker
+                  families={families}
+                  pickLabel="Trocar variação"
+                  onPick={(variant) => handleSwap(component.id, variant)}
+                />
+              </li>
+            )
+          })}
+        </ul>
+        <div>
+          <strong>+ componente</strong>
+          <ComponentPicker families={families} pickLabel="Adicionar componente" onPick={handleAddComponent} />
+        </div>
+        <ErrorMessage error={error} />
+      </td>
+    </tr>
+  )
+}
+
+function ItemRow({
+  item,
+  quoteId,
+  families,
+  onChanged,
+}: {
+  item: QuoteItem
+  quoteId: number
+  families: ProductFamily[]
+  onChanged: () => void
+}) {
   const [quantity, setQuantity] = useState(String(item.quantity))
   const [discountPercent, setDiscountPercent] = useState(item.discount_percent?.toString() ?? '')
   const [discountReason, setDiscountReason] = useState(item.discount_reason ?? '')
+  const [editing, setEditing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSave(event: React.FormEvent) {
@@ -205,47 +379,69 @@ function ItemRow({ item, quoteId, onChanged }: { item: QuoteItem; quoteId: numbe
     }
   }
 
+  async function handleRemoveItem() {
+    if (!window.confirm(`Remover a linha "${item.label}"?`)) return
+    setError(null)
+    try {
+      await removeItem(quoteId, item.id)
+      onChanged()
+    } catch (err) {
+      setError(describeError(err))
+    }
+  }
+
   return (
-    <tr>
-      <td>{item.id}</td>
-      <td>{item.label}</td>
-      <td>
-        {item.components.map((c) => (
-          <div key={c.id}>
-            {c.sku} — {c.frozen_currency} {c.frozen_unit_price.toFixed(2)}
+    <>
+      <tr>
+        <td>{item.id}</td>
+        <td>{item.label}</td>
+        <td>
+          {item.components.map((c) => (
+            <div key={c.id}>
+              {c.sku} — {c.frozen_currency} {c.frozen_unit_price.toFixed(2)}
+            </div>
+          ))}
+        </td>
+        <td>
+          <form onSubmit={handleSave} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+            <input
+              type="number"
+              min="1"
+              style={{ width: '4rem' }}
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+            />
+            <input
+              type="number"
+              min="0"
+              max="100"
+              placeholder="% desc."
+              style={{ width: '5rem' }}
+              value={discountPercent}
+              onChange={(e) => setDiscountPercent(e.target.value)}
+            />
+            <input
+              placeholder="Justificativa"
+              style={{ width: '8rem' }}
+              value={discountReason}
+              onChange={(e) => setDiscountReason(e.target.value)}
+            />
+            <button type="submit">salvar</button>
+          </form>
+          <div style={{ marginTop: '0.25rem' }}>
+            <button type="button" onClick={() => setEditing((prev) => !prev)}>
+              {editing ? 'fechar composição' : 'editar composição'}
+            </button>{' '}
+            <button type="button" onClick={() => void handleRemoveItem()}>
+              remover linha
+            </button>
           </div>
-        ))}
-      </td>
-      <td>
-        <form onSubmit={handleSave} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
-          <input
-            type="number"
-            min="1"
-            style={{ width: '4rem' }}
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-          />
-          <input
-            type="number"
-            min="0"
-            max="100"
-            placeholder="% desc."
-            style={{ width: '5rem' }}
-            value={discountPercent}
-            onChange={(e) => setDiscountPercent(e.target.value)}
-          />
-          <input
-            placeholder="Justificativa"
-            style={{ width: '8rem' }}
-            value={discountReason}
-            onChange={(e) => setDiscountReason(e.target.value)}
-          />
-          <button type="submit">salvar</button>
-        </form>
-        <ErrorMessage error={error} />
-      </td>
-      <td>{item.line_subtotal.toFixed(2)}</td>
-    </tr>
+          <ErrorMessage error={error} />
+        </td>
+        <td>{item.line_subtotal.toFixed(2)}</td>
+      </tr>
+      {editing && <EditItemPanel item={item} quoteId={quoteId} families={families} onChanged={onChanged} />}
+    </>
   )
 }
 
@@ -329,19 +525,19 @@ function QuoteDetail({ quote, onChanged }: { quote: Quote; onChanged: () => void
             <th>ID</th>
             <th>Item</th>
             <th>Componentes</th>
-            <th>Quantidade / desconto</th>
+            <th>Quantidade / desconto / ações</th>
             <th>Subtotal</th>
           </tr>
         </thead>
         <tbody>
           {items.map((item) => (
-            <ItemRow key={item.id} item={item} quoteId={quote.id} onChanged={handleItemChanged} />
+            <ItemRow key={item.id} item={item} quoteId={quote.id} families={families} onChanged={handleItemChanged} />
           ))}
         </tbody>
       </table>
 
       {quote.status === 'rascunho' && (
-        <AddItemForm quoteId={quote.id} families={families} onAdded={() => void reload()} />
+        <NewItemForm quoteId={quote.id} families={families} onAdded={() => void reload()} />
       )}
 
       {totals && (
@@ -401,7 +597,7 @@ export function QuotesPage() {
 
   return (
     <div>
-      <h1>Orçamentos — montagem básica</h1>
+      <h1>Orçamentos — montagem</h1>
       <ErrorMessage error={error} />
 
       <section>

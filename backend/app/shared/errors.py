@@ -192,6 +192,15 @@ class VariacaoIncompativelError(DomainError):
     )
 
 
+class UltimoComponenteError(DomainError):
+    code = "ULTIMO_COMPONENTE_DA_LINHA"
+    status_code = status.HTTP_409_CONFLICT
+    message = (
+        "Este é o único componente da linha — remova a linha inteira em vez do "
+        "componente, se for isso que deseja."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Importações (docs/06, seção 14.1/14.2)
 # ---------------------------------------------------------------------------

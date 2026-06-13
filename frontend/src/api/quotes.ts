@@ -111,7 +111,16 @@ export const listItems = (quoteId: number) => request<QuoteItem[]>(`/quotes/${qu
 
 export const addItem = (
   quoteId: number,
-  data: { component_variant_id: number; label: string; quantity?: number; product_id?: number | null; notes?: string | null },
+  data: {
+    label: string
+    quantity?: number
+    product_id?: number | null
+    notes?: string | null
+    // Forma simplificada (um único componente) ou composição completa
+    // (`components`) — exatamente uma das duas.
+    component_variant_id?: number
+    components?: { component_variant_id: number }[]
+  },
 ) => request<QuoteItem>(`/quotes/${quoteId}/items`, { method: 'POST', body: JSON.stringify(data) })
 
 export const updateItem = (
@@ -126,6 +135,46 @@ export const updateItem = (
   }>,
 ) =>
   request<QuoteItem>(`/quotes/${quoteId}/items/${itemId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+
+export const removeItem = (quoteId: number, itemId: number) =>
+  request<void>(`/quotes/${quoteId}/items/${itemId}`, { method: 'DELETE' })
+
+// ---------------------------------------------------------------------------
+// Componentes de um item — composição (14.11/14.12)
+// ---------------------------------------------------------------------------
+
+export const addComponent = (quoteId: number, itemId: number, data: { component_variant_id: number }) =>
+  request<QuoteItem>(`/quotes/${quoteId}/items/${itemId}/components`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+
+export const removeComponent = (quoteId: number, itemId: number, componentId: number) =>
+  request<QuoteItem>(`/quotes/${quoteId}/items/${itemId}/components/${componentId}`, {
+    method: 'DELETE',
+  })
+
+export interface QuoteItemComponentSwap {
+  id: number
+  component_variant_id: number
+  sku: string
+  previous_frozen_unit_price: number
+  frozen_unit_price: number
+  frozen_currency: string
+  frozen_at: string
+  price_changed: boolean
+}
+
+export const swapComponent = (
+  quoteId: number,
+  itemId: number,
+  componentId: number,
+  data: { component_variant_id: number },
+) =>
+  request<QuoteItemComponentSwap>(`/quotes/${quoteId}/items/${itemId}/components/${componentId}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   })

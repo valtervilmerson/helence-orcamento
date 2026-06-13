@@ -117,6 +117,23 @@ def update_item(
     return service.update_item(connection, quote_id, item_id, payload)
 
 
+@router.delete("/{quote_id}/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_item(
+    quote_id: int, item_id: int, connection: sqlite3.Connection = Depends(get_db)
+) -> None:
+    service.remove_item(connection, quote_id, item_id)
+
+
+@router.delete("/{quote_id}/items/{item_id}/components/{component_id}", response_model=QuoteItemOut)
+def remove_component(
+    quote_id: int,
+    item_id: int,
+    component_id: int,
+    connection: sqlite3.Connection = Depends(get_db),
+) -> QuoteItemOut:
+    return service.remove_component(connection, quote_id, item_id, component_id)
+
+
 @router.get("/{quote_id}/totals", response_model=QuoteTotalsOut)
 def get_totals(quote_id: int, connection: sqlite3.Connection = Depends(get_db)) -> QuoteTotalsOut:
     return service.get_totals(connection, quote_id)

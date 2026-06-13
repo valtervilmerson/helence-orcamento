@@ -638,3 +638,92 @@ def test_swap_unknown_component_is_not_found(client) -> None:
     )
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "COMPONENTE_NAO_ENCONTRADO"
+
+
+# ---------------------------------------------------------------------------
+# Remoção de itens e componentes (Telas 7/8, docs/04 §7/§8)
+# ---------------------------------------------------------------------------
+
+
+def test_remove_item_deletes_line(client) -> None:
+    variant = _seeded_variant(client)
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    item = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": variant["component_variant_id"],
+            "label": "Mesa Reunião — remoção de linha",
+            "quantity": 1,
+        },
+    ).json()
+
+    response = client.delete(f"/api/v1/quotes/{quote['id']}/items/{item['id']}")
+    assert response.status_code == 204
+
+    items = client.get(f"/api/v1/quotes/{quote['id']}/items").json()
+    assert items == []
+
+
+def test_remove_unknown_item_is_not_found(client) -> None:
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+
+    response = client.delete(f"/api/v1/quotes/{quote['id']}/items/999999")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "ITEM_NAO_ENCONTRADO"
+
+
+def test_remove_component_from_multi_component_item(client) -> None:
+    component_types = client.get("/api/v1/catalog/component-types").json()
+    tampo_id = next(c["id"] for c in component_types if c["name"] == "Tampo")
+
+    tampo_a = _create_variant_with_price(
+        client, component_id=tampo_id, descriptor="Tampo Remove A", sku="TOP-REMOVE-A", amount=100
+    )
+    tampo_b = _create_variant_with_price(
+        client, component_id=tampo_id, descriptor="Tampo Remove B", sku="TOP-REMOVE-B", amount=150
+    )
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    item = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "label": "Mesa Reunião — remoção de componente",
+            "quantity": 1,
+            "components": [
+                {"component_variant_id": tampo_a["component_variant_id"]},
+                {"component_variant_id": tampo_b["component_variant_id"]},
+            ],
+        },
+    ).json()
+    component_to_remove = item["components"][1]["id"]
+
+    response = client.delete(
+        f"/api/v1/quotes/{quote['id']}/items/{item['id']}/components/{component_to_remove}"
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["components"]) == 1
+    assert body["components"][0]["component_variant_id"] == tampo_a["component_variant_id"]
+    assert body["line_subtotal"] == round(tampo_a["price"]["amount"], 2)
+
+
+def test_remove_last_component_is_blocked(client) -> None:
+    variant = _seeded_variant(client)
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    item = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": variant["component_variant_id"],
+            "label": "Mesa Reunião — único componente",
+            "quantity": 1,
+        },
+    ).json()
+    component_id = item["components"][0]["id"]
+
+    response = client.delete(
+        f"/api/v1/quotes/{quote['id']}/items/{item['id']}/components/{component_id}"
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "ULTIMO_COMPONENTE_DA_LINHA"

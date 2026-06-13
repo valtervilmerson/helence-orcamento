@@ -295,6 +295,24 @@ def get_item_components(connection: sqlite3.Connection, item_id: int) -> list[sq
     ).fetchall()
 
 
+def count_item_components(connection: sqlite3.Connection, item_id: int) -> int:
+    row = connection.execute(
+        "SELECT COUNT(*) AS n FROM quote_item_components WHERE quote_item_id = ?", (item_id,)
+    ).fetchone()
+    return row["n"]
+
+
+def delete_item_component(connection: sqlite3.Connection, component_id: int) -> None:
+    connection.execute("DELETE FROM quote_item_components WHERE id = ?", (component_id,))
+    connection.commit()
+
+
+def delete_item(connection: sqlite3.Connection, item_id: int) -> None:
+    connection.execute("DELETE FROM quote_item_components WHERE quote_item_id = ?", (item_id,))
+    connection.execute("DELETE FROM quote_items WHERE id = ?", (item_id,))
+    connection.commit()
+
+
 def get_item_component_variant_ids(connection: sqlite3.Connection, item_id: int) -> list[int]:
     rows = connection.execute(
         "SELECT component_variant_id FROM quote_item_components WHERE quote_item_id = ?",

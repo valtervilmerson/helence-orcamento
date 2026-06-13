@@ -42,6 +42,7 @@ from app.shared.errors import (
     QuantidadeInvalidaError,
     StatusInvalidoError,
     TransicaoInvalidaError,
+    UltimoComponenteError,
     VariacaoIncompativelError,
     VariacaoNaoEncontradaError,
 )
@@ -407,6 +408,44 @@ def update_item_component(
         frozen_at=updated["frozen_at"],
         price_changed=updated["frozen_unit_price"] != previous_price,
     )
+
+
+def remove_item(connection: sqlite3.Connection, quote_id: int, item_id: int) -> None:
+    """Remove uma linha (item) inteira do orçamento, com todos os seus componentes."""
+    _require_draft_quote(connection, quote_id)
+
+    item_row = repository.get_item_row(connection, quote_id, item_id)
+    if item_row is None:
+        raise ItemNaoEncontradoError(details={"id": item_id})
+
+    repository.delete_item(connection, item_id)
+
+
+def remove_component(
+    connection: sqlite3.Connection, quote_id: int, item_id: int, component_id: int
+) -> QuoteItemOut:
+    """Remove um componente de uma linha existente.
+
+    Remover o último componente de uma linha é bloqueado (`ULTIMO_COMPONENTE_DA_LINHA`)
+    — para isso, a linha inteira deve ser removida (`remove_item`).
+    """
+    _require_draft_quote(connection, quote_id)
+
+    item_row = repository.get_item_row(connection, quote_id, item_id)
+    if item_row is None:
+        raise ItemNaoEncontradoError(details={"id": item_id})
+
+    component_row = repository.get_item_component_row(connection, component_id)
+    if component_row is None or component_row["quote_item_id"] != item_id:
+        raise ComponenteNaoEncontradoError(details={"id": component_id})
+
+    if repository.count_item_components(connection, item_id) <= 1:
+        raise UltimoComponenteError(details={"item_id": item_id, "component_id": component_id})
+
+    repository.delete_item_component(connection, component_id)
+
+    item_row = repository.get_item_row(connection, quote_id, item_id)
+    return _build_item_out(connection, item_row)
 
 
 def update_item(
