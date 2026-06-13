@@ -174,6 +174,15 @@ class OrcamentoVazioError(DomainError):
     message = "Orçamento sem nenhuma linha — não há o que totalizar/congelar."
 
 
+class DescritorIncompativelError(DomainError):
+    code = "DESCRITOR_INCOMPATIVEL"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = (
+        "O descritor desta variação não é compatível com outro componente já "
+        "presente nesta linha (RN-04)."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Importações (docs/06, seção 14.1/14.2)
 # ---------------------------------------------------------------------------

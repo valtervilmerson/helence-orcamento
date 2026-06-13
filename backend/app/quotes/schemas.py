@@ -57,6 +57,10 @@ class QuoteItemCreateIn(BaseModel):
     notes: str | None = None
 
 
+class QuoteItemComponentCreateIn(BaseModel):
+    component_variant_id: int
+
+
 class QuoteItemPatchIn(BaseModel):
     quantity: int | None = None
     discount_percent: float | None = None

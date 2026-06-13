@@ -683,6 +683,18 @@ regra de composição, dificultando o diagnóstico de ambos).
   incremental, conforme o catálogo real for revelando os casos reais
   (e não os hipotéticos).
 
+**Status (entrega parcial 2026-06-13)**: implementada apenas a primeira
+parte — tabela `component_compatibility_rules` (dado de configuração
+revisável, CRUD em `/api/v1/catalog/compatibility-rules`), a validação
+RN-04 (`DESCRITOR_INCOMPATIVEL`) e o endpoint
+`POST /quotes/{quoteId}/items/{itemId}/components` para adicionar um
+componente adicional a uma linha existente. Ainda faltam: reescrever
+`POST /quotes/{quoteId}/items` para aceitar `components: [...]` desde a
+criação, RN-03/RN-05/RN-07, troca de variação com recongelamento
+(14.12) e duplicação (RN-17), além das Telas 7/8. O catálogo seedado
+ainda não tem variações de "Estrutura" — os testes de RN-04 criam
+tipos/variações ad-hoc, como já era feito em `test_catalog_components.py`.
+
 ---
 
 ## Fase 10 — Exportação

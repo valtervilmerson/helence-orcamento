@@ -94,6 +94,31 @@ class ProductComponentOut(ProductComponentIn):
 
 
 # ---------------------------------------------------------------------------
+# Regras de compatibilidade entre componentes (RN-04)
+# ---------------------------------------------------------------------------
+
+
+class CompatibilityRuleIn(BaseModel):
+    component_a_id: int
+    descriptor_a: str
+    component_b_id: int
+    descriptor_b: str
+    notes: str | None = None
+
+
+class CompatibilityRulePatch(BaseModel):
+    component_a_id: int | None = None
+    descriptor_a: str | None = None
+    component_b_id: int | None = None
+    descriptor_b: str | None = None
+    notes: str | None = None
+
+
+class CompatibilityRuleOut(CompatibilityRuleIn):
+    id: int
+
+
+# ---------------------------------------------------------------------------
 # Produtos-base
 # ---------------------------------------------------------------------------
 

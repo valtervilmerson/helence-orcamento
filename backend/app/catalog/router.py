@@ -7,6 +7,9 @@ from fastapi import APIRouter, Depends, Query, status
 from app.catalog import repository, service
 from app.catalog.repository import SimpleRepository
 from app.catalog.schemas import (
+    CompatibilityRuleIn,
+    CompatibilityRuleOut,
+    CompatibilityRulePatch,
     ComponentVariantIn,
     ComponentVariantOut,
     ComponentVariantPatch,
@@ -121,6 +124,13 @@ _register_crud(
     in_model=ProductIn,
     patch_model=ProductPatch,
     out_model=ProductOut,
+)
+_register_crud(
+    path="/catalog/compatibility-rules",
+    repo=repository.compatibility_rules,
+    in_model=CompatibilityRuleIn,
+    patch_model=CompatibilityRulePatch,
+    out_model=CompatibilityRuleOut,
 )
 
 

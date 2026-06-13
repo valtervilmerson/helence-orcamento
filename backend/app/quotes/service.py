@@ -14,6 +14,7 @@ from app.catalog.schemas import PriceTableSummary
 from app.quotes import pricing, repository
 from app.quotes.schemas import (
     CustomerSummary,
+    QuoteItemComponentCreateIn,
     QuoteItemComponentOut,
     QuoteItemCreateIn,
     QuoteItemOut,
@@ -27,6 +28,7 @@ from app.shared.errors import (
     ClienteNaoEncontradoError,
     DescontoInvalidoError,
     DescontoSemJustificativaError,
+    DescritorIncompativelError,
     ItemNaoEncontradoError,
     ItemSemPrecoError,
     ItemSemSkuError,
@@ -167,29 +169,85 @@ def _build_item_out(connection: sqlite3.Connection, item_row: sqlite3.Row) -> Qu
     )
 
 
+def _get_frozen_price_row(
+    connection: sqlite3.Connection, quote_id: int, component_variant_id: int
+) -> sqlite3.Row:
+    """Valida RN-12/13/15: variação existe, tem preço e SKU na tabela do orçamento."""
+    if not repository.variant_exists(connection, component_variant_id):
+        raise VariacaoNaoEncontradaError(details={"component_variant_id": component_variant_id})
+
+    price_table_id = repository.get_quote_price_table_id(connection, quote_id)
+    price_row = repository.get_variant_price(connection, component_variant_id, price_table_id)
+    if price_row is None:
+        raise ItemSemPrecoError(
+            details={
+                "component_variant_id": component_variant_id,
+                "price_table_id": price_table_id,
+            }
+        )
+    if not price_row["sku_code"]:
+        raise ItemSemSkuError(details={"component_variant_id": component_variant_id})
+    return price_row
+
+
+def _check_rn04_compatibility(
+    connection: sqlite3.Connection, new_variant_id: int, existing_variant_ids: list[int]
+) -> None:
+    """RN-04: descritores de componentes diferentes na mesma linha devem ser
+    compatíveis, segundo as regras cadastradas em `component_compatibility_rules`.
+
+    A ausência de regra para um par de tipos de componente significa "sem
+    restrição conhecida ainda" — não bloqueia.
+    """
+    new_descriptor = repository.get_variant_descriptor(connection, new_variant_id)
+    if new_descriptor is None or new_descriptor["descriptor"] is None:
+        return
+
+    for existing_variant_id in existing_variant_ids:
+        existing_descriptor = repository.get_variant_descriptor(connection, existing_variant_id)
+        if existing_descriptor is None or existing_descriptor["descriptor"] is None:
+            continue
+        if existing_descriptor["component_id"] == new_descriptor["component_id"]:
+            continue
+
+        rules = repository.get_compatibility_rules_for_pair(
+            connection, new_descriptor["component_id"], existing_descriptor["component_id"]
+        )
+        if not rules:
+            continue
+
+        compatible = any(
+            (
+                rule["component_a_id"] == new_descriptor["component_id"]
+                and rule["descriptor_a"] == new_descriptor["descriptor"]
+                and rule["component_b_id"] == existing_descriptor["component_id"]
+                and rule["descriptor_b"] == existing_descriptor["descriptor"]
+            )
+            or (
+                rule["component_a_id"] == existing_descriptor["component_id"]
+                and rule["descriptor_a"] == existing_descriptor["descriptor"]
+                and rule["component_b_id"] == new_descriptor["component_id"]
+                and rule["descriptor_b"] == new_descriptor["descriptor"]
+            )
+            for rule in rules
+        )
+        if not compatible:
+            raise DescritorIncompativelError(
+                details={
+                    "component_variant_id": new_variant_id,
+                    "descriptor": new_descriptor["descriptor"],
+                    "conflicting_component_variant_id": existing_variant_id,
+                    "conflicting_descriptor": existing_descriptor["descriptor"],
+                }
+            )
+
+
 def add_item(
     connection: sqlite3.Connection, quote_id: int, payload: QuoteItemCreateIn
 ) -> QuoteItemOut:
     _require_draft_quote(connection, quote_id)
 
-    if not repository.variant_exists(connection, payload.component_variant_id):
-        raise VariacaoNaoEncontradaError(
-            details={"component_variant_id": payload.component_variant_id}
-        )
-
-    price_table_id = repository.get_quote_price_table_id(connection, quote_id)
-    price_row = repository.get_variant_price(
-        connection, payload.component_variant_id, price_table_id
-    )
-    if price_row is None:
-        raise ItemSemPrecoError(
-            details={
-                "component_variant_id": payload.component_variant_id,
-                "price_table_id": price_table_id,
-            }
-        )
-    if not price_row["sku_code"]:
-        raise ItemSemSkuError(details={"component_variant_id": payload.component_variant_id})
+    price_row = _get_frozen_price_row(connection, quote_id, payload.component_variant_id)
 
     item_id = repository.insert_item(
         connection,
@@ -226,6 +284,38 @@ def get_item(connection: sqlite3.Connection, quote_id: int, item_id: int) -> Quo
     item_row = repository.get_item_row(connection, quote_id, item_id)
     if item_row is None:
         raise ItemNaoEncontradoError(details={"id": item_id})
+    return _build_item_out(connection, item_row)
+
+
+def add_component(
+    connection: sqlite3.Connection,
+    quote_id: int,
+    item_id: int,
+    payload: QuoteItemComponentCreateIn,
+) -> QuoteItemOut:
+    """Adiciona um componente a uma linha existente, validando RN-04 (docs/05)."""
+    _require_draft_quote(connection, quote_id)
+
+    item_row = repository.get_item_row(connection, quote_id, item_id)
+    if item_row is None:
+        raise ItemNaoEncontradoError(details={"id": item_id})
+
+    price_row = _get_frozen_price_row(connection, quote_id, payload.component_variant_id)
+
+    existing_variant_ids = repository.get_item_component_variant_ids(connection, item_id)
+    _check_rn04_compatibility(connection, payload.component_variant_id, existing_variant_ids)
+
+    repository.insert_item_component(
+        connection,
+        quote_item_id=item_id,
+        component_variant_id=payload.component_variant_id,
+        sku_id=price_row["sku_id"],
+        frozen_unit_price=price_row["amount"],
+        frozen_currency=price_row["currency"],
+        price_source_id=price_row["price_id"],
+    )
+
+    item_row = repository.get_item_row(connection, quote_id, item_id)
     return _build_item_out(connection, item_row)
 
 

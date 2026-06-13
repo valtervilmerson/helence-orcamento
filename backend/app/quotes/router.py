@@ -9,6 +9,7 @@ from app.quotes import service
 from app.quotes.schemas import (
     CustomerSummary,
     QuoteCreateIn,
+    QuoteItemComponentCreateIn,
     QuoteItemCreateIn,
     QuoteItemOut,
     QuoteItemPatchIn,
@@ -76,6 +77,20 @@ def get_item(
     quote_id: int, item_id: int, connection: sqlite3.Connection = Depends(get_db)
 ) -> QuoteItemOut:
     return service.get_item(connection, quote_id, item_id)
+
+
+@router.post(
+    "/{quote_id}/items/{item_id}/components",
+    response_model=QuoteItemOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_component(
+    quote_id: int,
+    item_id: int,
+    payload: QuoteItemComponentCreateIn,
+    connection: sqlite3.Connection = Depends(get_db),
+) -> QuoteItemOut:
+    return service.add_component(connection, quote_id, item_id, payload)
 
 
 @router.patch("/{quote_id}/items/{item_id}", response_model=QuoteItemOut)

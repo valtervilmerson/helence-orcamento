@@ -235,6 +235,181 @@ def test_discount_without_reason_is_blocked(client) -> None:
     assert response.json()["error"]["code"] == "DESCONTO_SEM_JUSTIFICATIVA"
 
 
+def _vigente_price_table_id() -> int:
+    with get_connection() as connection:
+        row = connection.execute("SELECT id FROM price_tables WHERE status = 'vigente'").fetchone()
+        return row["id"]
+
+
+def _create_variant_with_price(client, *, component_id: int, descriptor: str, sku: str) -> dict:
+    response = client.post(
+        "/api/v1/components",
+        json={
+            "component_id": component_id,
+            "descriptor": descriptor,
+            "sku": {"code": sku},
+            "price": {"amount": 100, "price_table_id": _vigente_price_table_id()},
+        },
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+def test_add_component_to_existing_item_without_rule_is_allowed(client) -> None:
+    """RN-04: sem regra cadastrada para o par de tipos de componente, não há restrição."""
+    tampo = _seeded_variant(client)
+
+    accessory_type = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Acessório RN04 Teste A"}
+    ).json()
+    accessory = _create_variant_with_price(
+        client,
+        component_id=accessory_type["id"],
+        descriptor="Acessório Avulso RN04 Teste A",
+        sku="ACC-RN04-A",
+    )
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    item = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": tampo["component_variant_id"],
+            "label": "Mesa Reunião 1200x900 — Carvalho",
+            "quantity": 1,
+        },
+    ).json()
+
+    response = client.post(
+        f"/api/v1/quotes/{quote['id']}/items/{item['id']}/components",
+        json={"component_variant_id": accessory["component_variant_id"]},
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert len(body["components"]) == 2
+    assert body["line_subtotal"] == round(tampo["price"]["amount"] + 100, 2)
+
+
+def test_add_component_with_compatible_descriptor_is_allowed(client) -> None:
+    """RN-04: par com regra cadastrada e descritores correspondentes é aceito."""
+    component_types = client.get("/api/v1/catalog/component-types").json()
+    tampo_id = next(c["id"] for c in component_types if c["name"] == "Tampo")
+
+    estrutura_type = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Estrutura RN04 Teste B"}
+    ).json()
+
+    tampo_variant = _create_variant_with_price(
+        client, component_id=tampo_id, descriptor="Tampo Inteiro RN04 Teste B", sku="TOP-RN04-B"
+    )
+    estrutura_variant = _create_variant_with_price(
+        client,
+        component_id=estrutura_type["id"],
+        descriptor="Estrutura Reunião Tampo Inteiro RN04 Teste B",
+        sku="EST-RN04-B",
+    )
+
+    rule = client.post(
+        "/api/v1/catalog/compatibility-rules",
+        json={
+            "component_a_id": tampo_id,
+            "descriptor_a": "Tampo Inteiro RN04 Teste B",
+            "component_b_id": estrutura_type["id"],
+            "descriptor_b": "Estrutura Reunião Tampo Inteiro RN04 Teste B",
+        },
+    )
+    assert rule.status_code == 201
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    item = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": tampo_variant["component_variant_id"],
+            "label": "Mesa Reunião RN04 Teste B",
+            "quantity": 1,
+        },
+    ).json()
+
+    response = client.post(
+        f"/api/v1/quotes/{quote['id']}/items/{item['id']}/components",
+        json={"component_variant_id": estrutura_variant["component_variant_id"]},
+    )
+    assert response.status_code == 201
+    assert len(response.json()["components"]) == 2
+
+
+def test_add_component_with_incompatible_descriptor_is_blocked(client) -> None:
+    """RN-04: par com regra cadastrada, mas descritores não correspondem, é bloqueado."""
+    component_types = client.get("/api/v1/catalog/component-types").json()
+    tampo_id = next(c["id"] for c in component_types if c["name"] == "Tampo")
+
+    estrutura_type = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Estrutura RN04 Teste C"}
+    ).json()
+
+    tampo_variant = _create_variant_with_price(
+        client, component_id=tampo_id, descriptor="Tampo Inteiro RN04 Teste C", sku="TOP-RN04-C"
+    )
+    estrutura_compativel = _create_variant_with_price(
+        client,
+        component_id=estrutura_type["id"],
+        descriptor="Estrutura Reunião Tampo Inteiro RN04 Teste C",
+        sku="EST-RN04-C1",
+    )
+    estrutura_incompativel = _create_variant_with_price(
+        client,
+        component_id=estrutura_type["id"],
+        descriptor="Estrutura Reunião Tampo Tri-Partido RN04 Teste C",
+        sku="EST-RN04-C2",
+    )
+
+    rule = client.post(
+        "/api/v1/catalog/compatibility-rules",
+        json={
+            "component_a_id": tampo_id,
+            "descriptor_a": "Tampo Inteiro RN04 Teste C",
+            "component_b_id": estrutura_type["id"],
+            "descriptor_b": "Estrutura Reunião Tampo Inteiro RN04 Teste C",
+        },
+    )
+    assert rule.status_code == 201
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    item = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": tampo_variant["component_variant_id"],
+            "label": "Mesa Reunião RN04 Teste C",
+            "quantity": 1,
+        },
+    ).json()
+
+    response = client.post(
+        f"/api/v1/quotes/{quote['id']}/items/{item['id']}/components",
+        json={"component_variant_id": estrutura_incompativel["component_variant_id"]},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "DESCRITOR_INCOMPATIVEL"
+
+    # A variação compatível, por outro lado, é aceita.
+    response = client.post(
+        f"/api/v1/quotes/{quote['id']}/items/{item['id']}/components",
+        json={"component_variant_id": estrutura_compativel["component_variant_id"]},
+    )
+    assert response.status_code == 201
+
+
+def test_add_component_to_unknown_item_is_not_found(client) -> None:
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    variant = _seeded_variant(client)
+
+    response = client.post(
+        f"/api/v1/quotes/{quote['id']}/items/999999/components",
+        json={"component_variant_id": variant["component_variant_id"]},
+    )
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "ITEM_NAO_ENCONTRADO"
+
+
 def test_invalid_quantity_is_blocked(client) -> None:
     variant = _seeded_variant(client)
     quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()

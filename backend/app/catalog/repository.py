@@ -187,6 +187,10 @@ dimensions = SimpleRepository(
 finishes = SimpleRepository("finishes", ["name", "finish_group", "description"])
 product_components = SimpleRepository("product_components", ["name", "description"])
 products = SimpleRepository("products", ["family_id", "name", "dimension_id"])
+compatibility_rules = SimpleRepository(
+    "component_compatibility_rules",
+    ["component_a_id", "descriptor_a", "component_b_id", "descriptor_b", "notes"],
+)
 
 
 # ---------------------------------------------------------------------------

@@ -201,3 +201,49 @@ def test_delete_component_blocked_when_in_use(client) -> None:
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "COMPONENTE_EM_USO"
     assert "prices" in response.json()["error"]["details"]["referenced_by"]
+
+
+# ---------------------------------------------------------------------------
+# Regras de compatibilidade entre componentes (RN-04, Fase 9)
+# ---------------------------------------------------------------------------
+
+
+def test_create_and_list_compatibility_rule(client) -> None:
+    tampo = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Tampo RN04 CRUD Teste"}
+    ).json()
+    estrutura = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Estrutura RN04 CRUD Teste"}
+    ).json()
+
+    created = client.post(
+        "/api/v1/catalog/compatibility-rules",
+        json={
+            "component_a_id": tampo["id"],
+            "descriptor_a": "Inteiro",
+            "component_b_id": estrutura["id"],
+            "descriptor_b": "Reunião Tampo Inteiro",
+            "notes": "RN-04 — inferido da nomenclatura da tabela 01-2026",
+        },
+    )
+    assert created.status_code == 201
+    body = created.json()
+    assert body["descriptor_a"] == "Inteiro"
+    assert body["descriptor_b"] == "Reunião Tampo Inteiro"
+
+    listed = client.get("/api/v1/catalog/compatibility-rules").json()
+    assert any(rule["id"] == body["id"] for rule in listed)
+
+
+def test_create_compatibility_rule_invalid_reference(client) -> None:
+    response = client.post(
+        "/api/v1/catalog/compatibility-rules",
+        json={
+            "component_a_id": 999999,
+            "descriptor_a": "Inteiro",
+            "component_b_id": 999999,
+            "descriptor_b": "Reunião Tampo Inteiro",
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "REFERENCIA_INVALIDA"

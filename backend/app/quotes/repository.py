@@ -122,6 +122,32 @@ def variant_exists(connection: sqlite3.Connection, variant_id: int) -> bool:
     return row is not None
 
 
+def get_variant_descriptor(connection: sqlite3.Connection, variant_id: int) -> sqlite3.Row | None:
+    """Tipo de componente + descritor de uma variação (RN-04)."""
+    return connection.execute(
+        "SELECT component_id, descriptor FROM component_variants WHERE id = ?",
+        (variant_id,),
+    ).fetchone()
+
+
+def get_compatibility_rules_for_pair(
+    connection: sqlite3.Connection, component_a_id: int, component_b_id: int
+) -> list[sqlite3.Row]:
+    """Regras de compatibilidade cadastradas para este par de tipos de componente.
+
+    O par é consultado nos dois sentidos, pois a relação não é direcional.
+    """
+    return connection.execute(
+        """
+        SELECT component_a_id, descriptor_a, component_b_id, descriptor_b
+        FROM component_compatibility_rules
+        WHERE (component_a_id = ? AND component_b_id = ?)
+           OR (component_a_id = ? AND component_b_id = ?)
+        """,
+        (component_a_id, component_b_id, component_b_id, component_a_id),
+    ).fetchall()
+
+
 def get_variant_price(
     connection: sqlite3.Connection, variant_id: int, price_table_id: int
 ) -> sqlite3.Row | None:
@@ -216,6 +242,14 @@ def get_item_components(connection: sqlite3.Connection, item_id: int) -> list[sq
         """,
         (item_id,),
     ).fetchall()
+
+
+def get_item_component_variant_ids(connection: sqlite3.Connection, item_id: int) -> list[int]:
+    rows = connection.execute(
+        "SELECT component_variant_id FROM quote_item_components WHERE quote_item_id = ?",
+        (item_id,),
+    ).fetchall()
+    return [row["component_variant_id"] for row in rows]
 
 
 def list_items_with_components(connection: sqlite3.Connection, quote_id: int) -> list[sqlite3.Row]:
