@@ -195,3 +195,26 @@ class ComponentVariantSearchResult(BaseModel):
     page: int
     page_size: int
     total: int
+
+
+# ---------------------------------------------------------------------------
+# Publicação de tabela de preços (docs/06, seção 14.7; docs/07, Fase 7)
+# ---------------------------------------------------------------------------
+
+
+class PublishIn(BaseModel):
+    confirm: bool = False
+
+
+class PreviousVigenteSummary(BaseModel):
+    id: int
+    code: str
+    new_status: str
+
+
+class PublishOut(BaseModel):
+    price_table_id: int
+    code: str
+    status: str
+    items_published: int
+    previous_vigente: PreviousVigenteSummary | None = None

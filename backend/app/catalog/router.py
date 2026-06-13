@@ -27,6 +27,8 @@ from app.catalog.schemas import (
     ProductIn,
     ProductOut,
     ProductPatch,
+    PublishIn,
+    PublishOut,
 )
 from app.db.connection import get_connection
 
@@ -125,6 +127,13 @@ _register_crud(
 @router.get("/catalog/price-tables", response_model=list[PriceTableSummary])
 def list_price_tables(connection: sqlite3.Connection = Depends(get_db)) -> list[dict]:
     return [_row_to_dict(row) for row in repository.list_price_tables(connection)]
+
+
+@router.post("/price-tables/{id}/publish", response_model=PublishOut)
+def publish_price_table(
+    id: int, payload: PublishIn, connection: sqlite3.Connection = Depends(get_db)
+) -> PublishOut:
+    return service.publish_price_table(connection, id, payload)
 
 
 # ---------------------------------------------------------------------------

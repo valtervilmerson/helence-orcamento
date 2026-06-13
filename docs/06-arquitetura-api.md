@@ -788,16 +788,30 @@ versão como `vigente` (arquivando a anterior — RN-15).
 { "confirm": true }
 ```
 
-*Response* `202 Accepted`:
+*Response* `200 OK`:
 ```json
 {
   "price_table_id": 6,
   "code": "02-2025",
-  "status": "publicando",
-  "items_to_publish": 1508,
+  "status": "vigente",
+  "items_published": 1508,
   "previous_vigente": { "id": 5, "code": "01-2025", "new_status": "substituida" }
 }
 ```
+
+> Implementado de forma síncrona (transação única) — o volume real (até
+> a ordem de milhares de itens por tabela) não justificou a infra de
+> processamento assíncrono prevista originalmente (`202 Accepted` +
+> `status: "publicando"`). Se o volume crescer a ponto de tornar a
+> publicação lenta, reavaliar.
+
+Para cada `extracted_item` aprovado, família/produto/tipo de
+componente/dimensão são resolvidos por nome — criando o registro no
+catálogo se ainda não existir. **Acabamentos não seguem essa regra**:
+se `finish_raw` não corresponder a um `finishes.name` já cadastrado, a
+publicação é bloqueada com `ACABAMENTO_NAO_CADASTRADO` — cadastre o
+acabamento em `/catalog/finishes` antes de publicar (preserva o
+vocabulário fechado de acabamentos da Fase 6).
 
 *Erros*:
 | código | HTTP | quando |
@@ -806,6 +820,8 @@ versão como `vigente` (arquivando a anterior — RN-15).
 | `ITENS_PENDENTES_DE_REVISAO` | 409 | existem itens com `review_status` diferente de uma decisão final — bloqueia a publicação (`details.pending_count`, `details.review_url`) |
 | `STATUS_INVALIDO` | 409 | tabela já está `vigente`/`substituida` — publicar de novo exige um fluxo de correção explícito, não um novo POST |
 | `CONFIRMACAO_AUSENTE` | 422 | corpo sem `"confirm": true` — operação de alto impacto exige confirmação explícita |
+| `ACABAMENTO_NAO_CADASTRADO` | 422 | `finish_raw` de um item aprovado não corresponde a nenhum acabamento cadastrado |
+| `ITEM_PUBLICACAO_INVALIDO` | 422 | item aprovado sem `component_type_raw`/`sku_raw`/`price_raw`, ou `price_raw` não numérico |
 
 ---
 

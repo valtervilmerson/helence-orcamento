@@ -53,6 +53,111 @@ def list_price_tables(connection: sqlite3.Connection) -> list[sqlite3.Row]:
     return connection.execute("SELECT id, code, status FROM price_tables ORDER BY id").fetchall()
 
 
+def get_price_table(connection: sqlite3.Connection, price_table_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        "SELECT * FROM price_tables WHERE id = ?", (price_table_id,)
+    ).fetchone()
+
+
+def get_vigente_price_table(connection: sqlite3.Connection) -> sqlite3.Row | None:
+    return connection.execute("SELECT * FROM price_tables WHERE status = 'vigente'").fetchone()
+
+
+def set_price_table_status(
+    connection: sqlite3.Connection, price_table_id: int, new_status: str
+) -> None:
+    connection.execute(
+        "UPDATE price_tables SET status = ? WHERE id = ?", (new_status, price_table_id)
+    )
+
+
+# ---------------------------------------------------------------------------
+# Resolução/criação de entidades por nome (Fase 7 — publicação)
+# ---------------------------------------------------------------------------
+
+
+def get_or_create_family(connection: sqlite3.Connection, name: str) -> int:
+    row = connection.execute("SELECT id FROM product_families WHERE name = ?", (name,)).fetchone()
+    if row is not None:
+        return int(row["id"])
+    cursor = connection.execute("INSERT INTO product_families (name) VALUES (?)", (name,))
+    return int(cursor.lastrowid)
+
+
+def get_or_create_component_type(connection: sqlite3.Connection, name: str) -> int:
+    row = connection.execute("SELECT id FROM product_components WHERE name = ?", (name,)).fetchone()
+    if row is not None:
+        return int(row["id"])
+    cursor = connection.execute("INSERT INTO product_components (name) VALUES (?)", (name,))
+    return int(cursor.lastrowid)
+
+
+def get_or_create_product(
+    connection: sqlite3.Connection, family_id: int, name: str, dimension_id: int | None
+) -> int:
+    row = connection.execute(
+        "SELECT id FROM products WHERE family_id = ? AND name = ?", (family_id, name)
+    ).fetchone()
+    if row is not None:
+        return int(row["id"])
+    cursor = connection.execute(
+        "INSERT INTO products (family_id, name, dimension_id) VALUES (?, ?, ?)",
+        (family_id, name, dimension_id),
+    )
+    return int(cursor.lastrowid)
+
+
+def find_finish_by_name(connection: sqlite3.Connection, name: str) -> sqlite3.Row | None:
+    return connection.execute("SELECT id FROM finishes WHERE name = ?", (name,)).fetchone()
+
+
+def get_or_create_dimension(
+    connection: sqlite3.Connection,
+    *,
+    width_mm: int | None,
+    depth_mm: int | None,
+    diameter_mm: int | None,
+    height_mm: int | None,
+    raw_label: str | None,
+) -> int:
+    row = connection.execute(
+        """
+        SELECT id FROM dimensions
+        WHERE width_mm IS ? AND depth_mm IS ? AND diameter_mm IS ? AND height_mm IS ?
+        """,
+        (width_mm, depth_mm, diameter_mm, height_mm),
+    ).fetchone()
+    if row is not None:
+        return int(row["id"])
+    cursor = connection.execute(
+        """
+        INSERT INTO dimensions (width_mm, depth_mm, diameter_mm, height_mm, raw_label)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (width_mm, depth_mm, diameter_mm, height_mm, raw_label),
+    )
+    return int(cursor.lastrowid)
+
+
+def find_variant(
+    connection: sqlite3.Connection,
+    *,
+    product_id: int | None,
+    component_id: int,
+    dimension_id: int | None,
+    finish_id: int | None,
+    descriptor: str | None,
+) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT id FROM component_variants
+        WHERE product_id IS ? AND component_id = ? AND dimension_id IS ?
+          AND finish_id IS ? AND descriptor IS ?
+        """,
+        (product_id, component_id, dimension_id, finish_id, descriptor),
+    ).fetchone()
+
+
 product_families = SimpleRepository("product_families", ["name", "description"])
 dimensions = SimpleRepository(
     "dimensions", ["width_mm", "depth_mm", "diameter_mm", "height_mm", "raw_label"]
@@ -210,13 +315,16 @@ def insert_price(
     price_table_id: int,
     amount: float,
     currency: str,
+    source_extracted_item_id: int | None = None,
 ) -> int:
     cursor = connection.execute(
         """
-        INSERT INTO prices (component_variant_id, sku_id, price_table_id, amount, currency)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO prices
+            (component_variant_id, sku_id, price_table_id, amount, currency,
+             source_extracted_item_id)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (component_variant_id, sku_id, price_table_id, amount, currency),
+        (component_variant_id, sku_id, price_table_id, amount, currency, source_extracted_item_id),
     )
     return int(cursor.lastrowid)
 

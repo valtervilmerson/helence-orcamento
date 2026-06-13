@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from typing import Any
 
@@ -13,18 +14,29 @@ from app.catalog.schemas import (
     ComponentVariantPatch,
     ComponentVariantSearchResult,
     DimensionSummary,
+    PreviousVigenteSummary,
     PriceHistoryEntry,
     PriceSummary,
     PriceTableSummary,
+    PublishIn,
+    PublishOut,
 )
+from app.imports import repository as imports_repository
+from app.imports.extraction import PRICE_VALUE_PATTERN
 from app.shared.errors import (
+    AcabamentoNaoCadastradoError,
     ComponenteEmUsoError,
     ComponenteNaoEncontradoError,
+    ConfirmacaoAusenteError,
+    ItemPublicacaoInvalidoError,
+    ItensPendentesDeRevisaoError,
     PrecoDuplicadoError,
     ReferenciaInvalidaError,
     RegistroDuplicadoError,
     RegistroEmUsoError,
     RegistroNaoEncontradoError,
+    TabelaPrecoNaoEncontradaError,
+    TabelaPrecoStatusInvalidoError,
     VariacaoDuplicadaError,
 )
 
@@ -276,3 +288,196 @@ def delete_variant(connection: sqlite3.Connection, variant_id: int) -> None:
         raise ComponenteEmUsoError(details={"referenced_by": references})
 
     repository.delete_variant(connection, variant_id)
+
+
+# ---------------------------------------------------------------------------
+# Publicação de tabela de preços (docs/06, seção 14.7; docs/07, Fase 7)
+# ---------------------------------------------------------------------------
+
+# Reconhece "1200x900", "1200 x 900 x 1000" e variações com "mm" opcional.
+_DIM_XYZ_PATTERN = re.compile(r"(\d{2,4})\s*[xX]\s*(\d{2,4})\s*[xX]\s*(\d{2,4})")
+_DIM_XY_PATTERN = re.compile(r"(\d{2,4})\s*[xX]\s*(\d{2,4})")
+# Reconhece "900MM", "900 mm" e "Diam. 900mm" — dimensão única = diâmetro.
+_DIM_DIAMETER_PATTERN = re.compile(r"(?:di[aâ]m\.?\s*)?(\d{2,4})\s*mm", re.IGNORECASE)
+
+
+def _parse_dimension(raw: str) -> dict[str, int] | None:
+    text = raw.strip()
+
+    match = _DIM_XYZ_PATTERN.search(text)
+    if match:
+        return {
+            "width_mm": int(match.group(1)),
+            "depth_mm": int(match.group(2)),
+            "height_mm": int(match.group(3)),
+        }
+
+    match = _DIM_XY_PATTERN.search(text)
+    if match:
+        return {"width_mm": int(match.group(1)), "depth_mm": int(match.group(2))}
+
+    match = _DIM_DIAMETER_PATTERN.search(text)
+    if match:
+        return {"diameter_mm": int(match.group(1))}
+
+    return None
+
+
+def _parse_price_amount(price_raw: str) -> float:
+    text = price_raw.strip()
+    if PRICE_VALUE_PATTERN.match(text):
+        text = text.replace(".", "").replace(",", ".")
+    return round(float(text), 2)
+
+
+def _resolve_dimension(connection: sqlite3.Connection, dimension_raw: str | None) -> int | None:
+    if not dimension_raw:
+        return None
+    parsed = _parse_dimension(dimension_raw)
+    if parsed is None:
+        return None
+    return repository.get_or_create_dimension(
+        connection,
+        width_mm=parsed.get("width_mm"),
+        depth_mm=parsed.get("depth_mm"),
+        diameter_mm=parsed.get("diameter_mm"),
+        height_mm=parsed.get("height_mm"),
+        raw_label=dimension_raw,
+    )
+
+
+def _publish_item(connection: sqlite3.Connection, item: sqlite3.Row, price_table_id: int) -> None:
+    item_id = item["id"]
+
+    missing = [field for field in ("component_type_raw", "sku_raw", "price_raw") if not item[field]]
+    if missing:
+        raise ItemPublicacaoInvalidoError(
+            details={"extracted_item_id": item_id, "missing_fields": missing}
+        )
+
+    try:
+        amount = _parse_price_amount(item["price_raw"])
+    except ValueError as exc:
+        raise ItemPublicacaoInvalidoError(
+            details={
+                "extracted_item_id": item_id,
+                "field": "price_raw",
+                "value": item["price_raw"],
+            }
+        ) from exc
+
+    family_id = None
+    if item["family_raw"]:
+        family_id = repository.get_or_create_family(connection, item["family_raw"])
+
+    component_id = repository.get_or_create_component_type(connection, item["component_type_raw"])
+
+    dimension_id = _resolve_dimension(connection, item["dimension_raw"])
+
+    product_id = None
+    if family_id is not None and item["product_context_raw"]:
+        product_id = repository.get_or_create_product(
+            connection, family_id, item["product_context_raw"], dimension_id
+        )
+
+    finish_id = None
+    if item["finish_raw"]:
+        finish_row = repository.find_finish_by_name(connection, item["finish_raw"])
+        if finish_row is None:
+            raise AcabamentoNaoCadastradoError(
+                details={"extracted_item_id": item_id, "finish": item["finish_raw"]}
+            )
+        finish_id = int(finish_row["id"])
+
+    existing_variant = repository.find_variant(
+        connection,
+        product_id=product_id,
+        component_id=component_id,
+        dimension_id=dimension_id,
+        finish_id=finish_id,
+        descriptor=None,
+    )
+    if existing_variant is not None:
+        variant_id = int(existing_variant["id"])
+    else:
+        try:
+            variant_id = repository.insert_variant(
+                connection,
+                {
+                    "product_id": product_id,
+                    "component_id": component_id,
+                    "dimension_id": dimension_id,
+                    "finish_id": finish_id,
+                    "descriptor": None,
+                    "description": item["description_raw"],
+                },
+            )
+        except sqlite3.IntegrityError as exc:
+            connection.rollback()
+            raise VariacaoDuplicadaError(details={"extracted_item_id": item_id}) from exc
+
+    sku_id = repository.get_or_create_sku(connection, item["sku_raw"], None)
+
+    try:
+        repository.insert_price(
+            connection,
+            component_variant_id=variant_id,
+            sku_id=sku_id,
+            price_table_id=price_table_id,
+            amount=amount,
+            currency=item["currency"] or "BRL",
+            source_extracted_item_id=item_id,
+        )
+    except sqlite3.IntegrityError as exc:
+        connection.rollback()
+        raise PrecoDuplicadoError(details={"extracted_item_id": item_id}) from exc
+
+
+def publish_price_table(
+    connection: sqlite3.Connection, price_table_id: int, payload: PublishIn
+) -> PublishOut:
+    table = repository.get_price_table(connection, price_table_id)
+    if table is None:
+        raise TabelaPrecoNaoEncontradaError(details={"id": price_table_id})
+
+    if table["status"] != "rascunho":
+        raise TabelaPrecoStatusInvalidoError(details={"status": table["status"]})
+
+    if not payload.confirm:
+        raise ConfirmacaoAusenteError()
+
+    import_id = table["source_imported_file_id"]
+
+    items: list[sqlite3.Row] = []
+    if import_id is not None:
+        pending_count = imports_repository.count_unreviewed_items(connection, import_id)
+        if pending_count > 0:
+            raise ItensPendentesDeRevisaoError(
+                details={
+                    "pending_count": pending_count,
+                    "review_url": f"/api/v1/imports/{import_id}/items?review_status=pendente",
+                }
+            )
+        items = imports_repository.list_approved_items(connection, import_id)
+
+    for item in items:
+        _publish_item(connection, item, price_table_id)
+
+    previous_vigente = None
+    current_vigente = repository.get_vigente_price_table(connection)
+    if current_vigente is not None and current_vigente["id"] != price_table_id:
+        repository.set_price_table_status(connection, current_vigente["id"], "substituida")
+        previous_vigente = PreviousVigenteSummary(
+            id=current_vigente["id"], code=current_vigente["code"], new_status="substituida"
+        )
+
+    repository.set_price_table_status(connection, price_table_id, "vigente")
+    connection.commit()
+
+    return PublishOut(
+        price_table_id=price_table_id,
+        code=table["code"],
+        status="vigente",
+        items_published=len(items),
+        previous_vigente=previous_vigente,
+    )

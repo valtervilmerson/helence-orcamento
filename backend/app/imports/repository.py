@@ -15,9 +15,7 @@ _IMPORT_BASE = """
 
 
 def find_by_hash(connection: sqlite3.Connection, file_hash: str) -> sqlite3.Row | None:
-    return connection.execute(
-        _IMPORT_BASE + " WHERE f.file_hash = ?", (file_hash,)
-    ).fetchone()
+    return connection.execute(_IMPORT_BASE + " WHERE f.file_hash = ?", (file_hash,)).fetchone()
 
 
 def insert_imported_file(
@@ -95,6 +93,29 @@ def count_pending_review_items(connection: sqlite3.Connection, import_id: int) -
         """,
         (import_id,),
     ).fetchone()["c"]
+
+
+def count_unreviewed_items(connection: sqlite3.Connection, import_id: int) -> int:
+    return connection.execute(
+        """
+        SELECT COUNT(*) AS c
+        FROM extracted_items ei
+        JOIN imported_pages p ON p.id = ei.imported_page_id
+        WHERE p.imported_file_id = ? AND ei.review_status NOT IN ('aprovado', 'rejeitado')
+        """,
+        (import_id,),
+    ).fetchone()["c"]
+
+
+def list_approved_items(connection: sqlite3.Connection, import_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        f"""
+        {_EXTRACTED_ITEM_BASE}
+        WHERE p.imported_file_id = ? AND ei.review_status = 'aprovado'
+        ORDER BY ei.id ASC
+        """,
+        (import_id,),
+    ).fetchall()
 
 
 def get_linked_price_table(connection: sqlite3.Connection, import_id: int) -> sqlite3.Row | None:

@@ -265,6 +265,59 @@ class CorrecaoOrigemNaoEncontradaError(DomainError):
     )
 
 
+# ---------------------------------------------------------------------------
+# Publicação de tabela de preços (docs/06, seção 14.7; docs/07, Fase 7)
+# ---------------------------------------------------------------------------
+
+
+class TabelaPrecoNaoEncontradaError(DomainError):
+    code = "TABELA_NAO_ENCONTRADA"
+    status_code = status.HTTP_404_NOT_FOUND
+    message = "Tabela de preços não encontrada."
+
+
+class TabelaPrecoStatusInvalidoError(DomainError):
+    code = "STATUS_INVALIDO"
+    status_code = status.HTTP_409_CONFLICT
+    message = (
+        "Esta tabela de preços não está em rascunho — publicar de novo exige um "
+        "fluxo de correção explícito, não um novo POST."
+    )
+
+
+class ConfirmacaoAusenteError(DomainError):
+    code = "CONFIRMACAO_AUSENTE"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = (
+        "Operação de alto impacto exige confirmação explícita "
+        '(envie {"confirm": true} no corpo da requisição).'
+    )
+
+
+class ItensPendentesDeRevisaoError(DomainError):
+    code = "ITENS_PENDENTES_DE_REVISAO"
+    status_code = status.HTTP_409_CONFLICT
+    message = (
+        "Existem itens extraídos sem decisão final de revisão — "
+        "revise todos os itens antes de publicar."
+    )
+
+
+class AcabamentoNaoCadastradoError(DomainError):
+    code = "ACABAMENTO_NAO_CADASTRADO"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = (
+        "O acabamento informado não está cadastrado no catálogo — cadastre-o em "
+        "/catalog/finishes antes de publicar."
+    )
+
+
+class ItemPublicacaoInvalidoError(DomainError):
+    code = "ITEM_PUBLICACAO_INVALIDO"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = "Item aprovado está incompleto e não pode ser publicado no catálogo."
+
+
 async def domain_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, DomainError)
     return JSONResponse(
