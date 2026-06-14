@@ -1,0 +1,224 @@
+{
+  "finishes": [
+    {
+      "name": "Amendoa",
+      "finish_group": "madeirado"
+    },
+    {
+      "name": "Argila",
+      "finish_group": "madeirado"
+    },
+    {
+      "name": "Branco",
+      "finish_group": "madeirado"
+    },
+    {
+      "name": "Carvalho",
+      "finish_group": "madeirado"
+    },
+    {
+      "name": "Gianduia",
+      "finish_group": "madeirado"
+    },
+    {
+      "name": "Grafite",
+      "finish_group": "madeirado"
+    },
+    {
+      "name": "Itapua",
+      "finish_group": "madeirado"
+    },
+    {
+      "name": "Nogueira Cadiz",
+      "finish_group": "madeirado"
+    },
+    {
+      "name": "Preto",
+      "finish_group": "madeirado"
+    },
+    {
+      "name": "Sem acabamento aplicável",
+      "finish_group": "outro"
+    }
+  ],
+  "product_families": [
+    "Mesas de Reunião",
+    "Soluções Acústicas"
+  ],
+  "product_components": [
+    "Baffle",
+    "Biombo",
+    "Divisor de Ambiente",
+    "Estrutura",
+    "Kit de Montagem",
+    "Mosaico",
+    "Nuvem",
+    "Painel Divisor",
+    "Painel Frisado",
+    "Painel Ripado",
+    "Placa Acústica",
+    "Tampo"
+  ],
+  "products": [
+    {
+      "family": "Mesas de Reunião",
+      "product": "Reunião 1200x900"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Baffle 1200X1200"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Baffle 2400X1200"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Biombo Acústico"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Divisor De Ambiente Bambu"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Divisor De Ambiente Circular"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Divisor De Ambiente Palmeira"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Divisor De Ambiente Setas"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Kit De Montagem Divisor De Ambiente Bambu"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Kit De Montagem Divisor De Ambiente Circular"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Kit De Montagem Divisor De Ambiente Palmeira"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Kit De Montagem Divisor De Ambiente Setas"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Kits De Montagem Mosaico 3D"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Mosaico 3D Hexagonal"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Mosaico 3D Quadrado"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Mosaico 3D Redondo"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Mosaico 3D Retangular"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Mosaico 3D Triangular"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Mosaico Escama"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Mosaico Hexagonal"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Mosaico Losango"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Mosaico Ondas"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Mosaico Tr30"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Mosaico Tr60"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Nuvem"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Nuvem Circular"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Nuvem Hexagonal"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Nuvem Quadrada"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Painel Acústico Ripado"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Painel Divisor Acústico"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Painel Divisor Acústico Bambu"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Painel Divisor Acústico Circular"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Painel Divisor Acústico Confete"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Painel Divisor Acústico Seta"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Painel Frisado C/Moldura"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Painel Frisado Diagonal"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Painel Frisado Diagonal C/Moldura"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Painel Frisado Reto"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Painel Frisado Reto C/Moldura"
+    },
+    {
+      "family": "Soluções Acústicas",
+      "product": "Painel Frisado Reto Sem Chanfro"
+    }
+  ]
+}

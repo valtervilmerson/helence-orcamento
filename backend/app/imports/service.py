@@ -157,32 +157,41 @@ def list_imports(
         connection, status=status, page=page, page_size=page_size
     )
 
-    items = []
-    for row in rows:
-        price_table_row = repository.get_linked_price_table(connection, row["id"])
-        linked_price_table = (
-            PriceTableSummary(
-                id=price_table_row["id"],
-                code=price_table_row["code"],
-                status=price_table_row["status"],
-            )
-            if price_table_row is not None
-            else None
-        )
-        items.append(
-            ImportListItem(
-                id=row["id"],
-                original_filename=row["original_filename"],
-                status=row["status"],
-                page_count=row["page_count"],
-                imported_at=row["imported_at"],
-                items_extracted=repository.count_extracted_items(connection, row["id"]),
-                items_pending_review=repository.count_pending_review_items(connection, row["id"]),
-                linked_price_table=linked_price_table,
-            )
-        )
+    items = [_build_import_list_item(connection, row) for row in rows]
 
     return ImportListOut(items=items, page=page, page_size=page_size, total=total)
+
+
+def get_import_summary(connection: sqlite3.Connection, import_id: int) -> ImportListItem:
+    row = repository.get_imported_file(connection, import_id)
+    if row is None:
+        raise ImportacaoNaoEncontradaError()
+    return _build_import_list_item(connection, row)
+
+
+def _build_import_list_item(connection: sqlite3.Connection, row: sqlite3.Row) -> ImportListItem:
+    price_table_row = repository.get_linked_price_table(connection, row["id"])
+    linked_price_table = (
+        PriceTableSummary(
+            id=price_table_row["id"],
+            code=price_table_row["code"],
+            status=price_table_row["status"],
+        )
+        if price_table_row is not None
+        else None
+    )
+
+    return ImportListItem(
+        id=row["id"],
+        original_filename=row["original_filename"],
+        status=row["status"],
+        page_count=row["page_count"],
+        imported_at=row["imported_at"],
+        items_extracted=repository.count_extracted_items(connection, row["id"]),
+        items_pending_review=repository.count_pending_review_items(connection, row["id"]),
+        items_blocking_publication=repository.count_unreviewed_items(connection, row["id"]),
+        linked_price_table=linked_price_table,
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -19,6 +19,7 @@ from app.imports.schemas import (
     ImportedFileOut,
     ImportJsonIn,
     ImportJsonOut,
+    ImportListItem,
     ImportListOut,
     ImportStatusOut,
     ProcessImportIn,
@@ -73,10 +74,16 @@ def upload_import(
 )
 def import_json(
     body: ImportJsonIn,
+    original_filename: str | None = Query(default=None),
     connection: sqlite3.Connection = Depends(get_db),
     storage: FileStorage = Depends(get_storage),
 ) -> ImportJsonOut:
-    return json_ingest.ingest_json(connection, body, storage=storage)
+    return json_ingest.ingest_json(
+        connection,
+        body,
+        storage=storage,
+        original_filename=original_filename,
+    )
 
 
 @router.get("", response_model=ImportListOut, dependencies=[Depends(get_current_user)])
@@ -87,6 +94,18 @@ def list_imports(
     connection: sqlite3.Connection = Depends(get_db),
 ) -> ImportListOut:
     return service.list_imports(connection, status=status_, page=page, page_size=page_size)
+
+
+@router.get(
+    "/{import_id}",
+    response_model=ImportListItem,
+    dependencies=[Depends(get_current_user)],
+)
+def get_import_summary(
+    import_id: int,
+    connection: sqlite3.Connection = Depends(get_db),
+) -> ImportListItem:
+    return service.get_import_summary(connection, import_id)
 
 
 @router.post(

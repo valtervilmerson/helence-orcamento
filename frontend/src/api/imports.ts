@@ -69,6 +69,7 @@ export interface ImportListItem {
   imported_at: string
   items_extracted: number
   items_pending_review: number
+  items_blocking_publication: number
   linked_price_table: PriceTableSummary | null
 }
 
@@ -77,6 +78,17 @@ export interface ImportListOut {
   page: number
   page_size: number
   total: number
+}
+
+function normalizeImportListItem(
+  item: Omit<ImportListItem, 'items_blocking_publication'> & {
+    items_blocking_publication?: number
+  },
+): ImportListItem {
+  return {
+    ...item,
+    items_blocking_publication: item.items_blocking_publication ?? item.items_pending_review ?? 0,
+  }
 }
 
 export const uploadImport = (file: File, notes?: string) => {
@@ -88,13 +100,101 @@ export const uploadImport = (file: File, notes?: string) => {
   return request<ImportedFile>('/imports', { method: 'POST', body: formData })
 }
 
+export type FinishGroup = 'madeirado' | 'metalico' | 'pe_estrutura' | 'outro'
+
+export interface ImportJsonPriceTableIn {
+  code: string
+  name?: string | null
+  valid_from?: string | null
+}
+
+export interface ImportJsonSourceIn {
+  description?: string | null
+  generated_by?: string | null
+  generated_at?: string | null
+}
+
+export interface ImportJsonItemIn {
+  ref?: string | null
+  family: string
+  product_context: string
+  component_type: string
+  description?: string | null
+  dimension: string
+  finish: string
+  finish_group?: FinishGroup | null
+  sku: string
+  price: number
+  currency?: string
+  confidence?: number | null
+  notes?: string | null
+}
+
+export interface ImportJsonIn {
+  contract_version: '1.0'
+  price_table: ImportJsonPriceTableIn
+  source?: ImportJsonSourceIn | null
+  items: ImportJsonItemIn[]
+}
+
+export interface ImportJsonItemResult {
+  ref?: string | null
+  extracted_item_id: number
+  review_status: 'aprovado' | 'pendente'
+  reasons?: string[] | null
+}
+
+export interface ImportJsonOut {
+  imported_file_id: number
+  price_table: PriceTableSummary
+  items_total: number
+  items_published: number
+  items_pending_review: number
+  warnings_count: number
+  items: ImportJsonItemResult[]
+}
+
+export const uploadImportJson = (payload: ImportJsonIn, originalFilename?: string) => {
+  const query = new URLSearchParams()
+  if (originalFilename) {
+    query.set('original_filename', originalFilename)
+  }
+  const qs = query.toString()
+  return request<ImportJsonOut>(`/imports/json${qs ? `?${qs}` : ''}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
 export const listImports = (params?: { status?: ImportStatus; page?: number; page_size?: number }) => {
   const query = new URLSearchParams()
   if (params?.status) query.set('status', params.status)
   if (params?.page) query.set('page', String(params.page))
   if (params?.page_size) query.set('page_size', String(params.page_size))
   const qs = query.toString()
-  return request<ImportListOut>(`/imports${qs ? `?${qs}` : ''}`)
+  return request<ImportListOut>(`/imports${qs ? `?${qs}` : ''}`).then((result) => ({
+    ...result,
+    items: result.items.map((item) => normalizeImportListItem(item)),
+  }))
+}
+
+export const getImportSummary = async (importId: number) => {
+  try {
+    const item = await request<ImportListItem>(`/imports/${importId}`)
+    return normalizeImportListItem(item)
+  } catch (err) {
+    if (!(err instanceof ImportsApiError) || err.code !== 'HTTP_404') {
+      throw err
+    }
+
+    const fallback = await listImports({ page_size: 200 })
+    const item = fallback.items.find((entry) => entry.id === importId)
+    if (!item) {
+      throw err
+    }
+    return normalizeImportListItem(item)
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -180,8 +280,6 @@ export const getImportItems = (importId: number, filters?: ExtractedItemsFilters
   const qs = query.toString()
   return request<ExtractedItemsListOut>(`/imports/${importId}/items${qs ? `?${qs}` : ''}`)
 }
-
-export type FinishGroup = 'madeirado' | 'metalico' | 'pe_estrutura' | 'outro'
 
 export interface ReviewItemIn {
   decision: ReviewDecisionType

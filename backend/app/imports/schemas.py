@@ -34,6 +34,7 @@ class ImportListItem(BaseModel):
     imported_at: str
     items_extracted: int
     items_pending_review: int
+    items_blocking_publication: int
     linked_price_table: PriceTableSummary | None
 
 
