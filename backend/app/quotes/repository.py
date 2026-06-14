@@ -7,18 +7,6 @@ from datetime import datetime
 from typing import Any
 
 
-def get_current_price_table(connection: sqlite3.Connection) -> sqlite3.Row | None:
-    return connection.execute(
-        "SELECT id, code, status FROM price_tables WHERE status = 'vigente' LIMIT 1"
-    ).fetchone()
-
-
-def get_price_table(connection: sqlite3.Connection, price_table_id: int) -> sqlite3.Row | None:
-    return connection.execute(
-        "SELECT id, code, status FROM price_tables WHERE id = ?", (price_table_id,)
-    ).fetchone()
-
-
 def get_customer(connection: sqlite3.Connection, customer_id: int) -> sqlite3.Row | None:
     return connection.execute(
         "SELECT id, name FROM customers WHERE id = ?", (customer_id,)
@@ -59,17 +47,16 @@ def insert_quote(
     *,
     quote_number: str,
     customer_id: int,
-    price_table_id: int,
     valid_until: str | None,
     notes: str | None,
     source_quote_id: int | None = None,
 ) -> int:
     cursor = connection.execute(
         """
-        INSERT INTO quotes (quote_number, customer_id, price_table_id, status, valid_until, notes, source_quote_id)
-        VALUES (?, ?, ?, 'rascunho', ?, ?, ?)
+        INSERT INTO quotes (quote_number, customer_id, status, valid_until, notes, source_quote_id)
+        VALUES (?, ?, 'rascunho', ?, ?, ?)
         """,
-        (quote_number, customer_id, price_table_id, valid_until, notes, source_quote_id),
+        (quote_number, customer_id, valid_until, notes, source_quote_id),
     )
     connection.commit()
     return int(cursor.lastrowid)
@@ -86,14 +73,10 @@ _QUOTE_BASE = """
         q.source_quote_id AS source_quote_id,
         c.id AS customer_id,
         c.name AS customer_name,
-        pt.id AS price_table_id,
-        pt.code AS price_table_code,
-        pt.status AS price_table_status,
         u.id AS created_by_id,
         u.name AS created_by_name
     FROM quotes q
     JOIN customers c ON c.id = q.customer_id
-    JOIN price_tables pt ON pt.id = q.price_table_id
     LEFT JOIN users u ON u.id = q.created_by_user_id
 """
 
@@ -114,13 +97,6 @@ def quote_exists(connection: sqlite3.Connection, quote_id: int) -> bool:
 def get_quote_status(connection: sqlite3.Connection, quote_id: int) -> str | None:
     row = connection.execute("SELECT status FROM quotes WHERE id = ?", (quote_id,)).fetchone()
     return row["status"] if row else None
-
-
-def get_quote_price_table_id(connection: sqlite3.Connection, quote_id: int) -> int | None:
-    row = connection.execute(
-        "SELECT price_table_id FROM quotes WHERE id = ?", (quote_id,)
-    ).fetchone()
-    return row["price_table_id"] if row else None
 
 
 def update_quote_status(connection: sqlite3.Connection, quote_id: int, new_status: str) -> None:
@@ -166,19 +142,17 @@ def get_compatibility_rules_for_pair(
     ).fetchall()
 
 
-def get_variant_price(
-    connection: sqlite3.Connection, variant_id: int, price_table_id: int
-) -> sqlite3.Row | None:
-    """Preço da variação na tabela informada, com SKU associado (RN-12/13/15)."""
+def get_variant_price(connection: sqlite3.Connection, variant_id: int) -> sqlite3.Row | None:
+    """Preço (único) da variação, com SKU associado se houver (RN-12/13/15)."""
     return connection.execute(
         """
         SELECT pr.id AS price_id, pr.amount AS amount, pr.currency AS currency,
                pr.sku_id AS sku_id, s.code AS sku_code
         FROM prices pr
-        JOIN skus s ON s.id = pr.sku_id
-        WHERE pr.component_variant_id = ? AND pr.price_table_id = ?
+        LEFT JOIN skus s ON s.id = pr.sku_id
+        WHERE pr.component_variant_id = ?
         """,
-        (variant_id, price_table_id),
+        (variant_id,),
     ).fetchone()
 
 
@@ -258,7 +232,7 @@ def get_item_component_detail(
                s.code AS sku, qic.frozen_unit_price AS frozen_unit_price,
                qic.frozen_currency AS frozen_currency, qic.frozen_at AS frozen_at
         FROM quote_item_components qic
-        JOIN skus s ON s.id = qic.sku_id
+        LEFT JOIN skus s ON s.id = qic.sku_id
         WHERE qic.id = ?
         """,
         (component_id,),
@@ -300,12 +274,9 @@ def get_item_components(connection: sqlite3.Connection, item_id: int) -> list[sq
         SELECT qic.id AS id, qic.component_variant_id AS component_variant_id,
                s.code AS sku, qic.frozen_unit_price AS frozen_unit_price,
                qic.frozen_currency AS frozen_currency, qic.frozen_at AS frozen_at,
-               qic.quantity AS quantity, pr.price_table_id AS price_table_id,
-               pt.code AS price_table_code
+               qic.quantity AS quantity
         FROM quote_item_components qic
-        JOIN skus s ON s.id = qic.sku_id
-        LEFT JOIN prices pr ON pr.id = qic.price_source_id
-        LEFT JOIN price_tables pt ON pt.id = pr.price_table_id
+        LEFT JOIN skus s ON s.id = qic.sku_id
         WHERE qic.quote_item_id = ?
         ORDER BY qic.id
         """,
@@ -375,18 +346,17 @@ def update_item(connection: sqlite3.Connection, item_id: int, data: dict[str, An
 
 
 def get_item_family_id(connection: sqlite3.Connection, item_id: int) -> int | None:
-    """Família do item, derivada dos produtos dos componentes já incluídos.
+    """Família do item, derivada das variações já incluídas.
 
     Retorna o primeiro `family_id` não nulo encontrado entre os componentes
     da linha — cobre itens criados sem `quote_items.product_id`.
     """
     row = connection.execute(
         """
-        SELECT p.family_id AS family_id
+        SELECT cv.family_id AS family_id
         FROM quote_item_components qic
         JOIN component_variants cv ON cv.id = qic.component_variant_id
-        JOIN products p ON p.id = cv.product_id
-        WHERE qic.quote_item_id = ? AND p.family_id IS NOT NULL
+        WHERE qic.quote_item_id = ? AND cv.family_id IS NOT NULL
         LIMIT 1
         """,
         (item_id,),
@@ -422,8 +392,7 @@ def get_catalog_observations_for_quote(connection: sqlite3.Connection, quote_id:
         """
         SELECT DISTINCT br.rule_text AS rule_text
         FROM business_rules br
-        WHERE br.applies_to_price_table_id = (SELECT price_table_id FROM quotes WHERE id = ?)
-           OR br.applies_to_product_id IN (
+        WHERE br.applies_to_product_id IN (
                SELECT DISTINCT cv.product_id
                FROM quote_item_components qic
                JOIN quote_items qi ON qi.id = qic.quote_item_id
@@ -439,7 +408,7 @@ def get_catalog_observations_for_quote(connection: sqlite3.Connection, quote_id:
            )
         ORDER BY rule_text
         """,
-        (quote_id, quote_id, quote_id),
+        (quote_id, quote_id),
     ).fetchall()
     return [row["rule_text"] for row in rows]
 

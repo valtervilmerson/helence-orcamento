@@ -2,7 +2,7 @@
 
 Mantido isolado da camada de service/repositório para permitir testes
 unitários puros (docs/07, Fase 3 — "testes unitários das regras de
-congelamento e de ancoragem à tabela vigente, isolados").
+congelamento, isolados").
 """
 
 from __future__ import annotations
@@ -38,7 +38,6 @@ def compute_totals(items: list[dict[str, Any]], currency: str = "BRL") -> dict[s
     """
     subtotal = 0.0
     discount_amount = 0.0
-    price_tables: set[tuple[int | None, str | None]] = set()
 
     for entry in items:
         item = entry["item"]
@@ -48,25 +47,10 @@ def compute_totals(items: list[dict[str, Any]], currency: str = "BRL") -> dict[s
         subtotal += raw
         discount_amount += item_discount(raw, item)
 
-        for component in components:
-            price_tables.add((component.get("price_table_id"), component.get("price_table_code")))
-
     total = subtotal - discount_amount
     discount_percent = (discount_amount / subtotal * 100) if subtotal else 0.0
 
-    warnings = []
-    distinct_codes = sorted(code for _, code in price_tables if code is not None)
-    if len(distinct_codes) > 1:
-        warnings.append(
-            {
-                "code": "VERSOES_DE_TABELA_MISTAS",
-                "message": (
-                    "Este orçamento contém itens precificados nas tabelas "
-                    + " e ".join(distinct_codes)
-                    + "."
-                ),
-            }
-        )
+    warnings: list[dict[str, Any]] = []
 
     return {
         "subtotal": round(subtotal, 2),

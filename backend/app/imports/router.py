@@ -5,6 +5,8 @@ import sqlite3
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile, status
 
 from app.auth.dependencies import get_current_user, require_role
+from app.catalog import service as catalog_service
+from app.catalog.schemas import PublishIn, PublishOut
 from app.config import get_settings
 from app.db.connection import get_connection
 from app.files.storage import FileStorage
@@ -106,6 +108,19 @@ def get_import_summary(
     connection: sqlite3.Connection = Depends(get_db),
 ) -> ImportListItem:
     return service.get_import_summary(connection, import_id)
+
+
+@router.post(
+    "/{import_id}/publish",
+    response_model=PublishOut,
+    dependencies=[Depends(require_role("admin"))],
+)
+def publish_import(
+    import_id: int,
+    body: PublishIn,
+    connection: sqlite3.Connection = Depends(get_db),
+) -> PublishOut:
+    return catalog_service.publish_import(connection, import_id, body)
 
 
 @router.post(

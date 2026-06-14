@@ -45,6 +45,7 @@ def test_migrations_are_idempotent(connection) -> None:
         "0006_family_component_requirements",
         "0007_quote_duplication",
         "0008_auth",
+        "0009_preco_por_item",
     ]
     assert second == []
 
@@ -58,6 +59,7 @@ def test_migrations_are_idempotent(connection) -> None:
         "0006_family_component_requirements",
         "0007_quote_duplication",
         "0008_auth",
+        "0009_preco_por_item",
     ]
 
 

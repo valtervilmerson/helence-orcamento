@@ -138,13 +138,6 @@ def list_approved_items(connection: sqlite3.Connection, import_id: int) -> list[
     ).fetchall()
 
 
-def get_linked_price_table(connection: sqlite3.Connection, import_id: int) -> sqlite3.Row | None:
-    return connection.execute(
-        "SELECT id, code, status FROM price_tables WHERE source_imported_file_id = ?",
-        (import_id,),
-    ).fetchone()
-
-
 # ---------------------------------------------------------------------------
 # Processamento (docs/06, seções 14.3/14.4; docs/07, Fase 5)
 # ---------------------------------------------------------------------------

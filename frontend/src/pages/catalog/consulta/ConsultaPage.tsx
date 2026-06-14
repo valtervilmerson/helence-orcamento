@@ -215,28 +215,11 @@ export function ConsultaPage() {
                   {selected.finish ? ` — ${selected.finish}` : ''}
                 </h3>
                 <p>SKU: {selected.sku ?? '—'}</p>
-                <p>
-                  Preço ({selected.price_table?.code ?? '—'}): {formatPrice(selected.price)}
-                </p>
+                <p>Preço: {formatPrice(selected.price)}</p>
                 <p>Dimensão: {selected.dimension?.raw_label ?? '—'}</p>
                 <p>Descrição: {selected.description ?? '—'}</p>
-
-                <h4>Histórico de preço</h4>
                 {detailLoading && <p>Carregando…</p>}
                 {detailError && <p className="feedback-error">{detailError}</p>}
-                {!detailLoading && !detailError && (
-                  <ul>
-                    {(selected.price_history ?? []).map((entry) => (
-                      <li key={entry.price_table.id}>
-                        {entry.price_table.code}: {formatPrice(entry.price)}
-                        {entry.price_table.status === 'vigente' ? ' (vigente)' : ''}
-                      </li>
-                    ))}
-                    {(selected.price_history ?? []).length === 0 && (
-                      <li>sem versões anteriores cadastradas</li>
-                    )}
-                  </ul>
-                )}
               </div>
             )}
           </div>

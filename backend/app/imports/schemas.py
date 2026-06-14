@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.catalog.schemas import FinishGroup, PriceTableSummary
+from app.catalog.schemas import FinishGroup
 from app.quotes.schemas import UserSummary
 
 ImportStatus = Literal["recebido", "processando", "concluido", "erro"]
@@ -35,7 +35,6 @@ class ImportListItem(BaseModel):
     items_extracted: int
     items_pending_review: int
     items_blocking_publication: int
-    linked_price_table: PriceTableSummary | None
 
 
 class ImportListOut(BaseModel):
@@ -217,12 +216,6 @@ class BatchReviewOut(BaseModel):
 ImportJsonReviewStatus = Literal["aprovado", "pendente"]
 
 
-class ImportJsonPriceTableIn(BaseModel):
-    code: str
-    name: str | None = None
-    valid_from: str | None = None
-
-
 class ImportJsonSourceIn(BaseModel):
     description: str | None = None
     generated_by: str | None = None
@@ -232,13 +225,13 @@ class ImportJsonSourceIn(BaseModel):
 class ImportJsonItemIn(BaseModel):
     ref: str | None = None
     family: str
-    product_context: str
+    product_context: str | None = None
     component_type: str
     description: str | None = None
     dimension: str
     finish: str
     finish_group: FinishGroup | None = None
-    sku: str
+    sku: str | None = None
     price: float = Field(ge=0)
     currency: str = "BRL"
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
@@ -247,7 +240,6 @@ class ImportJsonItemIn(BaseModel):
 
 class ImportJsonIn(BaseModel):
     contract_version: Literal["1.0"]
-    price_table: ImportJsonPriceTableIn
     source: ImportJsonSourceIn | None = None
     items: list[ImportJsonItemIn] = Field(min_length=1)
 
@@ -261,7 +253,6 @@ class ImportJsonItemResult(BaseModel):
 
 class ImportJsonOut(BaseModel):
     imported_file_id: int
-    price_table: PriceTableSummary
     items_total: int
     items_published: int
     items_pending_review: int

@@ -22,7 +22,7 @@ def _seeded_variant_by_finish(client, finish: str) -> dict:
     return search["items"][0]
 
 
-def test_create_quote_anchors_to_vigente_price_table(client) -> None:
+def test_create_quote_sets_initial_status(client) -> None:
     response = client.post(
         "/api/v1/quotes",
         json={"customer_id": _customer_id(), "valid_until": "2026-07-08", "notes": "Teste Fase 3"},
@@ -32,7 +32,6 @@ def test_create_quote_anchors_to_vigente_price_table(client) -> None:
     body = response.json()
     assert body["status"] == "rascunho"
     assert body["customer"]["name"] == SEED_CUSTOMER_NAME
-    assert body["price_table"]["status"] == "vigente"
     assert body["quote_number"].startswith("ORC-")
 
 
@@ -104,7 +103,7 @@ def test_full_quote_lifecycle(client) -> None:
     assert approved.json()["status"] == "aprovado"
 
 
-def test_price_freeze_survives_price_table_change(client) -> None:
+def test_price_freeze_survives_catalog_price_change(client) -> None:
     variant = _seeded_variant(client)
     unit_price = variant["price"]["amount"]
 
@@ -121,27 +120,11 @@ def test_price_freeze_survives_price_table_change(client) -> None:
     ).json()
     assert item["components"][0]["frozen_unit_price"] == unit_price
 
-    # Publica uma nova versão de tabela vigente, com preço diferente para a mesma variação
+    # Atualiza o preço do item no catálogo (preço único por item)
     with get_connection() as connection:
         connection.execute(
-            "UPDATE price_tables SET status = 'substituida' WHERE status = 'vigente'"
-        )
-        connection.execute(
-            "INSERT INTO price_tables (code, name, status) "
-            "VALUES ('NOVA-VIGENTE', 'Nova', 'vigente')"
-        )
-        new_table_id = connection.execute(
-            "SELECT id FROM price_tables WHERE code = 'NOVA-VIGENTE'"
-        ).fetchone()["id"]
-        sku_id = connection.execute(
-            "SELECT id FROM skus WHERE code = ?", (variant["sku"],)
-        ).fetchone()["id"]
-        connection.execute(
-            """
-            INSERT INTO prices (component_variant_id, sku_id, price_table_id, amount)
-            VALUES (?, ?, ?, ?)
-            """,
-            (variant["component_variant_id"], sku_id, new_table_id, unit_price + 100),
+            "UPDATE prices SET amount = ? WHERE component_variant_id = ?",
+            (unit_price + 100, variant["component_variant_id"]),
         )
         connection.commit()
 
@@ -149,9 +132,8 @@ def test_price_freeze_survives_price_table_change(client) -> None:
     unchanged = client.get(f"/api/v1/quotes/{quote_id}/items/{item['id']}")
     assert unchanged.json()["components"][0]["frozen_unit_price"] == unit_price
 
-    # Novo orçamento é ancorado à nova tabela vigente (RN-15)
+    # Novo item no mesmo orçamento congela pelo preço atual do catálogo
     new_quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
-    assert new_quote["price_table"]["code"] == "NOVA-VIGENTE"
 
     new_item = client.post(
         f"/api/v1/quotes/{new_quote['id']}/items",
@@ -240,12 +222,6 @@ def test_discount_without_reason_is_blocked(client) -> None:
     assert response.json()["error"]["code"] == "DESCONTO_SEM_JUSTIFICATIVA"
 
 
-def _vigente_price_table_id() -> int:
-    with get_connection() as connection:
-        row = connection.execute("SELECT id FROM price_tables WHERE status = 'vigente'").fetchone()
-        return row["id"]
-
-
 def _create_variant_with_price(
     client, *, component_id: int, descriptor: str, sku: str, amount: float = 100
 ) -> dict:
@@ -255,7 +231,7 @@ def _create_variant_with_price(
             "component_id": component_id,
             "descriptor": descriptor,
             "sku": {"code": sku},
-            "price": {"amount": amount, "price_table_id": _vigente_price_table_id()},
+            "price": {"amount": amount},
         },
     )
     assert response.status_code == 201
@@ -272,7 +248,7 @@ def _create_variant_with_product(
             "component_id": component_id,
             "descriptor": descriptor,
             "sku": {"code": sku},
-            "price": {"amount": amount, "price_table_id": _vigente_price_table_id()},
+            "price": {"amount": amount},
         },
     )
     assert response.status_code == 201
@@ -944,14 +920,11 @@ def test_duplicate_quote_flags_pricing_pendencia_when_repricing_fails(client) ->
         },
     )
 
-    # Publica uma nova tabela vigente sem preço cadastrado para essa variação
+    # Remove o preço cadastrado para essa variação (RN-12/13/15)
     with get_connection() as connection:
         connection.execute(
-            "UPDATE price_tables SET status = 'substituida' WHERE status = 'vigente'"
-        )
-        connection.execute(
-            "INSERT INTO price_tables (code, name, status) "
-            "VALUES ('NOVA-VIGENTE-RN17', 'Nova', 'vigente')"
+            "DELETE FROM prices WHERE component_variant_id = ?",
+            (variant["component_variant_id"],),
         )
         connection.commit()
 

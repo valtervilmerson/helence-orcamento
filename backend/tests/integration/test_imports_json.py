@@ -5,10 +5,9 @@ Fase 13).
 from app.db.connection import get_connection
 
 
-def _payload(code: str, items: list[dict]) -> dict:
+def _payload(items: list[dict]) -> dict:
     return {
         "contract_version": "1.0",
-        "price_table": {"code": code, "name": f"Tabela {code}"},
         "source": {"description": "teste", "generated_by": "pytest"},
         "items": items,
     }
@@ -34,7 +33,7 @@ def _item(**overrides) -> dict:
 
 
 def test_import_json_fast_path_publishes_to_catalog(client) -> None:
-    payload = _payload("JSON-FASTPATH-01", [_item(sku="JSONTEST0001", price=111.50)])
+    payload = _payload([_item(sku="JSONTEST0001", price=111.50)])
 
     response = client.post("/api/v1/imports/json", json=payload)
 
@@ -43,8 +42,6 @@ def test_import_json_fast_path_publishes_to_catalog(client) -> None:
     assert body["items_total"] == 1
     assert body["items_published"] == 1
     assert body["items_pending_review"] == 0
-    assert body["price_table"]["code"] == "JSON-FASTPATH-01"
-    assert body["price_table"]["status"] == "rascunho"
     assert body["items"][0]["review_status"] == "aprovado"
     assert body["items"][0]["reasons"] is None
 
@@ -54,8 +51,7 @@ def test_import_json_fast_path_publishes_to_catalog(client) -> None:
             SELECT pr.amount, pr.source_extracted_item_id, s.code AS sku_code
             FROM prices pr
             JOIN skus s ON s.id = pr.sku_id
-            JOIN price_tables pt ON pt.id = pr.price_table_id
-            WHERE pt.code = 'JSON-FASTPATH-01'
+            WHERE s.code = 'JSONTEST0001'
             """,
         ).fetchone()
     assert row["sku_code"] == "JSONTEST0001"
@@ -65,7 +61,6 @@ def test_import_json_fast_path_publishes_to_catalog(client) -> None:
 
 def test_import_json_pending_for_new_entities(client) -> None:
     payload = _payload(
-        "JSON-PENDING-COMP",
         [
             _item(
                 sku="JSONTEST0002",
@@ -88,11 +83,10 @@ def test_import_json_pending_for_new_entities(client) -> None:
     item = body["items"][0]
     assert item["review_status"] == "pendente"
     assert any("Estrutura Apoio Credenza" in r for r in item["reasons"])
-    assert any("Prata" in r for r in item["reasons"])
 
 
 def test_import_json_pending_for_missing_confidence(client) -> None:
-    payload = _payload("JSON-PENDING-CONF", [_item(sku="JSONTEST0003", confidence=None)])
+    payload = _payload([_item(sku="JSONTEST0003", confidence=None)])
 
     response = client.post("/api/v1/imports/json", json=payload)
 
@@ -105,7 +99,6 @@ def test_import_json_pending_for_missing_confidence(client) -> None:
 
 def test_import_json_pending_for_notes(client) -> None:
     payload = _payload(
-        "JSON-PENDING-NOTES",
         [_item(sku="JSONTEST0004", notes="Descrição remontada a partir de 3 linhas.")],
     )
 
@@ -119,7 +112,7 @@ def test_import_json_pending_for_notes(client) -> None:
 
 
 def test_import_json_duplicate_payload_returns_409(client) -> None:
-    payload = _payload("JSON-DUP", [_item(sku="JSONTEST0005")])
+    payload = _payload([_item(sku="JSONTEST0005")])
 
     first = client.post("/api/v1/imports/json", json=payload)
     assert first.status_code == 201
@@ -129,18 +122,15 @@ def test_import_json_duplicate_payload_returns_409(client) -> None:
     assert second.json()["error"]["code"] == "ARQUIVO_DUPLICADO"
 
 
-def test_import_json_reuses_price_table_and_upserts_price(client) -> None:
-    first_payload = _payload("JSON-REUSE", [_item(ref="TESTE!L1", sku="JSONTEST0006", price=100.0)])
-    second_payload = _payload(
-        "JSON-REUSE", [_item(ref="TESTE!L2", sku="JSONTEST0006", price=150.0)]
-    )
+def test_import_json_reimport_upserts_price(client) -> None:
+    first_payload = _payload([_item(ref="TESTE!L1", sku="JSONTEST0006", price=100.0)])
+    second_payload = _payload([_item(ref="TESTE!L2", sku="JSONTEST0006", price=150.0)])
 
     first = client.post("/api/v1/imports/json", json=first_payload)
     second = client.post("/api/v1/imports/json", json=second_payload)
 
     assert first.status_code == 201
     assert second.status_code == 201
-    assert first.json()["price_table"]["id"] == second.json()["price_table"]["id"]
 
     with get_connection() as connection:
         rows = connection.execute(
@@ -148,8 +138,7 @@ def test_import_json_reuses_price_table_and_upserts_price(client) -> None:
             SELECT pr.amount
             FROM prices pr
             JOIN skus s ON s.id = pr.sku_id
-            JOIN price_tables pt ON pt.id = pr.price_table_id
-            WHERE pt.code = 'JSON-REUSE' AND s.code = 'JSONTEST0006'
+            WHERE s.code = 'JSONTEST0006'
             """,
         ).fetchall()
 

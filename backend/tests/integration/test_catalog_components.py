@@ -1,6 +1,15 @@
 """Endpoints de busca e CRUD de variações vendáveis (docs/06, 14.8/14.9)."""
 
 from app.db.connection import get_connection
+from app.db.seed import SEED_CUSTOMER_NAME
+
+
+def _customer_id() -> int:
+    with get_connection() as connection:
+        row = connection.execute(
+            "SELECT id FROM customers WHERE name = ?", (SEED_CUSTOMER_NAME,)
+        ).fetchone()
+        return row["id"]
 
 
 def test_search_returns_seeded_variants(client) -> None:
@@ -24,7 +33,6 @@ def test_search_returns_seeded_variants(client) -> None:
         "raw_label": "1200x900",
     }
     assert item["price"]["currency"] == "BRL"
-    assert item["price_table"]["status"] == "vigente"
     assert item["source"] == "cadastro_manual"
 
 
@@ -87,7 +95,7 @@ def test_search_filters_by_finish_group(client) -> None:
     assert mismatched.json()["total"] == 0
 
 
-def test_get_component_includes_price_history(client) -> None:
+def test_get_component_includes_price(client) -> None:
     search = client.get("/api/v1/components", params={"finish": "Branco"})
     variant_id = search.json()["items"][0]["component_variant_id"]
 
@@ -96,9 +104,7 @@ def test_get_component_includes_price_history(client) -> None:
 
     body = detail.json()
     assert body["component_variant_id"] == variant_id
-    assert len(body["price_history"]) == 1
-    assert body["price_history"][0]["price_table"]["code"] == "SEED-VAZIA"
-    assert body["price_history"][0]["price"]["amount"] == 374.45
+    assert body["price"]["amount"] == 374.45
 
 
 def test_get_component_not_found(client) -> None:
@@ -111,10 +117,6 @@ def test_create_component_with_sku_and_price(client) -> None:
     component_type = client.post(
         "/api/v1/catalog/component-types", json={"name": "Estrutura"}
     ).json()
-
-    search = client.get("/api/v1/components", params={"family": "Mesas de Reunião"}).json()
-    seeded = search["items"][0]
-    price_table_id = seeded["price_table"]["id"]
 
     products = client.get("/api/v1/catalog/products").json()
     product_id = next(p["id"] for p in products if p["name"] == "Reunião 1200x900")
@@ -133,7 +135,7 @@ def test_create_component_with_sku_and_price(client) -> None:
         "descriptor": "Inteiro Simples",
         "description": "Cadastro manual — confirmação telefônica com o fabricante",
         "sku": {"code": "9999999999", "notes": "Novo código informado pelo fabricante"},
-        "price": {"amount": 510.00, "currency": "BRL", "price_table_id": price_table_id},
+        "price": {"amount": 510.00, "currency": "BRL"},
     }
 
     create = client.post("/api/v1/components", json=payload)
@@ -196,30 +198,20 @@ def test_delete_component_blocked_when_in_use(client) -> None:
     item = search.json()["items"][0]
     variant_id = item["component_variant_id"]
 
-    with get_connection() as connection:
-        connection.execute(
-            "INSERT INTO price_tables (code, name, status) "
-            "VALUES ('OUTRA-TABELA', 'Outra', 'rascunho')"
-        )
-        other_table_id = connection.execute(
-            "SELECT id FROM price_tables WHERE code = 'OUTRA-TABELA'"
-        ).fetchone()["id"]
-        sku_id = connection.execute(
-            "SELECT id FROM skus WHERE code = ?", (item["sku"],)
-        ).fetchone()["id"]
-        connection.execute(
-            """
-            INSERT INTO prices (component_variant_id, sku_id, price_table_id, amount)
-            VALUES (?, ?, ?, ?)
-            """,
-            (variant_id, sku_id, other_table_id, item["price"]["amount"]),
-        )
-        connection.commit()
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": variant_id,
+            "label": "Item em uso",
+            "quantity": 1,
+        },
+    )
 
     response = client.delete(f"/api/v1/components/{variant_id}")
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "COMPONENTE_EM_USO"
-    assert "prices" in response.json()["error"]["details"]["referenced_by"]
+    assert "quote_item_components" in response.json()["error"]["details"]["referenced_by"]
 
 
 # ---------------------------------------------------------------------------

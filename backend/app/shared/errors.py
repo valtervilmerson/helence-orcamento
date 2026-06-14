@@ -120,12 +120,6 @@ class ClienteNaoEncontradoError(DomainError):
     message = "Cliente não encontrado."
 
 
-class NenhumaTabelaVigenteError(DomainError):
-    code = "NENHUMA_TABELA_VIGENTE"
-    status_code = status.HTTP_409_CONFLICT
-    message = "Não há nenhuma tabela de preço marcada como vigente — não é possível orçar."
-
-
 class OrcamentoNaoEncontradoError(DomainError):
     code = "ORCAMENTO_NAO_ENCONTRADO"
     status_code = status.HTTP_404_NOT_FOUND
@@ -160,17 +154,8 @@ class ItemSemPrecoError(DomainError):
     code = "ITEM_SEM_PRECO"
     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
     message = (
-        "Esta variação não tem preço cadastrado na tabela vigente — lacuna conhecida do "
+        "Esta variação não tem preço cadastrado — lacuna conhecida do "
         "catálogo. Escolha outra variação ou contate o time responsável pelo catálogo."
-    )
-
-
-class ItemSemSkuError(DomainError):
-    code = "ITEM_SEM_SKU"
-    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-    message = (
-        "Este componente tem preço cadastrado, mas não tem código de fabricação associado — "
-        "não pode ser incluído até que isso seja resolvido."
     )
 
 
@@ -350,23 +335,8 @@ class CorrecaoOrigemNaoEncontradaError(DomainError):
 
 
 # ---------------------------------------------------------------------------
-# Publicação de tabela de preços (docs/06, seção 14.7; docs/07, Fase 7)
+# Publicação de importação (docs/06, seção 14.7; docs/07, Fase 7)
 # ---------------------------------------------------------------------------
-
-
-class TabelaPrecoNaoEncontradaError(DomainError):
-    code = "TABELA_NAO_ENCONTRADA"
-    status_code = status.HTTP_404_NOT_FOUND
-    message = "Tabela de preços não encontrada."
-
-
-class TabelaPrecoStatusInvalidoError(DomainError):
-    code = "STATUS_INVALIDO"
-    status_code = status.HTTP_409_CONFLICT
-    message = (
-        "Esta tabela de preços não está em rascunho — publicar de novo exige um "
-        "fluxo de correção explícito, não um novo POST."
-    )
 
 
 class ConfirmacaoAusenteError(DomainError):

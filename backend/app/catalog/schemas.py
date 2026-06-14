@@ -177,7 +177,6 @@ class SkuIn(BaseModel):
 class PriceIn(BaseModel):
     amount: float = Field(ge=0)
     currency: str = "BRL"
-    price_table_id: int
 
 
 class ComponentVariantIn(BaseModel):
@@ -213,19 +212,9 @@ class PriceSummary(BaseModel):
     currency: str
 
 
-class PriceTableSummary(BaseModel):
-    id: int
-    code: str
-    status: str
-
-
-class PriceHistoryEntry(BaseModel):
-    price_table: PriceTableSummary
-    price: PriceSummary
-
-
 class ComponentVariantOut(BaseModel):
     component_variant_id: int
+    family_id: int | None = None
     family: str | None = None
     product: str | None = None
     component: str
@@ -236,9 +225,7 @@ class ComponentVariantOut(BaseModel):
     finish_group: FinishGroup | None = None
     sku: str | None = None
     price: PriceSummary | None = None
-    price_table: PriceTableSummary | None = None
     source: str = "cadastro_manual"
-    price_history: list[PriceHistoryEntry] | None = None
 
 
 class ComponentVariantSearchResult(BaseModel):
@@ -249,7 +236,7 @@ class ComponentVariantSearchResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Publicação de tabela de preços (docs/06, seção 14.7; docs/07, Fase 7)
+# Publicação de importação (docs/06, seção 14.7; docs/07, Fase 7)
 # ---------------------------------------------------------------------------
 
 
@@ -257,15 +244,6 @@ class PublishIn(BaseModel):
     confirm: bool = False
 
 
-class PreviousVigenteSummary(BaseModel):
-    id: int
-    code: str
-    new_status: str
-
-
 class PublishOut(BaseModel):
-    price_table_id: int
-    code: str
-    status: str
+    imported_file_id: int
     items_published: int
-    previous_vigente: PreviousVigenteSummary | None = None

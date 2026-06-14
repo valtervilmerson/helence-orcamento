@@ -430,7 +430,7 @@ function EditItemPanel({
             return (
               <li key={component.id} className="field-group">
                 <div className="action-group">
-                  {component.sku} — {component.frozen_currency} {component.frozen_unit_price.toFixed(2)}
+                  {component.sku ?? 'sem SKU'} — {component.frozen_currency} {component.frozen_unit_price.toFixed(2)}
                   <button type="button" className="secondary" onClick={() => handleRemoveComponent(component.id)}>
                     remover componente
                   </button>
@@ -511,7 +511,7 @@ function ItemRow({
         <td>
           {item.components.map((c) => (
             <div key={c.id}>
-              {c.sku} — {c.frozen_currency} {c.frozen_unit_price.toFixed(2)}
+              {c.sku ?? 'sem SKU'} — {c.frozen_currency} {c.frozen_unit_price.toFixed(2)}
             </div>
           ))}
           {item.pricing_pendencias.length > 0 && (
@@ -642,8 +642,8 @@ function QuoteDetail({
   async function handleDuplicate() {
     setError(null)
     const confirmed = window.confirm(
-      `Este orçamento será duplicado com os preços da tabela vigente atual. ` +
-        `Os valores podem ser diferentes dos deste orçamento (tabela ${quote.price_table.code}). Continuar?`,
+      `Este orçamento será duplicado com os preços atuais de cada item. ` +
+        `Os valores podem ser diferentes dos deste orçamento. Continuar?`,
     )
     if (!confirmed) return
 
@@ -662,9 +662,6 @@ function QuoteDetail({
       <h2>
         {quote.quote_number} — {quote.customer.name} <StatusBadge status={quote.status} />
       </h2>
-      <p>
-        Tabela de preço: {quote.price_table.code} ({quote.price_table.status})
-      </p>
       {quote.source_quote_id !== null && <p>Duplicado do orçamento #{quote.source_quote_id}.</p>}
       <div className="action-group">
         <button type="button" className="secondary" onClick={() => void handleDuplicate()}>

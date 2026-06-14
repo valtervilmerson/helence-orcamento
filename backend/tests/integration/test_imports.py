@@ -81,7 +81,6 @@ def test_list_imports_returns_uploaded_file(client) -> None:
     assert item["status"] == "recebido"
     assert item["items_extracted"] == 0
     assert item["items_pending_review"] == 0
-    assert item["linked_price_table"] is None
 
 
 def test_list_imports_filters_by_status(client) -> None:

@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useState } from 'react'
-import { CatalogApiError, publishPriceTable } from '../../../api/catalog'
+import { CatalogApiError } from '../../../api/catalog'
 import { listFinishes, type Finish, type FinishGroup } from '../../../api/catalog'
 import {
   ImportsApiError,
@@ -8,6 +8,7 @@ import {
   getImportItems,
   getImportSummary,
   previewBatchCorrection,
+  publishImport,
   reviewExtractedItem,
   type BatchCorrectionPreviewOut,
   type BatchCorrectionScope,
@@ -62,12 +63,6 @@ const CONFIDENCE_BADGE_CLASS: Record<ConfidenceLevel, string> = {
   baixa: 'badge-danger',
 }
 
-const PRICE_TABLE_STATUS_BADGE_CLASS: Record<string, string> = {
-  rascunho: 'badge-warning',
-  vigente: 'badge-success',
-  substituida: 'badge-neutral',
-}
-
 const BATCH_SCOPE_OPTIONS: { value: BatchCorrectionScope; label: string }[] = [
   { value: 'page', label: 'Mesma pagina' },
   { value: 'page_profile', label: 'Mesmo perfil de pagina em toda a importacao' },
@@ -91,14 +86,6 @@ function ConfidenceBadge({ level }: { level: ConfidenceLevel | null }) {
   if (!level) return <span>-</span>
   const label = level === 'alta' ? 'ALTA' : level === 'media' ? 'MEDIA' : 'BAIXA'
   return <span className={`badge ${CONFIDENCE_BADGE_CLASS[level]}`}>{label}</span>
-}
-
-function PriceTableStatusBadge({ status }: { status: string }) {
-  return (
-    <span className={`badge ${PRICE_TABLE_STATUS_BADGE_CLASS[status] ?? 'badge-neutral'}`}>
-      {status}
-    </span>
-  )
 }
 
 interface BatchCorrectionModalProps {
@@ -605,7 +592,7 @@ function ErrorMessageBlock({ error }: { error: string | null }) {
 
 interface ImportSummaryPanelProps {
   summary: ImportListItem | null
-  canPublishPriceTables: boolean
+  canPublishImports: boolean
   publishing: boolean
   publishError: string | null
   publishSuccess: string | null
@@ -614,7 +601,7 @@ interface ImportSummaryPanelProps {
 
 function ImportSummaryPanel({
   summary,
-  canPublishPriceTables,
+  canPublishImports,
   publishing,
   publishError,
   publishSuccess,
@@ -622,11 +609,7 @@ function ImportSummaryPanel({
 }: ImportSummaryPanelProps) {
   if (!summary) return null
 
-  const linkedPriceTable = summary.linked_price_table
-  const canPublishNow =
-    canPublishPriceTables &&
-    linkedPriceTable?.status === 'rascunho' &&
-    summary.items_blocking_publication === 0
+  const canPublishNow = canPublishImports && summary.items_blocking_publication === 0
 
   return (
     <section style={{ marginTop: 'var(--space-3)' }}>
@@ -649,28 +632,10 @@ function ImportSummaryPanel({
             <td>Bloqueando publicacao</td>
             <td>{summary.items_blocking_publication}</td>
           </tr>
-          <tr>
-            <td>Tabela vinculada</td>
-            <td>
-              {linkedPriceTable ? (
-                <>
-                  {linkedPriceTable.code} <PriceTableStatusBadge status={linkedPriceTable.status} />
-                </>
-              ) : (
-                '-'
-              )}
-            </td>
-          </tr>
         </tbody>
       </table>
 
-      {linkedPriceTable?.status === 'vigente' && (
-        <p className="feedback-success">Esta tabela ja esta publicada e disponivel no catalogo.</p>
-      )}
-      {linkedPriceTable?.status === 'substituida' && (
-        <p className="feedback-warning">Esta tabela foi substituida por outra vigente.</p>
-      )}
-      {linkedPriceTable?.status === 'rascunho' && summary.items_blocking_publication > 0 && (
+      {summary.items_blocking_publication > 0 && (
         <p className="feedback-warning">
           Ainda ha {summary.items_blocking_publication} item(ns) sem decisao final. Itens
           corrigidos precisam ser aprovados antes da publicacao.
@@ -680,10 +645,10 @@ function ImportSummaryPanel({
       {publishError && <ErrorMessageBlock error={publishError} />}
       {publishSuccess && <p className="feedback-success">{publishSuccess}</p>}
 
-      {linkedPriceTable?.status === 'rascunho' && canPublishPriceTables && (
+      {canPublishImports && (
         <p className="action-group">
           <button type="button" onClick={onPublish} disabled={!canPublishNow || publishing}>
-            {publishing ? 'Publicando...' : 'Publicar tabela'}
+            {publishing ? 'Publicando...' : 'Publicar importacao'}
           </button>
         </p>
       )}
@@ -694,7 +659,7 @@ function ImportSummaryPanel({
 export function ReviewPage({ importId, onBack }: { importId: number; onBack: () => void }) {
   const { user } = useAuth()
   const canReview = user?.role === 'revisor' || user?.role === 'admin'
-  const canPublishPriceTables = user?.role === 'admin'
+  const canPublishImports = user?.role === 'admin'
   const [items, setItems] = useState<ExtractedItem[]>([])
   const [total, setTotal] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -808,19 +773,12 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
   }
 
   async function handlePublish() {
-    if (!importSummary?.linked_price_table) {
-      setPublishError('Importacao sem tabela de precos vinculada.')
-      return
-    }
-
     setPublishError(null)
     setPublishSuccess(null)
     setPublishing(true)
     try {
-      const result = await publishPriceTable(importSummary.linked_price_table.id)
-      setPublishSuccess(
-        `Tabela ${result.code} publicada como vigente com ${result.items_published} item(ns).`,
-      )
+      const result = await publishImport(importId)
+      setPublishSuccess(`Importacao publicada com ${result.items_published} item(ns).`)
       await reloadSummary()
     } catch (err) {
       setPublishError(describeError(err))
@@ -840,7 +798,7 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
 
         <ImportSummaryPanel
           summary={importSummary}
-          canPublishPriceTables={canPublishPriceTables}
+          canPublishImports={canPublishImports}
           publishing={publishing}
           publishError={publishError}
           publishSuccess={publishSuccess}

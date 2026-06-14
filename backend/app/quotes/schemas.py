@@ -6,8 +6,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.catalog.schemas import PriceTableSummary
-
 QuoteStatus = Literal["rascunho", "enviado", "aprovado", "rejeitado", "expirado"]
 
 
@@ -45,7 +43,6 @@ class QuoteOut(BaseModel):
     quote_number: str
     status: QuoteStatus
     customer: CustomerSummary
-    price_table: PriceTableSummary
     created_by: UserSummary | None = None
     created_at: str
     valid_until: str | None = None
@@ -84,7 +81,7 @@ class QuoteItemComponentSwapIn(BaseModel):
 class QuoteItemComponentSwapOut(BaseModel):
     id: int
     component_variant_id: int
-    sku: str
+    sku: str | None = None
     previous_frozen_unit_price: float
     frozen_unit_price: float
     frozen_currency: str
@@ -104,7 +101,7 @@ class QuoteItemPatchIn(BaseModel):
 class QuoteItemComponentOut(BaseModel):
     id: int
     component_variant_id: int
-    sku: str
+    sku: str | None = None
     frozen_unit_price: float
     frozen_currency: str
     frozen_at: str

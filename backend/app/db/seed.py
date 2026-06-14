@@ -1,10 +1,8 @@
 """Seed mínimo de dados de referência (docs/07, Fases 1 e 2).
 
-Cria um usuário de teste por papel e uma ``price_table`` vazia em
-status ``vigente``, evitando o erro ``NENHUMA_TABELA_VIGENTE`` ao
-montar orçamentos (Fase 3), além de um pequeno catálogo manual real
-(``seed_catalog``). Idempotente: rodar mais de uma vez não duplica
-registros.
+Cria um usuário de teste por papel e um pequeno catálogo manual real
+(``seed_catalog``), com preço próprio por item. Idempotente: rodar mais
+de uma vez não duplica registros.
 
 Mapeamento de papéis (docs/04, seção "Papéis"): a coluna ``users.role``
 só aceita ``admin | importador | revisor | vendedor | colaborador``
@@ -35,8 +33,6 @@ SEED_USERS = [
 # Senha padrão dos usuários de teste — apenas para ambiente de
 # desenvolvimento/demonstração (docs/07, Fase 11).
 SEED_USER_PASSWORD = "helence123"
-
-SEED_PRICE_TABLE_CODE = "SEED-VAZIA"
 
 # Cliente de exemplo para a montagem manual de orçamentos (Fase 3).
 SEED_CUSTOMER_NAME = "Studio Almeida Arquitetura"
@@ -76,14 +72,6 @@ def seed(connection: sqlite3.Connection) -> None:
             (hash_password(SEED_USER_PASSWORD), email),
         )
 
-    connection.execute(
-        """
-        INSERT OR IGNORE INTO price_tables (code, name, status)
-        VALUES (?, 'Tabela seed (vazia)', 'vigente')
-        """,
-        (SEED_PRICE_TABLE_CODE,),
-    )
-
     existing_customer = connection.execute(
         "SELECT id FROM customers WHERE name = ?", (SEED_CUSTOMER_NAME,)
     ).fetchone()
@@ -96,10 +84,6 @@ def seed(connection: sqlite3.Connection) -> None:
 
 
 def seed_catalog(connection: sqlite3.Connection) -> None:
-    price_table_id = connection.execute(
-        "SELECT id FROM price_tables WHERE code = ?", (SEED_PRICE_TABLE_CODE,)
-    ).fetchone()["id"]
-
     connection.execute(
         "INSERT OR IGNORE INTO product_families (name) VALUES (?)", (SEED_FAMILY_NAME,)
     )
@@ -145,18 +129,27 @@ def seed_catalog(connection: sqlite3.Connection) -> None:
         connection.execute(
             """
             INSERT OR IGNORE INTO component_variants
-                (product_id, component_id, dimension_id, finish_id, descriptor, description)
-            VALUES (?, ?, ?, ?, ?, ?)
+                (family_id, product_id, component_id, dimension_id, finish_id,
+                 descriptor, description)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (product_id, component_id, dimension_id, finish_id, SEED_DESCRIPTOR, description),
+            (
+                family_id,
+                product_id,
+                component_id,
+                dimension_id,
+                finish_id,
+                SEED_DESCRIPTOR,
+                description,
+            ),
         )
         variant_id = connection.execute(
             """
             SELECT id FROM component_variants
-            WHERE product_id = ? AND component_id = ? AND dimension_id = ?
+            WHERE family_id = ? AND product_id = ? AND component_id = ? AND dimension_id = ?
               AND finish_id = ? AND descriptor = ?
             """,
-            (product_id, component_id, dimension_id, finish_id, SEED_DESCRIPTOR),
+            (family_id, product_id, component_id, dimension_id, finish_id, SEED_DESCRIPTOR),
         ).fetchone()["id"]
 
         connection.execute("INSERT OR IGNORE INTO skus (code) VALUES (?)", (sku_code,))
@@ -166,10 +159,10 @@ def seed_catalog(connection: sqlite3.Connection) -> None:
 
         connection.execute(
             """
-            INSERT OR IGNORE INTO prices (component_variant_id, sku_id, price_table_id, amount)
-            VALUES (?, ?, ?, ?)
+            INSERT OR IGNORE INTO prices (component_variant_id, sku_id, amount)
+            VALUES (?, ?, ?)
             """,
-            (variant_id, sku_id, price_table_id, price),
+            (variant_id, sku_id, price),
         )
 
 

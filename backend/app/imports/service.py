@@ -14,7 +14,6 @@ from datetime import datetime
 
 import fitz
 
-from app.catalog.schemas import PriceTableSummary
 from app.db.connection import get_connection
 from app.files.storage import FileStorage
 from app.imports import repository
@@ -170,17 +169,6 @@ def get_import_summary(connection: sqlite3.Connection, import_id: int) -> Import
 
 
 def _build_import_list_item(connection: sqlite3.Connection, row: sqlite3.Row) -> ImportListItem:
-    price_table_row = repository.get_linked_price_table(connection, row["id"])
-    linked_price_table = (
-        PriceTableSummary(
-            id=price_table_row["id"],
-            code=price_table_row["code"],
-            status=price_table_row["status"],
-        )
-        if price_table_row is not None
-        else None
-    )
-
     return ImportListItem(
         id=row["id"],
         original_filename=row["original_filename"],
@@ -190,7 +178,6 @@ def _build_import_list_item(connection: sqlite3.Connection, row: sqlite3.Row) ->
         items_extracted=repository.count_extracted_items(connection, row["id"]),
         items_pending_review=repository.count_pending_review_items(connection, row["id"]),
         items_blocking_publication=repository.count_unreviewed_items(connection, row["id"]),
-        linked_price_table=linked_price_table,
     )
 
 

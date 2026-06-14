@@ -12,7 +12,7 @@ import { describeError, type CatalogContextValue } from '../catalogContext'
 const PAGE_SIZE = 25
 
 export function VariantsPage() {
-  const { families, products, dimensions, finishes, componentTypes, priceTables, reload } =
+  const { families, products, dimensions, finishes, componentTypes, reload } =
     useOutletContext<CatalogContextValue>()
 
   const [q, setQ] = useState('')
@@ -35,7 +35,6 @@ export function VariantsPage() {
   const [description, setDescription] = useState('')
   const [skuCode, setSkuCode] = useState('')
   const [priceAmount, setPriceAmount] = useState('')
-  const [priceTableId, setPriceTableId] = useState('')
 
   async function runSearch(targetPage: number) {
     setLoading(true)
@@ -83,10 +82,7 @@ export function VariantsPage() {
         descriptor: descriptor || null,
         description: description || null,
         sku: skuCode ? { code: skuCode } : null,
-        price:
-          priceAmount && priceTableId
-            ? { amount: Number(priceAmount), currency: 'BRL', price_table_id: Number(priceTableId) }
-            : null,
+        price: priceAmount ? { amount: Number(priceAmount), currency: 'BRL' } : null,
       })
       setDescriptor('')
       setDescription('')
@@ -166,14 +162,6 @@ export function VariantsPage() {
           <input placeholder="Descrição" value={description} onChange={(e) => setDescription(e.target.value)} />
           <input placeholder="Código SKU" value={skuCode} onChange={(e) => setSkuCode(e.target.value)} />
           <input placeholder="Preço (R$)" value={priceAmount} onChange={(e) => setPriceAmount(e.target.value)} />
-          <select value={priceTableId} onChange={(e) => setPriceTableId(e.target.value)}>
-            <option value="">(tabela de preço)</option>
-            {priceTables.map((table) => (
-              <option key={table.id} value={table.id}>
-                {table.code} ({table.status})
-              </option>
-            ))}
-          </select>
           <button type="submit">Adicionar variação</button>
         </form>
       )}

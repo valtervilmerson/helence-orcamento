@@ -60,12 +60,6 @@ export const createCustomer = (data: {
 
 export type QuoteStatus = 'rascunho' | 'enviado' | 'aprovado' | 'rejeitado' | 'expirado'
 
-export interface PriceTableSummary {
-  id: number
-  code: string
-  status: string
-}
-
 export interface UserSummary {
   id: number
   name: string
@@ -76,7 +70,6 @@ export interface Quote {
   quote_number: string
   status: QuoteStatus
   customer: Customer
-  price_table: PriceTableSummary
   created_by: UserSummary | null
   created_at: string
   valid_until: string | null
@@ -100,7 +93,7 @@ export const duplicateQuote = (id: number) =>
 export interface QuoteItemComponent {
   id: number
   component_variant_id: number
-  sku: string
+  sku: string | null
   frozen_unit_price: number
   frozen_currency: string
   frozen_at: string
@@ -176,7 +169,7 @@ export const removeComponent = (quoteId: number, itemId: number, componentId: nu
 export interface QuoteItemComponentSwap {
   id: number
   component_variant_id: number
-  sku: string
+  sku: string | null
   previous_frozen_unit_price: number
   frozen_unit_price: number
   frozen_currency: string

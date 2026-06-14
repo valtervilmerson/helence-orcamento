@@ -1,4 +1,4 @@
-"""Testes de integração da publicação de tabela de preços (docs/06, 14.7;
+"""Testes de integração da publicação de importação (docs/06, 14.7;
 docs/07, Fase 7).
 """
 
@@ -74,41 +74,17 @@ def _insert_item(
     return item_id
 
 
-def _create_price_table(code: str, *, source_imported_file_id: int | None) -> int:
-    with get_connection() as connection:
-        cursor = connection.execute(
-            """
-            INSERT INTO price_tables (code, name, status, source_imported_file_id)
-            VALUES (?, ?, 'rascunho', ?)
-            """,
-            (code, f"Tabela {code}", source_imported_file_id),
-        )
-        price_table_id = int(cursor.lastrowid)
-        connection.commit()
-    return price_table_id
-
-
-def _restore_seed_as_vigente(except_table_id: int) -> None:
-    with get_connection() as connection:
-        connection.execute(
-            "UPDATE price_tables SET status = 'substituida' WHERE id = ? AND status = 'vigente'",
-            (except_table_id,),
-        )
-        connection.execute("UPDATE price_tables SET status = 'vigente' WHERE code = 'SEED-VAZIA'")
-        connection.commit()
-
-
-def test_publish_unknown_table_returns_404(client) -> None:
-    response = client.post("/api/v1/price-tables/999999/publish", json={"confirm": True})
+def test_publish_unknown_import_returns_404(client) -> None:
+    response = client.post("/api/v1/imports/999999/publish", json={"confirm": True})
 
     assert response.status_code == 404
-    assert response.json()["error"]["code"] == "TABELA_NAO_ENCONTRADA"
+    assert response.json()["error"]["code"] == "REGISTRO_NAO_ENCONTRADO"
 
 
 def test_publish_without_confirm_returns_422(client) -> None:
-    price_table_id = _create_price_table("PUB-CONFIRM", source_imported_file_id=None)
+    import_id = _create_import(b"pub-confirm-marker")
 
-    response = client.post(f"/api/v1/price-tables/{price_table_id}/publish", json={})
+    response = client.post(f"/api/v1/imports/{import_id}/publish", json={})
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "CONFIRMACAO_AUSENTE"
@@ -118,9 +94,8 @@ def test_publish_blocks_on_pending_review_items(client) -> None:
     import_id = _create_import(b"pub-pending-marker")
     page_id = _create_page(import_id)
     _insert_item(page_id, review_status="pendente")
-    price_table_id = _create_price_table("PUB-PENDENTE", source_imported_file_id=import_id)
 
-    response = client.post(f"/api/v1/price-tables/{price_table_id}/publish", json={"confirm": True})
+    response = client.post(f"/api/v1/imports/{import_id}/publish", json={"confirm": True})
 
     assert response.status_code == 409
     body = response.json()
@@ -138,9 +113,8 @@ def test_publish_unknown_finish_returns_422(client) -> None:
         sku_raw="9999999999",
         price_raw="100,00",
     )
-    price_table_id = _create_price_table("PUB-ACABAMENTO", source_imported_file_id=import_id)
 
-    response = client.post(f"/api/v1/price-tables/{price_table_id}/publish", json={"confirm": True})
+    response = client.post(f"/api/v1/imports/{import_id}/publish", json={"confirm": True})
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "ACABAMENTO_NAO_CADASTRADO"
@@ -150,18 +124,13 @@ def test_publish_full_flow_creates_catalog_entries_with_traceability(client) -> 
     import_id = _create_import(b"pub-full-flow-marker")
     page_id = _create_page(import_id)
     item_id = _insert_item(page_id)
-    price_table_id = _create_price_table("01-2026-PUB", source_imported_file_id=import_id)
 
-    response = client.post(f"/api/v1/price-tables/{price_table_id}/publish", json={"confirm": True})
+    response = client.post(f"/api/v1/imports/{import_id}/publish", json={"confirm": True})
 
     assert response.status_code == 200
     body = response.json()
-    assert body["price_table_id"] == price_table_id
-    assert body["code"] == "01-2026-PUB"
-    assert body["status"] == "vigente"
+    assert body["imported_file_id"] == import_id
     assert body["items_published"] == 1
-    assert body["previous_vigente"]["code"] == "SEED-VAZIA"
-    assert body["previous_vigente"]["new_status"] == "substituida"
 
     search = client.get("/api/v1/components", params={"product": "Reunião Bistrô 1200x500"})
     assert search.status_code == 200
@@ -180,7 +149,6 @@ def test_publish_full_flow_creates_catalog_entries_with_traceability(client) -> 
     assert item["finish"] == "Argila"
     assert item["sku"] == "3982550799"
     assert item["price"]["amount"] == 528.29
-    assert item["price_table"]["code"] == "01-2026-PUB"
 
     with get_connection() as connection:
         traced = connection.execute(
@@ -189,15 +157,12 @@ def test_publish_full_flow_creates_catalog_entries_with_traceability(client) -> 
             FROM prices pr
             JOIN component_variants cv ON cv.id = pr.component_variant_id
             JOIN skus s ON s.id = pr.sku_id
-            WHERE s.code = '3982550799' AND pr.price_table_id = ?
+            WHERE s.code = '3982550799'
             """,
-            (price_table_id,),
         ).fetchone()
     assert traced["source_extracted_item_id"] == item_id
 
-    # Republicar a mesma tabela não é permitido — exige um novo ciclo.
-    repeat = client.post(f"/api/v1/price-tables/{price_table_id}/publish", json={"confirm": True})
-    assert repeat.status_code == 409
-    assert repeat.json()["error"]["code"] == "STATUS_INVALIDO"
-
-    _restore_seed_as_vigente(price_table_id)
+    # Republicar a mesma importação é idempotente (upsert do preço).
+    repeat = client.post(f"/api/v1/imports/{import_id}/publish", json={"confirm": True})
+    assert repeat.status_code == 200
+    assert repeat.json()["items_published"] == 1

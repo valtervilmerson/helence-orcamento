@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { CatalogApiError, publishPriceTable } from '../../../api/catalog'
+import { CatalogApiError } from '../../../api/catalog'
 import {
   type ImportJsonIn,
   ImportsApiError,
   listImports,
   processImport,
+  publishImport,
   uploadImport,
   uploadImportJson,
   type ImportListItem,
@@ -42,23 +43,9 @@ const IMPORT_STATUS_BADGE_CLASS: Record<string, string> = {
   erro: 'badge-danger',
 }
 
-const PRICE_TABLE_STATUS_BADGE_CLASS: Record<string, string> = {
-  rascunho: 'badge-warning',
-  vigente: 'badge-success',
-  substituida: 'badge-neutral',
-}
-
 function ImportStatusBadge({ status }: { status: string }) {
   return (
     <span className={`badge ${IMPORT_STATUS_BADGE_CLASS[status] ?? 'badge-neutral'}`}>
-      {status}
-    </span>
-  )
-}
-
-function PriceTableStatusBadge({ status }: { status: string }) {
-  return (
-    <span className={`badge ${PRICE_TABLE_STATUS_BADGE_CLASS[status] ?? 'badge-neutral'}`}>
       {status}
     </span>
   )
@@ -136,7 +123,7 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
 export function ImportsPage() {
   const { user } = useAuth()
   const canManageImports = user?.role === 'importador' || user?.role === 'admin'
-  const canPublishPriceTables = user?.role === 'admin'
+  const canPublishImports = user?.role === 'admin'
   const [imports, setImports] = useState<ImportListItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [processingError, setProcessingError] = useState<string | null>(null)
@@ -179,19 +166,12 @@ export function ImportsPage() {
   }
 
   async function handlePublish(item: ImportListItem) {
-    if (!item.linked_price_table) {
-      setPublishError('Importacao sem tabela de precos vinculada.')
-      return
-    }
-
     setPublishError(null)
     setPublishSuccess(null)
     setPublishingImportId(item.id)
     try {
-      const result = await publishPriceTable(item.linked_price_table.id)
-      setPublishSuccess(
-        `Tabela ${result.code} publicada como vigente com ${result.items_published} item(ns).`,
-      )
+      const result = await publishImport(item.id)
+      setPublishSuccess(`Importacao publicada com ${result.items_published} item(ns).`)
       await reload()
     } catch (err) {
       setPublishError(describeError(err))
@@ -234,7 +214,6 @@ export function ImportsPage() {
                 <th>Status</th>
                 <th>Itens</th>
                 <th>Bloqueando publicacao</th>
-                <th>Tabela</th>
                 <th>Paginas</th>
                 <th>Enviado em</th>
                 <th>Acoes</th>
@@ -250,16 +229,6 @@ export function ImportsPage() {
                   </td>
                   <td>{item.items_extracted}</td>
                   <td>{item.items_blocking_publication}</td>
-                  <td>
-                    {item.linked_price_table ? (
-                      <div>
-                        <div>{item.linked_price_table.code}</div>
-                        <PriceTableStatusBadge status={item.linked_price_table.status} />
-                      </div>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
                   <td>{item.page_count ?? '-'}</td>
                   <td>{item.imported_at}</td>
                   <td className="action-group">
@@ -273,19 +242,17 @@ export function ImportsPage() {
                         Revisar
                       </button>
                     )}
-                    {item.status === 'concluido' &&
-                      canPublishPriceTables &&
-                      item.linked_price_table?.status === 'rascunho' && (
-                        <button
-                          type="button"
-                          onClick={() => void handlePublish(item)}
-                          disabled={
-                            publishingImportId === item.id || item.items_blocking_publication > 0
-                          }
-                        >
-                          {publishingImportId === item.id ? 'Publicando...' : 'Publicar tabela'}
-                        </button>
-                      )}
+                    {item.status === 'concluido' && canPublishImports && (
+                      <button
+                        type="button"
+                        onClick={() => void handlePublish(item)}
+                        disabled={
+                          publishingImportId === item.id || item.items_blocking_publication > 0
+                        }
+                      >
+                        {publishingImportId === item.id ? 'Publicando...' : 'Publicar importacao'}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

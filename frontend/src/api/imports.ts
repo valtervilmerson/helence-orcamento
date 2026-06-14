@@ -55,12 +55,6 @@ export interface ImportedFile {
   notes: string | null
 }
 
-export interface PriceTableSummary {
-  id: number
-  code: string
-  status: string
-}
-
 export interface ImportListItem {
   id: number
   original_filename: string | null
@@ -70,7 +64,6 @@ export interface ImportListItem {
   items_extracted: number
   items_pending_review: number
   items_blocking_publication: number
-  linked_price_table: PriceTableSummary | null
 }
 
 export interface ImportListOut {
@@ -102,12 +95,6 @@ export const uploadImport = (file: File, notes?: string) => {
 
 export type FinishGroup = 'madeirado' | 'metalico' | 'pe_estrutura' | 'outro'
 
-export interface ImportJsonPriceTableIn {
-  code: string
-  name?: string | null
-  valid_from?: string | null
-}
-
 export interface ImportJsonSourceIn {
   description?: string | null
   generated_by?: string | null
@@ -117,13 +104,13 @@ export interface ImportJsonSourceIn {
 export interface ImportJsonItemIn {
   ref?: string | null
   family: string
-  product_context: string
+  product_context?: string | null
   component_type: string
   description?: string | null
   dimension: string
   finish: string
   finish_group?: FinishGroup | null
-  sku: string
+  sku?: string | null
   price: number
   currency?: string
   confidence?: number | null
@@ -132,7 +119,6 @@ export interface ImportJsonItemIn {
 
 export interface ImportJsonIn {
   contract_version: '1.0'
-  price_table: ImportJsonPriceTableIn
   source?: ImportJsonSourceIn | null
   items: ImportJsonItemIn[]
 }
@@ -146,7 +132,6 @@ export interface ImportJsonItemResult {
 
 export interface ImportJsonOut {
   imported_file_id: number
-  price_table: PriceTableSummary
   items_total: number
   items_published: number
   items_pending_review: number
@@ -196,6 +181,18 @@ export const getImportSummary = async (importId: number) => {
     return normalizeImportListItem(item)
   }
 }
+
+export interface PublishOut {
+  imported_file_id: number
+  items_published: number
+}
+
+export const publishImport = (importId: number) =>
+  request<PublishOut>(`/imports/${importId}/publish`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm: true }),
+  })
 
 // ---------------------------------------------------------------------------
 // Processamento — 14.3/14.4 (Fase 5: extração em segundo plano)

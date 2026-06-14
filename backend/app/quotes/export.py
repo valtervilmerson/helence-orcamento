@@ -59,7 +59,6 @@ def generate_pdf(connection: sqlite3.Connection, quote_id: int) -> bytes:
     writer.line(f"Data: {quote_row['created_at']}")
     if quote_row["valid_until"]:
         writer.line(f"Válido até: {quote_row['valid_until']}")
-    writer.line(f"Tabela de preços: {quote_row['price_table_code']}")
     writer.spacer()
 
     writer.line("Itens", size=12, bold=True)
@@ -70,8 +69,9 @@ def generate_pdf(connection: sqlite3.Connection, quote_id: int) -> bytes:
 
         writer.line(f"{item_row['label']} (qtd. {item_row['quantity']})", bold=True)
         for component_row in component_rows:
+            sku_label = f"SKU {component_row['sku']} — " if component_row["sku"] else ""
             writer.line(
-                f"    SKU {component_row['sku']} — "
+                f"    {sku_label}"
                 f"{component_row['frozen_unit_price']:.2f} {component_row['frozen_currency']}"
             )
         if item_row["notes"]:

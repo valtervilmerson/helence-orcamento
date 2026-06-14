@@ -152,20 +152,10 @@ export interface ComponentVariantPrice {
   currency: string
 }
 
-export interface ComponentVariantPriceTable {
-  id: number
-  code: string
-  status: string
-}
-
-export interface ComponentVariantPriceHistoryEntry {
-  price_table: ComponentVariantPriceTable
-  price: ComponentVariantPrice
-}
-
 export interface ComponentVariant {
   component_variant_id: number
   family: string | null
+  family_id: number | null
   product: string | null
   component: string
   descriptor: string | null
@@ -175,9 +165,7 @@ export interface ComponentVariant {
   finish_group: FinishGroup | null
   sku: string | null
   price: ComponentVariantPrice | null
-  price_table: ComponentVariantPriceTable | null
   source: string
-  price_history?: ComponentVariantPriceHistoryEntry[] | null
 }
 
 export interface ComponentVariantSearchResult {
@@ -206,7 +194,7 @@ export interface ComponentVariantInput {
   descriptor?: string | null
   description?: string | null
   sku?: { code: string; notes?: string | null } | null
-  price?: { amount: number; currency: string; price_table_id: number } | null
+  price?: { amount: number; currency: string } | null
 }
 
 export const createComponent = (data: ComponentVariantInput) =>
@@ -214,33 +202,3 @@ export const createComponent = (data: ComponentVariantInput) =>
 export const getComponent = (id: number) => request<ComponentVariant>(`/components/${id}`)
 export const deleteComponent = (id: number) =>
   request<void>(`/components/${id}`, { method: 'DELETE' })
-
-// ---------------------------------------------------------------------------
-// Tabelas de preço (apenas leitura — usado para selecionar a tabela vigente)
-// ---------------------------------------------------------------------------
-
-export interface PriceTable {
-  id: number
-  code: string
-  status: string
-}
-
-export const listPriceTables = () => request<PriceTable[]>('/catalog/price-tables')
-
-export interface PublishPriceTableOut {
-  price_table_id: number
-  code: string
-  status: string
-  items_published: number
-  previous_vigente: {
-    id: number
-    code: string
-    new_status: string
-  } | null
-}
-
-export const publishPriceTable = (id: number) =>
-  request<PublishPriceTableOut>(`/price-tables/${id}/publish`, {
-    method: 'POST',
-    body: JSON.stringify({ confirm: true }),
-  })

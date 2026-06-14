@@ -2,7 +2,6 @@ import {
   CatalogApiError,
   type Dimension,
   type Finish,
-  type PriceTable,
   type Product,
   type ProductComponentType,
   type ProductFamily,
@@ -21,6 +20,5 @@ export interface CatalogContextValue {
   finishes: Finish[]
   componentTypes: ProductComponentType[]
   products: Product[]
-  priceTables: PriceTable[]
   reload: () => Promise<void>
 }

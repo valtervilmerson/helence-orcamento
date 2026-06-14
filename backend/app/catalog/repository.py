@@ -49,50 +49,6 @@ class SimpleRepository:
         connection.commit()
 
 
-def list_price_tables(connection: sqlite3.Connection) -> list[sqlite3.Row]:
-    return connection.execute("SELECT id, code, status FROM price_tables ORDER BY id").fetchall()
-
-
-def get_price_table(connection: sqlite3.Connection, price_table_id: int) -> sqlite3.Row | None:
-    return connection.execute(
-        "SELECT * FROM price_tables WHERE id = ?", (price_table_id,)
-    ).fetchone()
-
-
-def get_price_table_by_code(connection: sqlite3.Connection, code: str) -> sqlite3.Row | None:
-    return connection.execute("SELECT * FROM price_tables WHERE code = ?", (code,)).fetchone()
-
-
-def insert_price_table(
-    connection: sqlite3.Connection,
-    *,
-    code: str,
-    name: str | None,
-    valid_from: str | None,
-    source_imported_file_id: int | None,
-) -> int:
-    cursor = connection.execute(
-        """
-        INSERT INTO price_tables (code, name, valid_from, source_imported_file_id)
-        VALUES (?, ?, ?, ?)
-        """,
-        (code, name, valid_from, source_imported_file_id),
-    )
-    return int(cursor.lastrowid)
-
-
-def get_vigente_price_table(connection: sqlite3.Connection) -> sqlite3.Row | None:
-    return connection.execute("SELECT * FROM price_tables WHERE status = 'vigente'").fetchone()
-
-
-def set_price_table_status(
-    connection: sqlite3.Connection, price_table_id: int, new_status: str
-) -> None:
-    connection.execute(
-        "UPDATE price_tables SET status = ? WHERE id = ?", (new_status, price_table_id)
-    )
-
-
 # ---------------------------------------------------------------------------
 # Resolução/criação de entidades por nome (Fase 7 — publicação)
 # ---------------------------------------------------------------------------
@@ -133,6 +89,18 @@ def find_finish_by_name(connection: sqlite3.Connection, name: str) -> sqlite3.Ro
     return connection.execute("SELECT id FROM finishes WHERE name = ?", (name,)).fetchone()
 
 
+def get_or_create_finish(
+    connection: sqlite3.Connection, name: str, finish_group: str | None
+) -> int:
+    row = connection.execute("SELECT id FROM finishes WHERE name = ?", (name,)).fetchone()
+    if row is not None:
+        return int(row["id"])
+    cursor = connection.execute(
+        "INSERT INTO finishes (name, finish_group) VALUES (?, ?)", (name, finish_group)
+    )
+    return int(cursor.lastrowid)
+
+
 def get_or_create_dimension(
     connection: sqlite3.Connection,
     *,
@@ -164,6 +132,7 @@ def get_or_create_dimension(
 def find_variant(
     connection: sqlite3.Connection,
     *,
+    family_id: int | None,
     product_id: int | None,
     component_id: int,
     dimension_id: int | None,
@@ -173,10 +142,10 @@ def find_variant(
     return connection.execute(
         """
         SELECT id FROM component_variants
-        WHERE product_id IS ? AND component_id = ? AND dimension_id IS ?
+        WHERE family_id IS ? AND product_id IS ? AND component_id = ? AND dimension_id IS ?
           AND finish_id IS ? AND descriptor IS ?
         """,
-        (product_id, component_id, dimension_id, finish_id, descriptor),
+        (family_id, product_id, component_id, dimension_id, finish_id, descriptor),
     ).fetchone()
 
 
@@ -203,6 +172,7 @@ family_component_requirements = SimpleRepository(
 _VARIANT_SEARCH_BASE = """
     SELECT
         cv.id AS component_variant_id,
+        cv.family_id AS family_id,
         pf.name AS family,
         p.name AS product,
         pc.name AS component,
@@ -217,20 +187,15 @@ _VARIANT_SEARCH_BASE = """
         f.finish_group AS finish_group,
         s.code AS sku,
         pr.amount AS price_amount,
-        pr.currency AS price_currency,
-        pt.id AS price_table_id,
-        pt.code AS price_table_code,
-        pt.status AS price_table_status
+        pr.currency AS price_currency
     FROM component_variants cv
     LEFT JOIN products p ON p.id = cv.product_id
-    LEFT JOIN product_families pf ON pf.id = p.family_id
+    LEFT JOIN product_families pf ON pf.id = cv.family_id
     JOIN product_components pc ON pc.id = cv.component_id
     LEFT JOIN dimensions d ON d.id = cv.dimension_id
     LEFT JOIN finishes f ON f.id = cv.finish_id
     LEFT JOIN prices pr ON pr.component_variant_id = cv.id
-        AND pr.price_table_id = (SELECT id FROM price_tables WHERE status = 'vigente' LIMIT 1)
     LEFT JOIN skus s ON s.id = pr.sku_id
-    LEFT JOIN price_tables pt ON pt.id = pr.price_table_id
 """
 
 
@@ -292,21 +257,6 @@ def get_variant_row(connection: sqlite3.Connection, variant_id: int) -> sqlite3.
     return connection.execute(f"{_VARIANT_SEARCH_BASE} WHERE cv.id = ?", (variant_id,)).fetchone()
 
 
-def get_price_history(connection: sqlite3.Connection, variant_id: int) -> list[sqlite3.Row]:
-    return connection.execute(
-        """
-        SELECT pt.id AS price_table_id, pt.code AS price_table_code,
-               pt.status AS price_table_status,
-               pr.amount AS price_amount, pr.currency AS price_currency
-        FROM prices pr
-        JOIN price_tables pt ON pt.id = pr.price_table_id
-        WHERE pr.component_variant_id = ?
-        ORDER BY pt.id
-        """,
-        (variant_id,),
-    ).fetchall()
-
-
 def variant_exists(connection: sqlite3.Connection, variant_id: int) -> bool:
     row = connection.execute(
         "SELECT 1 FROM component_variants WHERE id = ?", (variant_id,)
@@ -326,11 +276,12 @@ def insert_variant(connection: sqlite3.Connection, data: dict[str, Any]) -> int:
     cursor = connection.execute(
         """
         INSERT INTO component_variants
-            (product_id, component_id, dimension_id, finish_id, descriptor, description)
-        VALUES (?, ?, ?, ?, ?, ?)
+            (product_id, family_id, component_id, dimension_id, finish_id, descriptor, description)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
             data.get("product_id"),
+            data.get("family_id"),
             data["component_id"],
             data.get("dimension_id"),
             data.get("finish_id"),
@@ -341,34 +292,11 @@ def insert_variant(connection: sqlite3.Connection, data: dict[str, Any]) -> int:
     return int(cursor.lastrowid)
 
 
-def insert_price(
-    connection: sqlite3.Connection,
-    *,
-    component_variant_id: int,
-    sku_id: int,
-    price_table_id: int,
-    amount: float,
-    currency: str,
-    source_extracted_item_id: int | None = None,
-) -> int:
-    cursor = connection.execute(
-        """
-        INSERT INTO prices
-            (component_variant_id, sku_id, price_table_id, amount, currency,
-             source_extracted_item_id)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (component_variant_id, sku_id, price_table_id, amount, currency, source_extracted_item_id),
-    )
-    return int(cursor.lastrowid)
-
-
 def upsert_price(
     connection: sqlite3.Connection,
     *,
     component_variant_id: int,
-    sku_id: int,
-    price_table_id: int,
+    sku_id: int | None,
     amount: float,
     currency: str,
     source_extracted_item_id: int | None = None,
@@ -376,16 +304,15 @@ def upsert_price(
     connection.execute(
         """
         INSERT INTO prices
-            (component_variant_id, sku_id, price_table_id, amount, currency,
-             source_extracted_item_id)
-        VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT (component_variant_id, price_table_id) DO UPDATE SET
+            (component_variant_id, sku_id, amount, currency, source_extracted_item_id)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT (component_variant_id) DO UPDATE SET
             sku_id = excluded.sku_id,
             amount = excluded.amount,
             currency = excluded.currency,
             source_extracted_item_id = excluded.source_extracted_item_id
         """,
-        (component_variant_id, sku_id, price_table_id, amount, currency, source_extracted_item_id),
+        (component_variant_id, sku_id, amount, currency, source_extracted_item_id),
     )
 
 
@@ -414,11 +341,11 @@ def update_variant(connection: sqlite3.Connection, variant_id: int, data: dict[s
 def referenced_by(connection: sqlite3.Connection, variant_id: int) -> dict[str, int]:
     references: dict[str, int] = {}
 
-    price_table_count = connection.execute(
+    price_count = connection.execute(
         "SELECT COUNT(*) AS n FROM prices WHERE component_variant_id = ?", (variant_id,)
     ).fetchone()["n"]
-    if price_table_count:
-        references["prices"] = price_table_count
+    if price_count:
+        references["prices"] = price_count
 
     quote_count = connection.execute(
         "SELECT COUNT(*) AS n FROM quote_item_components WHERE component_variant_id = ?",

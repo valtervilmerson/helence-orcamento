@@ -3,7 +3,6 @@ import { NavLink, Outlet } from 'react-router-dom'
 import {
   type Dimension,
   type Finish,
-  type PriceTable,
   type Product,
   type ProductComponentType,
   type ProductFamily,
@@ -11,7 +10,6 @@ import {
   listDimensions,
   listFamilies,
   listFinishes,
-  listPriceTables,
   listProducts,
 } from '../../api/catalog'
 import { ErrorMessage } from './shared'
@@ -34,27 +32,24 @@ export function CatalogLayout() {
   const [finishes, setFinishes] = useState<Finish[]>([])
   const [componentTypes, setComponentTypes] = useState<ProductComponentType[]>([])
   const [products, setProducts] = useState<Product[]>([])
-  const [priceTables, setPriceTables] = useState<PriceTable[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   async function reload() {
     try {
-      const [familiesData, dimensionsData, finishesData, componentTypesData, productsData, priceTablesData] =
+      const [familiesData, dimensionsData, finishesData, componentTypesData, productsData] =
         await Promise.all([
           listFamilies(),
           listDimensions(),
           listFinishes(),
           listComponentTypes(),
           listProducts(),
-          listPriceTables(),
         ])
       setFamilies(familiesData)
       setDimensions(dimensionsData)
       setFinishes(finishesData)
       setComponentTypes(componentTypesData)
       setProducts(productsData)
-      setPriceTables(priceTablesData)
       setError(null)
     } catch (err) {
       setError(describeError(err))
@@ -74,7 +69,6 @@ export function CatalogLayout() {
     finishes,
     componentTypes,
     products,
-    priceTables,
     reload,
   }
 

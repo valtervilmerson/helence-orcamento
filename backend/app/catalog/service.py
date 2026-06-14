@@ -15,10 +15,7 @@ from app.catalog.schemas import (
     ComponentVariantPatch,
     ComponentVariantSearchResult,
     DimensionSummary,
-    PreviousVigenteSummary,
-    PriceHistoryEntry,
     PriceSummary,
-    PriceTableSummary,
     PublishIn,
     PublishOut,
 )
@@ -36,8 +33,6 @@ from app.shared.errors import (
     RegistroDuplicadoError,
     RegistroEmUsoError,
     RegistroNaoEncontradoError,
-    TabelaPrecoNaoEncontradaError,
-    TabelaPrecoStatusInvalidoError,
     VariacaoDuplicadaError,
 )
 
@@ -119,9 +114,7 @@ def _validate_variant_references(connection: sqlite3.Connection, payload: dict[s
             raise ReferenciaInvalidaError(details={"field": field, "value": value})
 
 
-def _row_to_variant_out(
-    row: sqlite3.Row, price_history: list[PriceHistoryEntry] | None = None
-) -> ComponentVariantOut:
+def _row_to_variant_out(row: sqlite3.Row) -> ComponentVariantOut:
     dimension = None
     dim_fields = (
         "dim_width_mm",
@@ -140,15 +133,12 @@ def _row_to_variant_out(
         )
 
     price = None
-    price_table = None
     if row["price_amount"] is not None:
         price = PriceSummary(amount=row["price_amount"], currency=row["price_currency"])
-        price_table = PriceTableSummary(
-            id=row["price_table_id"], code=row["price_table_code"], status=row["price_table_status"]
-        )
 
     return ComponentVariantOut(
         component_variant_id=row["component_variant_id"],
+        family_id=row["family_id"],
         family=row["family"],
         product=row["product"],
         component=row["component"],
@@ -159,8 +149,6 @@ def _row_to_variant_out(
         finish_group=row["finish_group"],
         sku=row["sku"],
         price=price,
-        price_table=price_table,
-        price_history=price_history,
     )
 
 
@@ -202,17 +190,7 @@ def get_variant(connection: sqlite3.Connection, variant_id: int) -> ComponentVar
     if row is None:
         raise ComponenteNaoEncontradoError(details={"id": variant_id})
 
-    history_rows = repository.get_price_history(connection, variant_id)
-    history = [
-        PriceHistoryEntry(
-            price_table=PriceTableSummary(
-                id=h["price_table_id"], code=h["price_table_code"], status=h["price_table_status"]
-            ),
-            price=PriceSummary(amount=h["price_amount"], currency=h["price_currency"]),
-        )
-        for h in history_rows
-    ]
-    return _row_to_variant_out(row, price_history=history)
+    return _row_to_variant_out(row)
 
 
 def create_variant(
@@ -220,6 +198,10 @@ def create_variant(
 ) -> ComponentVariantOut:
     data = payload.model_dump(exclude={"sku", "price"})
     _validate_variant_references(connection, data)
+
+    if data.get("product_id") is not None:
+        product_row = repository.products.get(connection, data["product_id"])
+        data["family_id"] = product_row["family_id"]
 
     try:
         variant_id = repository.insert_variant(connection, data)
@@ -230,29 +212,15 @@ def create_variant(
         raise ReferenciaInvalidaError() from exc
 
     if payload.price is not None:
-        if not _row_exists(connection, "price_tables", payload.price.price_table_id):
-            connection.rollback()
-            raise ReferenciaInvalidaError(
-                details={"field": "price.price_table_id", "value": payload.price.price_table_id}
-            )
-
-        sku_code = payload.sku.code if payload.sku is not None else None
-        if sku_code is None:
-            connection.rollback()
-            raise ReferenciaInvalidaError(
-                details={"field": "sku", "message": "obrigatório com price"}
-            )
-
-        sku_id = repository.get_or_create_sku(
-            connection, sku_code, payload.sku.notes if payload.sku else None
-        )
+        sku_id = None
+        if payload.sku is not None:
+            sku_id = repository.get_or_create_sku(connection, payload.sku.code, payload.sku.notes)
 
         try:
-            repository.insert_price(
+            repository.upsert_price(
                 connection,
                 component_variant_id=variant_id,
                 sku_id=sku_id,
-                price_table_id=payload.price.price_table_id,
                 amount=payload.price.amount,
                 currency=payload.price.currency,
             )
@@ -290,7 +258,7 @@ def delete_variant(connection: sqlite3.Connection, variant_id: int) -> None:
         raise ComponenteNaoEncontradoError(details={"id": variant_id})
 
     references = repository.referenced_by(connection, variant_id)
-    if references.get("quote_item_components") or references.get("prices", 0) > 1:
+    if references.get("quote_item_components"):
         raise ComponenteEmUsoError(details={"referenced_by": references})
 
     repository.delete_variant(connection, variant_id)
@@ -352,10 +320,14 @@ def _resolve_dimension(connection: sqlite3.Connection, dimension_raw: str | None
     )
 
 
-def publish_item(connection: sqlite3.Connection, item: sqlite3.Row, price_table_id: int) -> None:
+def publish_item(connection: sqlite3.Connection, item: sqlite3.Row) -> None:
     item_id = item["id"]
 
-    missing = [field for field in ("component_type_raw", "sku_raw", "price_raw") if not item[field]]
+    missing = [
+        field
+        for field in ("family_raw", "component_type_raw", "price_raw")
+        if not item[field]
+    ]
     if missing:
         raise ItemPublicacaoInvalidoError(
             details={"extracted_item_id": item_id, "missing_fields": missing}
@@ -372,16 +344,14 @@ def publish_item(connection: sqlite3.Connection, item: sqlite3.Row, price_table_
             }
         ) from exc
 
-    family_id = None
-    if item["family_raw"]:
-        family_id = repository.get_or_create_family(connection, item["family_raw"])
+    family_id = repository.get_or_create_family(connection, item["family_raw"])
 
     component_id = repository.get_or_create_component_type(connection, item["component_type_raw"])
 
     dimension_id = _resolve_dimension(connection, item["dimension_raw"])
 
     product_id = None
-    if family_id is not None and item["product_context_raw"]:
+    if item["product_context_raw"]:
         product_id = repository.get_or_create_product(
             connection, family_id, item["product_context_raw"], dimension_id
         )
@@ -397,6 +367,7 @@ def publish_item(connection: sqlite3.Connection, item: sqlite3.Row, price_table_
 
     existing_variant = repository.find_variant(
         connection,
+        family_id=family_id,
         product_id=product_id,
         component_id=component_id,
         dimension_id=dimension_id,
@@ -411,6 +382,7 @@ def publish_item(connection: sqlite3.Connection, item: sqlite3.Row, price_table_
                 connection,
                 {
                     "product_id": product_id,
+                    "family_id": family_id,
                     "component_id": component_id,
                     "dimension_id": dimension_id,
                     "finish_id": finish_id,
@@ -422,14 +394,15 @@ def publish_item(connection: sqlite3.Connection, item: sqlite3.Row, price_table_
             connection.rollback()
             raise VariacaoDuplicadaError(details={"extracted_item_id": item_id}) from exc
 
-    sku_id = repository.get_or_create_sku(connection, item["sku_raw"], None)
+    sku_id = None
+    if item["sku_raw"]:
+        sku_id = repository.get_or_create_sku(connection, item["sku_raw"], None)
 
     try:
         repository.upsert_price(
             connection,
             component_variant_id=variant_id,
             sku_id=sku_id,
-            price_table_id=price_table_id,
             amount=amount,
             currency=item["currency"] or "BRL",
             source_extracted_item_id=item_id,
@@ -439,59 +412,35 @@ def publish_item(connection: sqlite3.Connection, item: sqlite3.Row, price_table_
         raise ItemPublicacaoInvalidoError(details={"extracted_item_id": item_id}) from exc
 
 
-def publish_price_table(
-    connection: sqlite3.Connection, price_table_id: int, payload: PublishIn
+def publish_import(
+    connection: sqlite3.Connection, import_id: int, payload: PublishIn
 ) -> PublishOut:
-    table = repository.get_price_table(connection, price_table_id)
-    if table is None:
-        raise TabelaPrecoNaoEncontradaError(details={"id": price_table_id})
-
-    if table["status"] != "rascunho":
-        raise TabelaPrecoStatusInvalidoError(details={"status": table["status"]})
+    import_row = imports_repository.get_imported_file(connection, import_id)
+    if import_row is None:
+        raise RegistroNaoEncontradoError(details={"id": import_id})
 
     if not payload.confirm:
         raise ConfirmacaoAusenteError()
 
-    import_id = table["source_imported_file_id"]
-
-    items: list[sqlite3.Row] = []
-    if import_id is not None:
-        pending_count = imports_repository.count_unreviewed_items(connection, import_id)
-        if pending_count > 0:
-            raise ItensPendentesDeRevisaoError(
-                details={
-                    "pending_count": pending_count,
-                    "review_url": f"/api/v1/imports/{import_id}/items?review_status=pendente",
-                }
-            )
-        items = imports_repository.list_approved_items(connection, import_id)
-
-    for item in items:
-        publish_item(connection, item, price_table_id)
-
-    previous_vigente = None
-    current_vigente = repository.get_vigente_price_table(connection)
-    if current_vigente is not None and current_vigente["id"] != price_table_id:
-        repository.set_price_table_status(connection, current_vigente["id"], "substituida")
-        previous_vigente = PreviousVigenteSummary(
-            id=current_vigente["id"], code=current_vigente["code"], new_status="substituida"
+    pending_count = imports_repository.count_unreviewed_items(connection, import_id)
+    if pending_count > 0:
+        raise ItensPendentesDeRevisaoError(
+            details={
+                "pending_count": pending_count,
+                "review_url": f"/api/v1/imports/{import_id}/items?review_status=pendente",
+            }
         )
 
-    repository.set_price_table_status(connection, price_table_id, "vigente")
+    items = imports_repository.list_approved_items(connection, import_id)
+    for item in items:
+        publish_item(connection, item)
+
     connection.commit()
 
     logger.info(
-        "Tabela de preços #%s (%s): publicada como vigente (%s itens, substitui %s)",
-        price_table_id,
-        table["code"],
+        "Importação #%s: %s itens publicados no catálogo",
+        import_id,
         len(items),
-        previous_vigente.code if previous_vigente else "nenhuma",
     )
 
-    return PublishOut(
-        price_table_id=price_table_id,
-        code=table["code"],
-        status="vigente",
-        items_published=len(items),
-        previous_vigente=previous_vigente,
-    )
+    return PublishOut(imported_file_id=import_id, items_published=len(items))

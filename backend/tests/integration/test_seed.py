@@ -3,7 +3,7 @@ import sqlite3
 import pytest
 
 from app.db.migrate import apply_migrations
-from app.db.seed import SEED_PRICE_TABLE_CODE, SEED_USERS, seed
+from app.db.seed import SEED_USERS, seed
 
 
 @pytest.fixture
@@ -28,25 +28,12 @@ def test_seed_creates_one_user_per_role(connection) -> None:
     assert roles == {role for _, _, role in SEED_USERS}
 
 
-def test_seed_creates_vigente_price_table(connection) -> None:
-    seed(connection)
-
-    row = connection.execute(
-        "SELECT status FROM price_tables WHERE code = ?", (SEED_PRICE_TABLE_CODE,)
-    ).fetchone()
-
-    assert row is not None
-    assert row["status"] == "vigente"
-
-
 def test_seed_is_idempotent(connection) -> None:
     seed(connection)
     seed(connection)
 
     user_count = connection.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"]
-    price_table_count = connection.execute(
-        "SELECT COUNT(*) AS n FROM price_tables WHERE code = ?", (SEED_PRICE_TABLE_CODE,)
-    ).fetchone()["n"]
+    price_count = connection.execute("SELECT COUNT(*) AS n FROM prices").fetchone()["n"]
 
     assert user_count == len(SEED_USERS)
-    assert price_table_count == 1
+    assert price_count > 0

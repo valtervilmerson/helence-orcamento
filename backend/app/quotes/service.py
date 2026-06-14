@@ -12,7 +12,6 @@ import sqlite3
 from datetime import datetime
 from typing import Any
 
-from app.catalog.schemas import PriceTableSummary
 from app.quotes import export, pricing, repository
 from app.quotes.schemas import (
     CustomerSummary,
@@ -41,8 +40,6 @@ from app.shared.errors import (
     FormatoInvalidoError,
     ItemNaoEncontradoError,
     ItemSemPrecoError,
-    ItemSemSkuError,
-    NenhumaTabelaVigenteError,
     OrcamentoNaoEncontradoError,
     OrcamentoVazioError,
     QuantidadeInvalidaError,
@@ -81,9 +78,6 @@ def _row_to_quote_out(row: sqlite3.Row) -> QuoteOut:
         quote_number=row["quote_number"],
         status=row["status"],
         customer=CustomerSummary(id=row["customer_id"], name=row["customer_name"]),
-        price_table=PriceTableSummary(
-            id=row["price_table_id"], code=row["price_table_code"], status=row["price_table_status"]
-        ),
         created_by=created_by,
         created_at=row["created_at"],
         valid_until=row["valid_until"],
@@ -132,16 +126,11 @@ def create_quote(
     if customer is None:
         raise ClienteNaoEncontradoError(details={"customer_id": customer_id})
 
-    price_table = repository.get_current_price_table(connection)
-    if price_table is None:
-        raise NenhumaTabelaVigenteError()
-
     quote_number = repository.next_quote_number(connection)
     quote_id = repository.insert_quote(
         connection,
         quote_number=quote_number,
         customer_id=customer_id,
-        price_table_id=price_table["id"],
         valid_until=valid_until,
         notes=notes,
     )
@@ -149,27 +138,22 @@ def create_quote(
 
 
 def duplicate_quote(connection: sqlite3.Connection, quote_id: int) -> QuoteOut:
-    """RN-17: duplica a estrutura do orçamento, reprecificando contra a
-    tabela vigente atual.
+    """RN-17: duplica a estrutura do orçamento, reprecificando contra o
+    preço atual de cada item.
 
-    Componentes que não existirem mais (ou não tiverem preço/SKU) na nova
-    tabela vigente não bloqueiam a duplicação — ficam de fora da linha e a
-    pendência é registrada em `duplication_pendencias` para revisão.
+    Componentes que não existirem mais (ou não tiverem preço) atualmente
+    não bloqueiam a duplicação — ficam de fora da linha e a pendência é
+    registrada em `duplication_pendencias` para revisão.
     """
     source_row = repository.get_quote_row(connection, quote_id)
     if source_row is None:
         raise OrcamentoNaoEncontradoError(details={"id": quote_id})
-
-    price_table = repository.get_current_price_table(connection)
-    if price_table is None:
-        raise NenhumaTabelaVigenteError()
 
     quote_number = repository.next_quote_number(connection)
     new_quote_id = repository.insert_quote(
         connection,
         quote_number=quote_number,
         customer_id=source_row["customer_id"],
-        price_table_id=price_table["id"],
         valid_until=None,
         notes=source_row["notes"],
         source_quote_id=quote_id,
@@ -204,13 +188,15 @@ def duplicate_quote(connection: sqlite3.Connection, quote_id: int) -> QuoteOut:
         for component_row in repository.get_item_components(connection, item_row["id"]):
             variant_id = component_row["component_variant_id"]
             try:
-                price_row = _get_frozen_price_row(connection, new_quote_id, variant_id)
-            except (VariacaoNaoEncontradaError, ItemSemPrecoError, ItemSemSkuError):
+                price_row = _get_frozen_price_row(connection, variant_id)
+            except (VariacaoNaoEncontradaError, ItemSemPrecoError):
                 descriptor = repository.get_variant_descriptor(connection, variant_id)
-                descricao = descriptor["descriptor"] if descriptor is not None else f"variação {variant_id}"
+                descricao = (
+                    descriptor["descriptor"] if descriptor is not None else f"variação {variant_id}"
+                )
+                sku = component_row["sku"] or "sem SKU"
                 pendencias.append(
-                    f"Componente '{descricao}' (SKU {component_row['sku']}) sem preço/SKU "
-                    "na tabela vigente — revisar."
+                    f"Componente '{descricao}' (SKU {sku}) sem preço atual — revisar."
                 )
                 continue
 
@@ -314,23 +300,15 @@ def _build_item_out(connection: sqlite3.Connection, item_row: sqlite3.Row) -> Qu
 
 
 def _get_frozen_price_row(
-    connection: sqlite3.Connection, quote_id: int, component_variant_id: int
+    connection: sqlite3.Connection, component_variant_id: int
 ) -> sqlite3.Row:
-    """Valida RN-12/13/15: variação existe, tem preço e SKU na tabela do orçamento."""
+    """Valida RN-12/13/15: variação existe e tem preço próprio cadastrado."""
     if not repository.variant_exists(connection, component_variant_id):
         raise VariacaoNaoEncontradaError(details={"component_variant_id": component_variant_id})
 
-    price_table_id = repository.get_quote_price_table_id(connection, quote_id)
-    price_row = repository.get_variant_price(connection, component_variant_id, price_table_id)
+    price_row = repository.get_variant_price(connection, component_variant_id)
     if price_row is None:
-        raise ItemSemPrecoError(
-            details={
-                "component_variant_id": component_variant_id,
-                "price_table_id": price_table_id,
-            }
-        )
-    if not price_row["sku_code"]:
-        raise ItemSemSkuError(details={"component_variant_id": component_variant_id})
+        raise ItemSemPrecoError(details={"component_variant_id": component_variant_id})
     return price_row
 
 
@@ -408,7 +386,7 @@ def add_item(
     # Validações primeiro (RN-12/13/15 + RN-04): a linha inteira é criada com
     # todos os componentes precificados, ou nada é criado.
     price_rows = [
-        _get_frozen_price_row(connection, quote_id, variant_id)
+        _get_frozen_price_row(connection, variant_id)
         for variant_id in component_variant_ids
     ]
     for index, variant_id in enumerate(component_variant_ids):
@@ -466,7 +444,7 @@ def add_component(
     if item_row is None:
         raise ItemNaoEncontradoError(details={"id": item_id})
 
-    price_row = _get_frozen_price_row(connection, quote_id, payload.component_variant_id)
+    price_row = _get_frozen_price_row(connection, payload.component_variant_id)
 
     existing_variant_ids = repository.get_item_component_variant_ids(connection, item_id)
     _check_rn04_compatibility(connection, payload.component_variant_id, existing_variant_ids)
@@ -522,7 +500,7 @@ def update_item_component(
             }
         )
 
-    price_row = _get_frozen_price_row(connection, quote_id, payload.component_variant_id)
+    price_row = _get_frozen_price_row(connection, payload.component_variant_id)
     previous_price = component_row["frozen_unit_price"]
 
     repository.update_item_component(
@@ -668,13 +646,13 @@ def _build_review_checklist(
                 f"Linha '{item_row['label']}' está sem: {', '.join(missing)}."
             )
 
-    # 2. RN-12/13 — nenhum componente sem SKU/preço congelado (rede de segurança).
+    # 2. RN-12/13 — nenhum componente sem preço congelado (rede de segurança).
     preco_pendencias = []
     for item_row in item_rows:
         for component_row in repository.get_item_components(connection, item_row["id"]):
-            if component_row["frozen_unit_price"] is None or not component_row["sku"]:
+            if component_row["frozen_unit_price"] is None:
                 preco_pendencias.append(
-                    f"Linha '{item_row['label']}' tem componente sem preço/SKU congelado."
+                    f"Linha '{item_row['label']}' tem componente sem preço congelado."
                 )
 
     # 3. Cliente definido e ao menos um item.
@@ -704,7 +682,7 @@ def _build_review_checklist(
         ),
         QuoteReviewChecklistItem(
             code="COMPONENTES_COM_PRECO_E_SKU",
-            label="Nenhum componente está sem preço ou SKU (RN-12/13)",
+            label="Nenhum componente está sem preço (RN-12/13)",
             ok=not preco_pendencias,
             pendencias=preco_pendencias,
         ),
