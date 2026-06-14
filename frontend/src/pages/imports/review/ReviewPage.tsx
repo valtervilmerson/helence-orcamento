@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useState } from 'react'
+import { Fragment, useEffect, useEffectEvent, useState } from 'react'
 import { CatalogApiError } from '../../../api/catalog'
 import { listFinishes, type Finish, type FinishGroup } from '../../../api/catalog'
 import {
@@ -451,7 +451,7 @@ function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
   }
 
   return (
-    <section style={{ marginTop: 'var(--space-4)' }}>
+    <section style={{ margin: 0 }}>
       <h3>
         Item #{item.id} - pag. {item.page_number} <ConfidenceBadge level={item.confidence_level} />
       </h3>
@@ -719,8 +719,6 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
       .catch(() => setFinishes([]))
   }, [])
 
-  const selectedItem = items.find((item) => item.id === selectedId) ?? null
-
   function toggleSelected(id: number) {
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -836,73 +834,12 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
           </label>
         </div>
 
-        <p>{total} itens encontrados.</p>
-
-        {items.length === 0 ? (
-          <p>Nenhum item encontrado com esses filtros.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>
-                  <input
-                    type="checkbox"
-                    checked={items.length > 0 && selectedIds.size === items.length}
-                    onChange={toggleSelectAll}
-                    aria-label="Selecionar todos os itens listados"
-                  />
-                </th>
-                <th>Conf.</th>
-                <th>Pag.</th>
-                <th>Componente</th>
-                <th>Dimensao</th>
-                <th>Acabamento</th>
-                <th>SKU</th>
-                <th>Preco</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(item.id)}
-                      onChange={() => toggleSelected(item.id)}
-                      aria-label={`Selecionar item #${item.id}`}
-                    />
-                  </td>
-                  <td>
-                    <ConfidenceBadge level={item.confidence_level} />
-                  </td>
-                  <td>{item.page_number}</td>
-                  <td>{item.component_type_raw ?? '-'}</td>
-                  <td>{item.dimension_raw ?? '-'}</td>
-                  <td>{item.finish_raw ?? '-'}</td>
-                  <td>{item.sku_raw ?? '-'}</td>
-                  <td>{item.price_raw ?? '-'}</td>
-                  <td>
-                    <ReviewStatusBadge status={item.review_status} />
-                  </td>
-                  <td>
-                    <button type="button" className="secondary" onClick={() => setSelectedId(item.id)}>
-                      Revisar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
         {selectedIds.size > 0 && canReview && (
           <div
             className="action-group"
             style={{
-              borderTop: '1px solid var(--color-border)',
-              paddingTop: 'var(--space-3)',
+              borderBottom: '1px solid var(--color-border)',
+              paddingBottom: 'var(--space-3)',
               marginTop: 'var(--space-3)',
             }}
           >
@@ -935,13 +872,78 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
         )}
         {bulkError && <ErrorMessageBlock error={bulkError} />}
 
-        {selectedItem && (
-          <ItemDetail
-            key={selectedItem.id}
-            item={selectedItem}
-            finishes={finishes}
-            onDecided={() => void reloadAll()}
-          />
+        <p>{total} itens encontrados.</p>
+
+        {items.length === 0 ? (
+          <p>Nenhum item encontrado com esses filtros.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>
+                  <input
+                    type="checkbox"
+                    checked={items.length > 0 && selectedIds.size === items.length}
+                    onChange={toggleSelectAll}
+                    aria-label="Selecionar todos os itens listados"
+                  />
+                </th>
+                <th>Conf.</th>
+                <th>Pag.</th>
+                <th>Componente</th>
+                <th>Dimensao</th>
+                <th>Acabamento</th>
+                <th>SKU</th>
+                <th>Preco</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <Fragment key={item.id}>
+                  <tr className={item.id === selectedId ? 'is-selected' : ''}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(item.id)}
+                        onChange={() => toggleSelected(item.id)}
+                        aria-label={`Selecionar item #${item.id}`}
+                      />
+                    </td>
+                    <td>
+                      <ConfidenceBadge level={item.confidence_level} />
+                    </td>
+                    <td>{item.page_number}</td>
+                    <td>{item.component_type_raw ?? '-'}</td>
+                    <td>{item.dimension_raw ?? '-'}</td>
+                    <td>{item.finish_raw ?? '-'}</td>
+                    <td>{item.sku_raw ?? '-'}</td>
+                    <td>{item.price_raw ?? '-'}</td>
+                    <td>
+                      <ReviewStatusBadge status={item.review_status} />
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setSelectedId((current) => (current === item.id ? null : item.id))}
+                      >
+                        {item.id === selectedId ? 'Fechar' : 'Revisar'}
+                      </button>
+                    </td>
+                  </tr>
+                  {item.id === selectedId && (
+                    <tr>
+                      <td colSpan={10} style={{ background: 'var(--color-bg)' }}>
+                        <ItemDetail item={item} finishes={finishes} onDecided={() => void reloadAll()} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
         )}
       </section>
     </div>
