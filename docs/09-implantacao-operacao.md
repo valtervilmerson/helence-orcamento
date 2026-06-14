@@ -5,13 +5,10 @@
 > `docs/06-arquitetura-api.md` (estrutura de pastas, storage, logs,
 > backup, migrations) e `docs/03-modelagem-sqlite.md` (schema/SQLite).
 >
-> **Status do projeto**: este documento descreve como a aplicação
-> **deve** ser instalada e operada, conforme desenhado — a estrutura
-> `backend/`/`frontend/` ainda será criada na Fase 0 de
-> `docs/07-plano-implementacao.md`. Os comandos abaixo assumem a stack
-> já decidida (FastAPI + SQLite no backend, React + TypeScript + Vite
-> no frontend); ajuste nomes de comandos se a Fase 0 escolher
-> ferramentas equivalentes diferentes (ex. `pnpm` em vez de `npm`).
+> **Status do projeto**: implementação concluída (Fases 0–11 de
+> `docs/07-plano-implementacao.md`) — `backend/`/`frontend/` existem e
+> os comandos abaixo refletem o que está de fato implementado (FastAPI
+> + SQLite no backend, React + TypeScript + Vite no frontend, `npm`).
 >
 > **Decisão de hospedagem**: o ambiente de produção (uso real interno)
 > roda na **Railway** (railway.app). As seções 11–18 abaixo foram
@@ -55,8 +52,8 @@ sqlite3 --version   # opcional — útil para inspecionar o banco manualmente
 
 ## 2. Estrutura de diretórios
 
-Reproduzida de `docs/06-arquitetura-api.md`, seção 2 — esta é a
-estrutura **alvo** depois da Fase 0:
+Baseada em `docs/06-arquitetura-api.md`, seção 2 — estrutura real do
+repositório:
 
 ```
 helence-orcamento/
@@ -81,7 +78,7 @@ helence-orcamento/
 │   ├── data/
 │   │   ├── helence.db          # banco SQLite (NÃO versionado)
 │   │   └── uploads/             # PDFs originais (NÃO versionado)
-│   ├── logs/                    # logs rotacionados (NÃO versionado)
+│   ├── backups/                  # gerado por `python -m app.db.backup` (NÃO versionado)
 │   ├── .env                     # variáveis de ambiente locais (NÃO versionado)
 │   ├── .env.example              # modelo versionado
 │   └── pyproject.toml
@@ -95,17 +92,13 @@ helence-orcamento/
 ├── docs/                         # este e os documentos anteriores
 ├── data/                         # amostras/insumos de domínio (PDF/planilha originais)
 └── scripts/
-    ├── spikes/                   # spikes exploratórios (não fazem parte da app)
-    ├── backup.sh                 # ver seção 12
-    └── restore.sh                # ver seção 13
+    └── spikes/                   # spikes exploratórios (não fazem parte da app)
 ```
 
 **Diretórios que precisam existir em runtime mas não são versionados**
-(criar via `.gitkeep` + `.gitignore`, ou criação automática no
-*startup*):
-- `backend/data/` (e `backend/data/uploads/`)
-- `backend/logs/` — apenas em desenvolvimento local; em produção
-  (Railway) os logs vão para stdout (seção 14), não para arquivo.
+(criados automaticamente no *startup*/primeiro uso): `backend/data/`
+(e `backend/data/uploads/`) e `backend/backups/`. Logs **não** usam
+arquivo — sempre stdout (seção 14).
 
 > **Railway**: `backend/data/` (banco SQLite + `uploads/`) deve ser
 > montado sobre um **Volume** da Railway (disco persistente associado
@@ -129,10 +122,10 @@ helence-orcamento/
 | `MAX_UPLOAD_SIZE_MB` | `50` | Limite de tamanho de upload (`docs/06`, seção 6.1). |
 | `SECRET_KEY` | *(gerar — ver abaixo)* | Chave de assinatura de sessão (`docs/06`, seção 13). **Nunca** usar valor padrão em produção. |
 | `SESSION_COOKIE_SECURE` | `false` (dev) / `true` (prod) | Cookie de sessão só em HTTPS quando `true`. |
-| `LOG_LEVEL` | `INFO` | `DEBUG` em desenvolvimento, `INFO`/`WARNING` em produção. |
-| `LOG_DIR` | `./logs` | Diretório de logs estruturados rotacionados (`docs/06`, seção 8). |
+| `LOG_LEVEL` | `INFO` | `DEBUG` em desenvolvimento, `INFO`/`WARNING` em produção. Logs sempre vão para stdout em JSON (seção 14) — não há `LOG_DIR`. |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Origem(ns) do frontend permitidas (separadas por vírgula). |
-| `BACKUP_DIR` | `./backups` | Destino padrão dos backups locais (seção 12) — recomenda-se apontar para um disco/volume separado. |
+| `BACKUP_DIR` | `./backups` | Destino dos backups gerados por `python -m app.db.backup` (seção 12) — recomenda-se apontar para um disco/volume separado. |
+| `ADMIN_SEED_KEY` | *(opcional — gerar como `SECRET_KEY`)* | Habilita `POST /api/v1/admin/seed` (header `X-Admin-Key`), usado para popular usuários/`price_table` iniciais em ambientes sem acesso a shell (ex. Railway). Sem essa variável, o endpoint retorna `403` (seção 7). |
 
 **Gerar `SECRET_KEY`**:
 ```bash
@@ -167,8 +160,6 @@ variáveis das tabelas 3.1/3.2 são cadastradas no painel do serviço
 - `CORS_ALLOWED_ORIGINS` deve incluir o domínio público do frontend na
   Railway (ex. `https://helence-orcamento.up.railway.app` ou o domínio
   customizado configurado).
-- `LOG_DIR` não é usado em produção (seção 14) — pode ficar ausente ou
-  ser ignorado pela aplicação quando `APP_ENV=production`.
 - `BACKUP_DIR` deve apontar para um caminho dentro do mesmo Volume
   apenas como destino **temporário**; o destino final do backup precisa
   ser **externo** ao serviço (seção 12.3), já que o Volume da Railway
@@ -176,6 +167,11 @@ variáveis das tabelas 3.1/3.2 são cadastradas no painel do serviço
 - `SECRET_KEY` é gerada uma vez (seção 3.1) e cadastrada como variável
   — nunca commitada, nunca gerada automaticamente a cada deploy (isso
   invalidaria sessões ativas a cada redeploy).
+- `ADMIN_SEED_KEY` (opcional, gerada como `SECRET_KEY`) — cadastrar **uma
+  vez** para destravar `POST /api/v1/admin/seed` no primeiro deploy
+  (popula usuários de teste e a `price_table` inicial sem acesso a
+  shell, seção 7). Considerar remover a variável depois do uso para
+  desabilitar o endpoint.
 
 ---
 
@@ -188,20 +184,16 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
-# 2. Dependências (a definir em pyproject.toml na Fase 0)
+# 2. Dependências
 pip install -e ".[dev]"
 
 # 3. Configuração
 cp .env.example .env
 # editar .env: gerar SECRET_KEY (seção 3.1), ajustar caminhos se necessário
-
-# 4. Diretórios de runtime (se não criados automaticamente no startup)
-mkdir -p data/uploads logs
 ```
 
-> **Lockfile**: o `pyproject.toml`/`requirements*.txt` deve fixar
-> versões exatas (não apenas limites mínimos) para reduzir o risco de
-> "funciona na minha máquina" (`docs/07`, Fase 0, riscos).
+> `backend/data/uploads/` e `backend/backups/` são criados
+> automaticamente no primeiro uso — não é necessário criá-los à mão.
 
 ---
 
@@ -256,7 +248,7 @@ Conforme `docs/06`, seção 10 — scripts numerados em
 **Aplicar migrations pendentes**:
 ```bash
 cd backend
-python -m app.db.migrate          # nome exato do comando a confirmar na Fase 0
+python -m app.db.migrate
 ```
 
 - A aplicação **também** aplica migrations pendentes automaticamente no
@@ -272,14 +264,42 @@ python -m app.db.migrate          # nome exato do comando a confirmar na Fase 0
   na própria migration (SQLite não suporta `DROP COLUMN`/`RENAME
   COLUMN` de forma universal).
 
-**Seed de dados de referência** (Fase 1 de `docs/07`): após as
+**Seed de dados de referência** (Fase 1/2 de `docs/07`): após as
 migrations, popular dados mínimos para destravar o desenvolvimento —
 usuários de teste (um por papel: Importador/Revisor/Aprovador/Vendedor/
-Auditor) e uma `price_table` vazia em status `vigente` (evita
+Auditor, todos com senha `helence123` — ver `SEED_USER_PASSWORD` em
+`app/db/seed.py`) e uma `price_table` vazia em status `vigente` (evita
 `NENHUMA_TABELA_VIGENTE` ao testar a criação de orçamentos):
 ```bash
-python -m app.db.seed              # nome exato a confirmar na Fase 0
+python -m app.db.seed
 ```
+
+Usuários criados pelo seed (papel → e-mail, todos com senha
+`helence123`):
+
+| Papel (docs/04) | E-mail | `users.role` |
+|---|---|---|
+| Importador | `importador@helence.local` | `importador` |
+| Revisor | `revisor@helence.local` | `revisor` |
+| Aprovador | `aprovador@helence.local` | `admin` |
+| Vendedor | `vendedor@helence.local` | `vendedor` |
+| Auditor | `auditor@helence.local` | `colaborador` |
+
+> ⚠ Trocar a senha `helence123` antes de qualquer uso real — o seed é
+> pensado para desenvolvimento/demonstração (`docs/07`, Fase 11). Não há
+> endpoint de troca de senha no MVP; alterar via `UPDATE users SET
+> password_hash = ...` com `app.auth.security.hash_password()`, ou
+> recriar o usuário.
+
+**Em produção (Railway), sem acesso a shell**: rodar o seed via o
+endpoint administrativo (habilitado apenas se `ADMIN_SEED_KEY`, seção
+3.4, estiver configurada):
+```bash
+curl -X POST https://<dominio-backend>/api/v1/admin/seed \
+  -H "X-Admin-Key: <valor de ADMIN_SEED_KEY>"
+# -> 204 No Content
+```
+Sem `ADMIN_SEED_KEY` configurada, este endpoint retorna `403`.
 
 ---
 
@@ -338,7 +358,7 @@ pytest tests/unit
 pytest tests/integration
 pytest -m "not slow"     # exclui o teste de gabarito de extração (categoria 2.10)
 
-# frontend — build sem erros (critério de aceite da Fase 0)
+# frontend — build sem erros
 cd frontend
 npm run build
 npm run lint
@@ -346,13 +366,12 @@ npm run lint
 
 ### 9.4 Lint/format
 ```bash
-# backend (ferramenta exata a definir na Fase 0 — ex. ruff/black)
+# backend
 ruff check .
 ruff format .
 
 # frontend
 npm run lint
-npm run format
 ```
 
 ---
@@ -518,7 +537,6 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/data:/app/data        # banco + uploads persistidos no host
-      - ./backend/logs:/app/logs
     restart: unless-stopped
 
   frontend:
@@ -545,41 +563,33 @@ Conforme `docs/06`, seção 12 — usar a **API de Online Backup** do
 SQLite (não copiar o arquivo "a frio" com `cp`, que pode capturar um
 estado inconsistente se houver escrita concorrente).
 
+> **Desvio em relação ao desenho original**: as seções 12/13 previam
+> scripts `scripts/backup.sh`/`scripts/restore.sh` baseados no CLI
+> `sqlite3 .backup`. Esse CLI não está disponível em todos os ambientes
+> (ex. Windows sem instalação separada), então a implementação real é o
+> módulo `backend/app/db/backup.py` — mesma lógica (API de Online Backup
+> do SQLite), em Python puro, sem dependências externas.
+
 > **Railway — atenção**: o sistema de arquivos do contêiner (incluindo
 > o Volume montado, seção 11.4) só é acessível **a partir do próprio
 > processo da aplicação** em execução — não há acesso SSH/`cron` no
-> host, e `railway run script.sh` executa o script **localmente**, sem
-> acesso ao Volume remoto. Os scripts `scripts/backup.sh`/
-> `scripts/restore.sh` abaixo continuam válidos para **desenvolvimento
-> local**, mas em produção o backup precisa ser feito **de dentro da
-> aplicação** (seção 12.5).
+> host. Os comandos abaixo funcionam em **desenvolvimento local**
+> diretamente; em produção, rodar via `railway run` (executa dentro do
+> ambiente do serviço, com acesso ao Volume) — ver seção 12.5.
 
-### 12.1 Script de referência — desenvolvimento local (`scripts/backup.sh`)
+### 12.1 Criar um backup (`python -m app.db.backup`)
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-DB_PATH="backend/data/helence.db"
-UPLOADS_DIR="backend/data/uploads"
-BACKUP_DIR="${BACKUP_DIR:-./backups}"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-DEST="${BACKUP_DIR}/${TIMESTAMP}"
-
-mkdir -p "${DEST}"
-
-# 1. Backup consistente do banco via API nativa do SQLite
-sqlite3 "${DB_PATH}" ".backup '${DEST}/helence.db'"
-
-# 2. Cópia do diretório de uploads (PDFs originais — parte da rastreabilidade)
-cp -r "${UPLOADS_DIR}" "${DEST}/uploads"
-
-echo "Backup criado em ${DEST}"
+cd backend
+python -m app.db.backup
+# -> Backup criado em backups/20260613_140000
 ```
 
-```bash
-chmod +x scripts/backup.sh
-./scripts/backup.sh
-```
+- Cria `BACKUP_DIR/<timestamp_utc>/` contendo `helence.db` (via
+  `sqlite3.Connection.backup()`) e uma cópia de `uploads/`.
+- `BACKUP_DIR` vem de `backend/.env` (seção 3.1), padrão `./backups`.
+- Testado de ponta a ponta em `backend/tests/unit/test_backup.py`
+  (round-trip backup → alteração → restauração → verificação de
+  integridade).
 
 ### 12.2 Frequência e retenção
 - **Diário** (job agendado, ex. `cron`/Agendador de Tarefas, fora do
@@ -616,114 +626,95 @@ chmod +x scripts/backup.sh
   restaurado é uma suposição não verificada. Recomenda-se incluir essa
   verificação no checklist operacional mensal.
 
-### 12.5 Backup em produção — job interno da aplicação
+### 12.5 Backup em produção (Railway)
 
-Como o Volume da Railway só é acessível pelo processo em execução
-(nota no início da seção 12), o backup de produção deve ser implementado
-como uma **rotina agendada dentro da própria aplicação** (ex.
-`APScheduler` ou *background task* equivalente, registrada no
-`main.py`), e não como um script externo chamado por `cron`:
+`python -m app.db.backup` (seção 12.1) já existe e grava em
+`BACKUP_DIR` — em produção, `BACKUP_DIR=/data/backups` (dentro do
+Volume, seção 18.0). Para rodar dentro do ambiente do serviço:
 
-1. Rodar `sqlite3 .backup` (ou equivalente via `sqlite3` do Python —
-   `sqlite3.Connection.backup()`) para um arquivo temporário dentro do
-   próprio Volume.
-2. Copiar `uploads/` (ou os arquivos novos desde o último backup) junto
-   com o `.db` gerado.
-3. Enviar o pacote resultante para o armazenamento de objeto externo
-   (seção 12.3) via SDK compatível com S3 (ex. `boto3`).
-4. Registrar o resultado (sucesso/falha, tamanho, timestamp) no log
-   estruturado de domínio (seção 14) — falhas de backup devem ser
-   visíveis nos logs de produção, não silenciosas.
+```bash
+railway run --service backend python -m app.db.backup
+```
 
-Esta rotina é um item da **Fase 11/12** (`docs/07`) — até que esteja
-implementada, backups de produção devem ser feitos manualmente via um
-endpoint/comando administrativo equivalente, especialmente **antes de
-publicar uma nova versão de tabela de preço** (seção 12.2).
+- `railway run` executa o comando **dentro** do contêiner do serviço
+  (com acesso ao Volume montado), diferente de `railway run
+  script.sh` local.
+- O resultado fica em `/data/backups/<timestamp>/` — **dentro** do
+  Volume, portanto protegido contra redeploy/restart, mas **não**
+  contra exclusão do projeto/Volume.
+
+**Limitação conhecida**: não há ainda uma rotina **agendada**
+automaticamente (ex. `APScheduler`) nem envio para armazenamento de
+objeto externo (S3/B2/R2) — ambos seguem como evolução futura (seção
+19, item 7). Até lá:
+- Rodar o comando acima **manualmente** com frequência regular (seção
+  12.2) e, **sempre**, antes de publicar uma nova versão de tabela de
+  preço.
+- Copiar periodicamente o conteúdo de `/data/backups/` para fora do
+  Volume (ex. `railway run --service backend cat
+  /data/backups/<timestamp>/helence.db > ./helence.db.bak` ou
+  ferramenta equivalente) — um backup que só existe dentro do mesmo
+  Volume não substitui um backup externo (seção 12.3).
 
 ---
 
 ## 13. Restauração do SQLite
 
-### 13.1 Script de referência (`scripts/restore.sh`)
+### 13.1 Restaurar um backup (`python -m app.db.backup restore <diretorio>`)
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-BACKUP_SOURCE="$1"   # ex. ./backups/20260601_020000
-DB_PATH="backend/data/helence.db"
-UPLOADS_DIR="backend/data/uploads"
-
-if [ -z "${BACKUP_SOURCE}" ]; then
-  echo "Uso: ./scripts/restore.sh <diretorio_do_backup>"
-  exit 1
-fi
-
-# 1. Parar a aplicação ANTES de restaurar (evita escrita concorrente
-#    durante a substituição do arquivo)
-echo "Confirme que a aplicação está PARADA antes de continuar (Ctrl+C para abortar)."
-read -r _
-
-# 2. Backup de segurança do estado atual (caso a restauração precise ser desfeita)
-TS=$(date +%Y%m%d_%H%M%S)
-mv "${DB_PATH}" "${DB_PATH}.before_restore_${TS}"
-mv "${UPLOADS_DIR}" "${UPLOADS_DIR}.before_restore_${TS}"
-
-# 3. Restaurar
-cp "${BACKUP_SOURCE}/helence.db" "${DB_PATH}"
-cp -r "${BACKUP_SOURCE}/uploads" "${UPLOADS_DIR}"
-
-# 4. Verificar integridade
-sqlite3 "${DB_PATH}" "PRAGMA integrity_check;"
-sqlite3 "${DB_PATH}" "PRAGMA foreign_key_check;"
-
-echo "Restauração concluída a partir de ${BACKUP_SOURCE}."
-echo "Reinicie a aplicação manualmente."
+cd backend
+python -m app.db.backup restore backups/20260601_020000
+# -> Restauração concluída a partir de backups/20260601_020000.
 ```
 
-```bash
-chmod +x scripts/restore.sh
-./scripts/restore.sh ./backups/20260601_020000
-```
+O que o comando faz (`backend/app/db/backup.py`, `restore_backup()`):
+1. Renomeia o `helence.db`/`uploads/` atuais para
+   `*.before_restore_<timestamp_utc>` (preserva o estado anterior — não
+   apaga nada).
+2. Copia `helence.db` e `uploads/` do diretório de backup para os
+   caminhos configurados (`DATABASE_PATH`/`UPLOADS_DIR`).
+3. Roda `PRAGMA integrity_check` e `PRAGMA foreign_key_check` no banco
+   restaurado — levanta erro (e **não** apaga o `.before_restore_*`) se
+   alguma das duas falhar.
 
 ### 13.2 Procedimento completo
 1. **Parar a aplicação** (encerrar `uvicorn`/contêiner) — restaurar com
-   a aplicação em execução pode causar leitura/escrita inconsistente.
-2. Rodar o script acima, apontando para o backup desejado.
-3. Confirmar `PRAGMA integrity_check` → `ok` e
-   `PRAGMA foreign_key_check` → vazio.
-4. Reiniciar a aplicação e validar com um *smoke test* (login,
-   consulta ao catálogo, abertura de um orçamento existente).
-5. Se algo der errado, os arquivos `.before_restore_<timestamp>`
-   permitem reverter a restauração.
+   a aplicação em execução pode causar leitura/escrita inconsistente
+   (o SQLite resultante pode ser sobrescrito de novo pela aplicação
+   ainda em execução).
+2. Rodar `python -m app.db.backup restore <diretorio>` (seção 13.1).
+3. O comando já valida `PRAGMA integrity_check`/`foreign_key_check` —
+   uma falha aqui aborta antes de qualquer dado "bom" ser perdido (o
+   `.before_restore_*` permanece intacto).
+4. Reiniciar a aplicação e validar com um *smoke test* (login, consulta
+   ao catálogo, abertura de um orçamento existente).
+5. Se algo der errado, os arquivos/diretórios `*.before_restore_<timestamp>`
+   permitem reverter manualmente (renomear de volta).
 
 ### 13.3 Restauração em produção (Railway)
 
 Pela mesma razão da seção 12 (Volume só acessível pelo processo em
-execução), a restauração em produção **não** é feita rodando
-`scripts/restore.sh` localmente contra o Volume remoto. O caminho
-recomendado:
+execução), a restauração em produção é feita executando o mesmo comando
+**dentro** do contêiner:
 
-1. Implementar um **comando/endpoint administrativo** (acessível
-   apenas a Aprovador/Admin, ou via `railway run` executando dentro do
-   ambiente do serviço — `railway run` permite abrir um shell *dentro*
-   do contêiner com `railway shell`, que **tem** acesso ao Volume) que:
-   - baixa o pacote de backup desejado do armazenamento externo (seção
-     12.3);
-   - aplica o mesmo procedimento de cópia de segurança do estado atual
-     (`.before_restore_<timestamp>`, como no script de referência)
-     **dentro do Volume**;
-   - substitui `helence.db` e `uploads/` pelos arquivos restaurados;
-   - roda `PRAGMA integrity_check`/`PRAGMA foreign_key_check`.
+```bash
+railway run --service backend python -m app.db.backup restore /data/backups/20260601_020000
+```
+
+1. Garantir que o diretório de backup já está **dentro** do Volume
+   (`/data/backups/...`) — se o backup foi copiado para fora (seção
+   12.5), enviar de volta antes de restaurar.
 2. Colocar o serviço em modo de manutenção (ou escalar para 0 réplicas
    temporariamente, se a Railway permitir) durante a restauração, para
-   evitar escrita concorrente.
-3. Reiniciar o serviço (redeploy ou restart manual) e validar com o
+   evitar escrita concorrente com a aplicação ainda no ar.
+3. Rodar o comando acima — a validação de integridade (seção 13.1,
+   passo 3) acontece automaticamente.
+4. Reiniciar o serviço (redeploy ou restart manual) e validar com o
    mesmo *smoke test* da seção 13.2.
 
-Esta rotina, assim como o backup (seção 12.5), é um item da Fase 11/12
-— até lá, uma restauração de produção exige acesso via `railway shell`
-e execução manual dos passos do `scripts/restore.sh` **dentro** do
-contêiner (não na máquina local).
+**Limitação conhecida**: ainda não há um endpoint HTTP administrativo
+para restauração (apenas o CLI via `railway run`) — ver seção 19, item
+7.
 
 ---
 
@@ -735,16 +726,18 @@ linha), com três focos: **requisição** (middleware), **domínio**
 (exceções não tratadas, com `request_id` e *stack trace*).
 
 ### 14.1 Localização e formato
-- **Desenvolvimento**: saída para console (stdout), nível `DEBUG`.
-- **Produção (Railway)**: saída para **stdout/stderr** (JSON
-  estruturado, um evento por linha), nível `INFO`/`WARNING` — a Railway
-  captura automaticamente a saída padrão do processo e a expõe no *log
-  stream* do serviço (painel web, `railway logs`, ou *log drains* para
-  um agregador externo). **Não** usar `RotatingFileHandler`/arquivo em
-  `LOG_DIR` em produção: o sistema de arquivos do contêiner é efêmero
-  fora do Volume (seção 2), e escrever logs no Volume desperdiçaria
-  espaço de armazenamento que deveria ser reservado para
-  banco+uploads.
+- **Sempre stdout, em todos os ambientes** (`backend/app/shared/logging.py`,
+  `configure_logging()`) — um objeto JSON por linha (`{"timestamp",
+  "level", "logger", "message", "request_id"?, "exc_info"?}`), nível
+  controlado por `LOG_LEVEL` (seção 3.1; `DEBUG` em desenvolvimento,
+  `INFO`/`WARNING` em produção). Não há `RotatingFileHandler`/`LOG_DIR`
+  — simplifica em relação ao desenho original (que previa arquivo em
+  desenvolvimento).
+- **Desenvolvimento**: a saída JSON aparece diretamente no terminal onde
+  `uvicorn` está rodando.
+- **Produção (Railway)**: a Railway captura automaticamente o stdout do
+  processo e o expõe no *log stream* do serviço (painel web, `railway
+  logs`, ou *log drains* para um agregador externo).
 - **Retenção de logs na Railway**: o *log stream* da Railway tem
   retenção limitada (verificar o limite do plano contratado). Se for
   necessário reter logs por mais tempo do que a plataforma oferece,
@@ -761,16 +754,13 @@ linha), com três focos: **requisição** (middleware), **domínio**
 
 ### 14.3 Comandos úteis
 
-**Desenvolvimento local**:
+**Desenvolvimento local**: a saída JSON aparece no terminal do
+`uvicorn`. Para acompanhar/filtrar redirecionando para arquivo:
 ```bash
-# acompanhar em tempo real (saída via console/redirecionada para arquivo local)
-tail -f backend/logs/app.log
-
-# filtrar por request_id
-grep '"request_id":"<id>"' backend/logs/app.log
-
-# filtrar erros
-grep '"level":"ERROR"' backend/logs/app.log
+uvicorn app.main:app --reload --port 8000 > app.log 2>&1 &
+tail -f app.log
+grep '"request_id":"<id>"' app.log
+grep '"level":"ERROR"' app.log
 ```
 
 **Produção (Railway)**:
@@ -793,17 +783,12 @@ estritamente necessário (ex. `customer_id`, nunca `customer.document`)
 — `docs/06`, seção 8.
 
 ### 14.5 Retenção de logs
-- **Desenvolvimento**: definir uma política de rotação/retenção (ex.
-  manter últimos 30 dias) — evita que `backend/logs/` cresça
-  indefinidamente.
+- **Desenvolvimento**: nada a gerir — não há arquivo de log por padrão
+  (seção 14.1).
 - **Produção (Railway)**: a retenção é controlada pelo plano da
   Railway (seção 14.1) — não há `logrotate` para configurar. Se a
   retenção padrão não for suficiente, a mitigação é um *log drain*
   externo, não uma política de arquivo local.
-
-Esta política, junto com a de backups (seção 12), é um item
-explicitamente reservado para a Fase 11 de `docs/07` ("Política de
-retenção de logs e backups em produção").
 
 ---
 
@@ -821,8 +806,6 @@ implementação):
 - **Backups de restauração** (`*.before_restore_*`, seção 13) — remover
   manualmente após confirmar que a restauração foi bem-sucedida e não
   precisa ser revertida.
-- **Logs antigos** além da política de retenção (seção 14.5), se não
-  geridos por `logrotate`.
 - **Banco de testes** (`backend/tests/...`) — arquivos SQLite
   temporários de teste devem ser criados em diretório temporário do SO
   (`tempfile`) e removidos automaticamente ao final de cada execução de
@@ -915,7 +898,8 @@ desta seção 16 se aplica apenas ao fluxo de **deploy em produção**.
 | Upload rejeitado com `ARQUIVO_MUITO_GRANDE`/`ARQUIVO_INVALIDO` | Arquivo excede `MAX_UPLOAD_SIZE_MB` ou não é um PDF válido | Verificar tamanho/MIME do arquivo; ajustar `MAX_UPLOAD_SIZE_MB` apenas se houver justificativa real (PDFs observados na auditoria são bem menores que 50MB). |
 | Frontend não consegue falar com a API (`CORS`/`Network Error`) | `VITE_API_BASE_URL` incorreta, ou `CORS_ALLOWED_ORIGINS` no backend não inclui a origem do frontend | Conferir as duas variáveis (seção 3); reiniciar ambos após alterar `.env`. |
 | `ITEM_SEM_PRECO`/`ITEM_SEM_SKU` inesperado para um item que "deveria" ter preço | Tabela de preço errada está marcada `vigente`, ou a publicação (Fase 7) não promoveu essa variação | Consultar `price_tables` (`status='vigente'`); usar a consulta "auditar origem de preço" (`docs/03`, 6.5) para confirmar se existe `prices` para a variação na tabela vigente. |
-| Logs não aparecem (produção) | Em desenvolvimento: `APP_ENV` ainda em `development`. Em produção (Railway): aplicação está escrevendo em arquivo/`LOG_DIR` em vez de stdout (seção 14.1) | Confirmar `APP_ENV=production`; garantir que o *handler* de log em produção escreve em stdout/stderr, não em arquivo. |
+| Logs não aparecem (produção) | Nível configurado em `LOG_LEVEL` está acima do esperado (ex. `WARNING` sem nenhum evento de erro/aviso ainda) (seção 14.1) | Conferir `LOG_LEVEL`; logs são sempre em stdout, em todos os ambientes — se nada aparece em `railway logs`, o processo pode não ter subido (ver linha de healthcheck abaixo). |
+| `401 NAO_AUTENTICADO` mesmo após login bem-sucedido | Cookie de sessão (`SameSite=Lax`) não está sendo enviado porque o frontend e a API estão em hosts diferentes (ex. `localhost` vs. `127.0.0.1`) — seção 20.3 | Conferir `VITE_API_BASE_URL`/`CORS_ALLOWED_ORIGINS` (seção 3) — frontend e API devem usar o mesmo hostname (dev) ou domínios corretos configurados (prod). |
 | Erro `500` genérico para o usuário, sem detalhe | Comportamento **esperado** — exceções não previstas nunca vazam *stack trace*/SQL na resposta (`docs/06`, seção 9) | Buscar o `request_id` (cabeçalho da resposta) no log de erro (seção 14.2) para ver o detalhe completo. |
 | Restauração falha com `PRAGMA integrity_check` != `ok` | Backup corrompido (cópia "a frio" feita incorretamente) ou arquivo truncado | Tentar um backup anterior na sequência de retenção (seção 12.2); revisar se o backup foi feito com `.backup` (API online), não `cp` direto no arquivo em uso. |
 | Deploy bem-sucedido, mas dados (banco/uploads) "zerados" após redeploy | Volume não está montado, ou `DATABASE_PATH`/`UPLOADS_DIR` não apontam para o caminho do Volume (seção 11.4) | Conferir no painel Railway que o Volume está anexado ao serviço **e** que as variáveis de ambiente apontam para o *mount path* correto (ex. `/data/...`). |
@@ -931,24 +915,17 @@ atualização — complementa a seção 16.2):
 
 ### 18.0 Primeiro deploy — configuração do projeto Railway (uma vez)
 
-> **Status (Fase 0)**: projeto criado e primeiro deploy ("hello world")
-> validado em ambos os serviços. Falta apenas **conectar o repositório
-> Git** pela dashboard (ver nota abaixo) — até lá, atualizações são
-> publicadas via `railway up` (deploy manual a partir do diretório
-> local).
+> **Status**: configuração concluída e validada em produção — ambos os
+> serviços (`backend`/`frontend`) implantados, com deploy automático via
+> `git push` para `main`.
 
 - [x] Projeto Railway criado: **`helence-orcamento`** (workspace
       `valtervilmerson's Projects`).
-- [ ] Repositório Git conectado (branch `main`) — **pendente**: a CLI
-      retornou `Unauthorized` ao tentar `railway add --repo
-      valtervilmerson/helence-orcamento`, porque o GitHub App da
-      Railway ainda não está autorizado para este repositório/conta.
-      Ação manual única: na dashboard do projeto, em cada serviço →
-      *Settings → Source*, clicar em *Connect Repo*, autorizar o
-      GitHub App para `valtervilmerson/helence-orcamento` e definir o
-      *Root Directory* (`backend` ou `frontend`, conforme o serviço).
-      Depois disso, `git push` para `main` passa a disparar deploy
-      automático (seção 16).
+- [x] Repositório Git conectado (branch `main`) — `git push` para
+      `main` dispara deploy automático em ambos os serviços (seção 16).
+      Validado em produção: o ajuste do `Dockerfile`/variável de
+      ambiente do frontend (commit `ebf58ec`) chegou ao ar via push
+      normal, sem deploy manual.
 - [x] Serviço(s) configurado(s) conforme seção 11.1 — **dois
       serviços**: `backend` e `frontend`, ambos com build via
       `Dockerfile`/`railway.toml` próprios (seção 11.2).
@@ -1004,9 +981,9 @@ atualização — complementa a seção 16.2):
 - [ ] Logs (`railway logs`, seção 14.3) sem erros nos primeiros
       minutos.
 - [ ] Cada papel de usuário (Importador/Revisor/Aprovador/Vendedor/
-      Auditor) consegue logar — se autenticação (Fase 11) já estiver
-      implementada.
-- [ ] Job de backup automático agendado e testado (seções 12.2/12.5).
+      Auditor — seção 20) consegue logar via `POST /api/v1/auth/login`.
+- [ ] Backup (seção 12.5) executado manualmente e copiado para fora do
+      Volume.
 
 ---
 
@@ -1030,9 +1007,11 @@ aqui para que quem opera o sistema saiba o que **não** esperar:
    (`docs/06`, seção 6.5) — sem replicação/objeto distribuído, e preso a
    uma única instância (seção 11.4). Backup externo (seção 12.5) é a
    única proteção contra perda do Volume.
-4. **Autenticação simples baseada em sessão** (`docs/06`, seção 13) —
-   sem SSO/OAuth corporativo, sem MFA. Adequado para uso interno por
-   uma equipe pequena conhecida.
+4. **Autenticação simples baseada em sessão** (`docs/06`, seção 13;
+   implementada na Fase 11 — login/logout/`/me`, cookie de sessão HMAC,
+   papéis por usuário, seção 20) — sem SSO/OAuth corporativo, sem MFA,
+   sem fluxo de troca/recuperação de senha. Adequado para uso interno
+   por uma equipe pequena conhecida.
 5. **Sem observabilidade externa (APM/agregador de logs)** (`docs/06`,
    seção 8) — logs estruturados em stdout, capturados pelo *log stream*
    da Railway (seção 14); investigação depende do painel/CLI da Railway
@@ -1040,11 +1019,12 @@ aqui para que quem opera o sistema saiba o que **não** esperar:
 6. **Sem fila de e-mail/notificação** — exportação (Fase 10) gera o
    documento para download; envio automático por e-mail está fora do
    escopo confirmado (`docs/07`, Fase 10).
-7. **Backup/restauração dependem de uma rotina interna da aplicação +
-   armazenamento externo** (seções 12.5/13.3) — diferente de um banco
-   gerenciado com *snapshot* automático; até essa rotina estar
-   implementada (Fase 11/12), backup/restauração de produção exigem
-   intervenção manual via `railway shell`.
+7. **Backup/restauração via CLI (`python -m app.db.backup`), sem
+   agendamento automático nem envio a armazenamento externo** (seções
+   12/13) — diferente de um banco gerenciado com *snapshot* automático;
+   em produção, exige rodar o comando manualmente via `railway run`
+   (não há rotina agendada nem upload para S3/B2/R2, nem endpoint HTTP
+   de restauração).
 8. **Migrations destrutivas em SQLite são manuais e arriscadas** —
    `ALTER TABLE ... DROP/RENAME COLUMN` não é suportado de forma
    universal; cada caso exige o procedimento de recriação de tabela
@@ -1067,3 +1047,73 @@ aqui para que quem opera o sistema saiba o que **não** esperar:
     português, moeda fixa em `BRL` (`docs/03`, seção 2.12 — valores
     monetários como `NUMERIC`, registro consciente de revisitar antes
     de escalar).
+
+---
+
+## 20. Autenticação, usuários e papéis
+
+Implementado na Fase 11 (`docs/06`, seção 13) — autenticação por
+sessão, sem dependências externas (scrypt para hash de senha, cookie de
+sessão assinado com HMAC-SHA256, validade de 12h).
+
+### 20.1 Endpoints
+
+| Endpoint | Acesso | Descrição |
+|---|---|---|
+| `POST /api/v1/auth/login` | público | `{"email", "password"}` → define cookie de sessão e retorna o usuário (`{"id", "name", "email", "role"}`). |
+| `POST /api/v1/auth/logout` | autenticado | Invalida o cookie de sessão. `204 No Content`. |
+| `GET /api/v1/auth/me` | autenticado | Retorna o usuário da sessão atual — usado pelo frontend para restaurar o estado de login ao recarregar a página. |
+
+### 20.2 Papéis e permissões
+
+A coluna `users.role` aceita `admin | importador | revisor | vendedor |
+colaborador` (`docs/schema/schema.sql`). Mapeamento papel → acesso de
+escrita (leitura/listagem em catalog/quotes/imports exige apenas
+login):
+
+| Módulo | Papéis com escrita |
+|---|---|
+| Importações (`/imports`) | `importador`, `admin` |
+| Revisão de itens extraídos | `revisor`, `admin` |
+| Orçamentos/clientes (`/quotes`, `/customers`) | `vendedor`, `admin` |
+| Catálogo/componentes/tabelas de preço | `admin` |
+
+### 20.3 Cookie de sessão e `SameSite`
+
+O cookie de sessão usa `SameSite=Lax`. Hosts diferentes (ex.
+`127.0.0.1` vs. `localhost`) são "sites" diferentes para fins de
+cookie — uma requisição do frontend em `localhost:5173` para uma API em
+`127.0.0.1:8000` **não** envia o cookie, resultando em `401
+NAO_AUTENTICADO` mesmo após login bem-sucedido.
+
+- **Desenvolvimento local**: `frontend/.env` deve apontar
+  `VITE_API_BASE_URL` para o **mesmo hostname** usado para acessar o
+  frontend no navegador (ex. ambos `localhost`, ou ambos `127.0.0.1` —
+  não misturar).
+- **Produção (Railway)**: cada serviço tem seu próprio domínio
+  `*.up.railway.app` — `SESSION_COOKIE_SECURE=true` (seção 3.4) e
+  `CORS_ALLOWED_ORIGINS` apontando para o domínio do `frontend` (seção
+  18.0) evitam esse problema, mas se o cookie ainda não for enviado
+  após login, conferir se os dois domínios estão corretos nas
+  variáveis de ambiente de cada serviço.
+
+### 20.4 Trocar a senha de um usuário
+
+Não há endpoint de autoatendimento no MVP. Para trocar a senha de um
+usuário (ex. antes de um uso real, trocar a senha padrão `helence123`
+do seed — seção 7):
+
+```bash
+cd backend
+python3 -c "
+from app.auth.security import hash_password
+print(hash_password('nova-senha-aqui'))
+"
+# copiar o hash impresso e rodar:
+sqlite3 data/helence.db \
+  "UPDATE users SET password_hash = '<hash_impresso>' WHERE email = 'usuario@helence.local';"
+```
+
+Em produção (Railway, sem `sqlite3` CLI), usar `railway run` com um
+script Python equivalente que abra `get_connection()` e execute o
+`UPDATE`.

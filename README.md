@@ -56,6 +56,9 @@ python -m app.db.seed
 
 - Healthcheck: `GET http://localhost:8000/api/v1/health` → `{"status": "ok"}`
 - Documentação interativa: `http://localhost:8000/docs`
+- Login: o seed cria um usuário por papel (ex.
+  `vendedor@helence.local`, `aprovador@helence.local`, ...), todos com
+  senha `helence123` — ver `docs/09-implantacao-operacao.md`, seção 20.
 
 ### Lint, formatação e testes
 
