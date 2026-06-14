@@ -1,10 +1,24 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { createProduct, deleteProduct } from '../../../api/catalog'
+import {
+  addCompositionItem,
+  createProduct,
+  deleteProduct,
+  listCompositionItems,
+  removeCompositionItem,
+  searchComponents,
+  type ComponentVariant,
+  type ProductCompositionItem,
+} from '../../../api/catalog'
 import { ErrorMessage, Pagination } from '../shared'
 import { describeError, type CatalogContextValue } from '../catalogContext'
 
 const PAGE_SIZE = 10
+
+function describeVariant(variant: ComponentVariant): string {
+  const price = variant.price ? `${variant.price.currency} ${variant.price.amount.toFixed(2)}` : 'sem preço'
+  return `${variant.component} — ${variant.descriptor ?? ''} — ${variant.finish ?? '—'} — ${variant.sku ?? 'sem SKU'} — ${price}`
+}
 
 export function ProductsPage() {
   const { products, families, dimensions, reload } = useOutletContext<CatalogContextValue>()
@@ -12,6 +26,7 @@ export function ProductsPage() {
   const [familyFilter, setFamilyFilter] = useState('')
   const [page, setPage] = useState(1)
   const [showForm, setShowForm] = useState(false)
+  const [compositionProductId, setCompositionProductId] = useState<number | null>(null)
 
   const [name, setName] = useState('')
   const [familyId, setFamilyId] = useState('')
@@ -130,13 +145,29 @@ export function ProductsPage() {
 
       <ul className="list-plain">
         {pageItems.map((product) => (
-          <li key={product.id} className="list-item-card">
-            <span>
-              #{product.id} — {product.name} ({familyName(product.family_id)})
-            </span>
-            <button className="danger" onClick={() => void handleDelete(product.id)}>
-              excluir
-            </button>
+          <li key={product.id} className="list-item-card list-item-card--column">
+            <div className="list-item-card__row">
+              <span>
+                #{product.id} — {product.name} ({familyName(product.family_id)})
+              </span>
+              <div className="action-group">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() =>
+                    setCompositionProductId((current) => (current === product.id ? null : product.id))
+                  }
+                >
+                  {compositionProductId === product.id ? 'Fechar composição' : 'Gerenciar composição'}
+                </button>
+                <button className="danger" onClick={() => void handleDelete(product.id)}>
+                  excluir
+                </button>
+              </div>
+            </div>
+            {compositionProductId === product.id && (
+              <CompositionPanel productId={product.id} familyName={familyName(product.family_id)} />
+            )}
           </li>
         ))}
       </ul>
@@ -144,5 +175,123 @@ export function ProductsPage() {
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
       <ErrorMessage error={error} />
     </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Composição de um produto
+// ---------------------------------------------------------------------------
+
+function CompositionPanel({ productId, familyName }: { productId: number; familyName: string }) {
+  const [items, setItems] = useState<ProductCompositionItem[]>([])
+  const [results, setResults] = useState<ComponentVariant[]>([])
+  const [variantId, setVariantId] = useState('')
+  const [quantity, setQuantity] = useState('1')
+  const [error, setError] = useState<string | null>(null)
+
+  async function reload() {
+    try {
+      const compositionItems = await listCompositionItems(productId)
+      setItems(compositionItems)
+      setError(null)
+    } catch (err) {
+      setError(describeError(err))
+    }
+  }
+
+  useEffect(() => {
+    async function load() {
+      try {
+        setItems(await listCompositionItems(productId))
+        setError(null)
+      } catch (err) {
+        setError(describeError(err))
+      }
+    }
+    void load()
+    async function runSearch() {
+      try {
+        const result = await searchComponents({ family: familyName })
+        setResults(result.items)
+      } catch (err) {
+        setError(describeError(err))
+      }
+    }
+    void runSearch()
+  }, [productId, familyName])
+
+  async function handleAdd() {
+    if (!variantId) return
+    setError(null)
+    try {
+      await addCompositionItem(productId, {
+        component_variant_id: Number(variantId),
+        quantity: Number(quantity) || 1,
+      })
+      setVariantId('')
+      setQuantity('1')
+      await reload()
+    } catch (err) {
+      setError(describeError(err))
+    }
+  }
+
+  async function handleRemove(componentVariantId: number) {
+    setError(null)
+    try {
+      await removeCompositionItem(productId, componentVariantId)
+      await reload()
+    } catch (err) {
+      setError(describeError(err))
+    }
+  }
+
+  const usedIds = new Set(items.map((item) => item.variant.component_variant_id))
+  const availableResults = results.filter((variant) => !usedIds.has(variant.component_variant_id))
+
+  return (
+    <div className="catalog-composition-panel">
+      {items.length === 0 && <p>Este produto ainda não tem itens de composição cadastrados.</p>}
+      {items.length > 0 && (
+        <ul className="list-plain">
+          {items.map((item) => (
+            <li key={item.id} className="list-item-card">
+              <span>
+                {item.quantity}x {describeVariant(item.variant)}
+              </span>
+              <button
+                type="button"
+                className="danger"
+                onClick={() => void handleRemove(item.variant.component_variant_id)}
+              >
+                remover
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="action-group">
+        <select value={variantId} onChange={(e) => setVariantId(e.target.value)} style={{ flex: 1, minWidth: '20rem' }}>
+          <option value="">(selecione uma variação da família "{familyName}")</option>
+          {availableResults.map((variant) => (
+            <option key={variant.component_variant_id} value={variant.component_variant_id}>
+              {describeVariant(variant)}
+            </option>
+          ))}
+        </select>
+        <input
+          type="number"
+          min="1"
+          placeholder="Qtd."
+          style={{ width: '5rem' }}
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+        />
+        <button type="button" className="secondary" onClick={() => void handleAdd()} disabled={!variantId}>
+          + adicionar à composição
+        </button>
+      </div>
+      <ErrorMessage error={error} />
+    </div>
   )
 }

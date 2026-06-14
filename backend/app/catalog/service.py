@@ -16,6 +16,9 @@ from app.catalog.schemas import (
     ComponentVariantSearchResult,
     DimensionSummary,
     PriceSummary,
+    ProductCompositionExpandedItem,
+    ProductCompositionItemIn,
+    ProductCompositionItemOut,
     PublishIn,
     PublishOut,
 )
@@ -139,6 +142,7 @@ def _row_to_variant_out(row: sqlite3.Row) -> ComponentVariantOut:
     return ComponentVariantOut(
         component_variant_id=row["component_variant_id"],
         family_id=row["family_id"],
+        product_id=row["product_id"],
         family=row["family"],
         product=row["product"],
         component=row["component"],
@@ -262,6 +266,80 @@ def delete_variant(connection: sqlite3.Connection, variant_id: int) -> None:
         raise ComponenteEmUsoError(details={"referenced_by": references})
 
     repository.delete_variant(connection, variant_id)
+
+
+# ---------------------------------------------------------------------------
+# Composição de produtos
+# ---------------------------------------------------------------------------
+
+
+def _row_to_composition_item_out(row: sqlite3.Row) -> ProductCompositionItemOut:
+    return ProductCompositionItemOut(
+        id=row["composition_item_id"],
+        product_id=row["composition_product_id"],
+        quantity=row["composition_quantity"],
+        variant=_row_to_variant_out(row),
+    )
+
+
+def list_composition_items(
+    connection: sqlite3.Connection, product_id: int
+) -> list[ProductCompositionItemOut]:
+    if repository.products.get(connection, product_id) is None:
+        raise RegistroNaoEncontradoError(details={"id": product_id})
+
+    rows = repository.list_composition_items(connection, product_id)
+    return [_row_to_composition_item_out(row) for row in rows]
+
+
+def add_composition_item(
+    connection: sqlite3.Connection, product_id: int, payload: ProductCompositionItemIn
+) -> ProductCompositionItemOut:
+    if repository.products.get(connection, product_id) is None:
+        raise RegistroNaoEncontradoError(details={"id": product_id})
+
+    if not repository.variant_exists(connection, payload.component_variant_id):
+        raise ComponenteNaoEncontradoError(details={"id": payload.component_variant_id})
+
+    try:
+        composition_item_id = repository.add_composition_item(
+            connection, product_id, payload.component_variant_id, payload.quantity
+        )
+        connection.commit()
+    except sqlite3.IntegrityError as exc:
+        connection.rollback()
+        raise RegistroDuplicadoError() from exc
+
+    row = repository.get_composition_item(connection, composition_item_id)
+    assert row is not None
+    return _row_to_composition_item_out(row)
+
+
+def remove_composition_item(
+    connection: sqlite3.Connection, product_id: int, component_variant_id: int
+) -> None:
+    if repository.products.get(connection, product_id) is None:
+        raise RegistroNaoEncontradoError(details={"id": product_id})
+
+    deleted = repository.remove_composition_item(connection, product_id, component_variant_id)
+    connection.commit()
+    if deleted == 0:
+        raise RegistroNaoEncontradoError(
+            details={"product_id": product_id, "component_variant_id": component_variant_id}
+        )
+
+
+def get_expanded_composition(
+    connection: sqlite3.Connection, product_id: int
+) -> list[ProductCompositionExpandedItem]:
+    if repository.products.get(connection, product_id) is None:
+        raise RegistroNaoEncontradoError(details={"id": product_id})
+
+    expanded = repository.expand_composition(connection, product_id)
+    return [
+        ProductCompositionExpandedItem(variant=_row_to_variant_out(row), quantity=quantity)
+        for row, quantity in expanded
+    ]
 
 
 # ---------------------------------------------------------------------------

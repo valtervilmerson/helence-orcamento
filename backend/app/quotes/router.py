@@ -87,6 +87,16 @@ def update_quote_status(
     return service.update_status(connection, quote_id, payload.status)
 
 
+@router.delete(
+    "/{quote_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+    dependencies=[Depends(require_role("vendedor", "admin"))],
+)
+def delete_quote(quote_id: int, connection: sqlite3.Connection = Depends(get_db)) -> None:
+    service.delete_quote(connection, quote_id)
+
+
 @router.post(
     "/{quote_id}/duplicate",
     response_model=QuoteOut,

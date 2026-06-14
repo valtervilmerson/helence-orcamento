@@ -85,6 +85,8 @@ export const updateQuoteStatus = (id: number, status: QuoteStatus) =>
   request<Quote>(`/quotes/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) })
 export const duplicateQuote = (id: number) =>
   request<Quote>(`/quotes/${id}/duplicate`, { method: 'POST' })
+export const deleteQuote = (id: number) =>
+  request<void>(`/quotes/${id}`, { method: 'DELETE' })
 
 // ---------------------------------------------------------------------------
 // Itens — 14.11/14.12 (um único componente por item)

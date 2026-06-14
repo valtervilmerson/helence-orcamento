@@ -104,6 +104,14 @@ def update_quote_status(connection: sqlite3.Connection, quote_id: int, new_statu
     connection.commit()
 
 
+def delete_quote(connection: sqlite3.Connection, quote_id: int) -> None:
+    connection.execute(
+        "UPDATE quotes SET source_quote_id = NULL WHERE source_quote_id = ?", (quote_id,)
+    )
+    connection.execute("DELETE FROM quotes WHERE id = ?", (quote_id,))
+    connection.commit()
+
+
 # ---------------------------------------------------------------------------
 # Variações + preço congelável (RN-12/13/15/16)
 # ---------------------------------------------------------------------------

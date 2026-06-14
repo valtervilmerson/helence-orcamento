@@ -156,6 +156,7 @@ export interface ComponentVariant {
   component_variant_id: number
   family: string | null
   family_id: number | null
+  product_id: number | null
   product: string | null
   component: string
   descriptor: string | null
@@ -202,3 +203,36 @@ export const createComponent = (data: ComponentVariantInput) =>
 export const getComponent = (id: number) => request<ComponentVariant>(`/components/${id}`)
 export const deleteComponent = (id: number) =>
   request<void>(`/components/${id}`, { method: 'DELETE' })
+
+// ---------------------------------------------------------------------------
+// Composição de produtos
+// ---------------------------------------------------------------------------
+
+export interface ProductCompositionItem {
+  id: number
+  product_id: number
+  quantity: number
+  variant: ComponentVariant
+}
+
+export interface ProductCompositionExpandedItem {
+  variant: ComponentVariant
+  quantity: number
+}
+
+export const listCompositionItems = (productId: number) =>
+  request<ProductCompositionItem[]>(`/catalog/products/${productId}/composition-items`)
+export const addCompositionItem = (
+  productId: number,
+  data: { component_variant_id: number; quantity?: number },
+) =>
+  request<ProductCompositionItem>(`/catalog/products/${productId}/composition-items`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+export const removeCompositionItem = (productId: number, componentVariantId: number) =>
+  request<void>(`/catalog/products/${productId}/composition-items/${componentVariantId}`, {
+    method: 'DELETE',
+  })
+export const getProductComposition = (productId: number) =>
+  request<ProductCompositionExpandedItem[]>(`/catalog/products/${productId}/composition`)

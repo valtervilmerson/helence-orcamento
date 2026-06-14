@@ -1137,3 +1137,41 @@ def test_export_unknown_quote(client) -> None:
     response = client.get("/api/v1/quotes/999999/export?format=pdf")
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "ORCAMENTO_NAO_ENCONTRADO"
+
+
+def test_delete_quote_removes_it_and_its_items(client) -> None:
+    variant = _seeded_variant(client)
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": variant["component_variant_id"],
+            "label": "Mesa Reunião 1200x900 — Carvalho",
+            "quantity": 1,
+        },
+    )
+
+    response = client.delete(f"/api/v1/quotes/{quote['id']}")
+    assert response.status_code == 204
+
+    get_response = client.get(f"/api/v1/quotes/{quote['id']}")
+    assert get_response.status_code == 404
+    assert get_response.json()["error"]["code"] == "ORCAMENTO_NAO_ENCONTRADO"
+
+
+def test_delete_quote_clears_source_reference_in_duplicates(client) -> None:
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    duplicated = client.post(f"/api/v1/quotes/{quote['id']}/duplicate").json()
+
+    response = client.delete(f"/api/v1/quotes/{quote['id']}")
+    assert response.status_code == 204
+
+    refetched = client.get(f"/api/v1/quotes/{duplicated['id']}").json()
+    assert refetched["source_quote_id"] is None
+
+
+def test_delete_unknown_quote_is_not_found(client) -> None:
+    response = client.delete("/api/v1/quotes/999999")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "ORCAMENTO_NAO_ENCONTRADO"

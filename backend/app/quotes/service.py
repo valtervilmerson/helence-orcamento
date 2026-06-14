@@ -97,6 +97,12 @@ def list_quotes(connection: sqlite3.Connection) -> list[QuoteOut]:
     return [_row_to_quote_out(row) for row in repository.list_quote_rows(connection)]
 
 
+def delete_quote(connection: sqlite3.Connection, quote_id: int) -> None:
+    if repository.get_quote_row(connection, quote_id) is None:
+        raise OrcamentoNaoEncontradoError(details={"id": quote_id})
+    repository.delete_quote(connection, quote_id)
+
+
 def list_customers(connection: sqlite3.Connection) -> list[CustomerSummary]:
     return [
         CustomerSummary(id=row["id"], name=row["name"])

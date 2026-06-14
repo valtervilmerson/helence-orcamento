@@ -173,6 +173,7 @@ _VARIANT_SEARCH_BASE = """
     SELECT
         cv.id AS component_variant_id,
         cv.family_id AS family_id,
+        cv.product_id AS product_id,
         pf.name AS family,
         p.name AS product,
         pc.name AS component,
@@ -362,3 +363,81 @@ def delete_variant(connection: sqlite3.Connection, variant_id: int) -> None:
     connection.execute("DELETE FROM prices WHERE component_variant_id = ?", (variant_id,))
     connection.execute("DELETE FROM component_variants WHERE id = ?", (variant_id,))
     connection.commit()
+
+
+# ---------------------------------------------------------------------------
+# Composição de produtos
+# ---------------------------------------------------------------------------
+
+_COMPOSITION_ITEM_BASE = f"""
+    SELECT
+        pc2.id AS composition_item_id,
+        pc2.product_id AS composition_product_id,
+        pc2.quantity AS composition_quantity,
+        v.*
+    FROM product_compositions pc2
+    JOIN ({_VARIANT_SEARCH_BASE}) v ON v.component_variant_id = pc2.component_variant_id
+"""
+
+
+def list_composition_items(connection: sqlite3.Connection, product_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        f"{_COMPOSITION_ITEM_BASE} WHERE pc2.product_id = ? ORDER BY pc2.id", (product_id,)
+    ).fetchall()
+
+
+def get_composition_item(
+    connection: sqlite3.Connection, composition_item_id: int
+) -> sqlite3.Row | None:
+    return connection.execute(
+        f"{_COMPOSITION_ITEM_BASE} WHERE pc2.id = ?", (composition_item_id,)
+    ).fetchone()
+
+
+def add_composition_item(
+    connection: sqlite3.Connection, product_id: int, component_variant_id: int, quantity: int
+) -> int:
+    cursor = connection.execute(
+        """
+        INSERT INTO product_compositions (product_id, component_variant_id, quantity)
+        VALUES (?, ?, ?)
+        """,
+        (product_id, component_variant_id, quantity),
+    )
+    return int(cursor.lastrowid)
+
+
+def remove_composition_item(
+    connection: sqlite3.Connection, product_id: int, component_variant_id: int
+) -> int:
+    cursor = connection.execute(
+        "DELETE FROM product_compositions WHERE product_id = ? AND component_variant_id = ?",
+        (product_id, component_variant_id),
+    )
+    return cursor.rowcount
+
+
+def expand_composition(
+    connection: sqlite3.Connection,
+    product_id: int,
+    quantity: int = 1,
+    _visited: frozenset[int] | None = None,
+) -> list[tuple[sqlite3.Row, int]]:
+    visited = (_visited or frozenset()) | {product_id}
+    expanded: list[tuple[sqlite3.Row, int]] = []
+
+    for row in list_composition_items(connection, product_id):
+        item_quantity = quantity * row["composition_quantity"]
+        sub_product_id = row["product_id"]
+        if (
+            sub_product_id is not None
+            and sub_product_id not in visited
+            and list_composition_items(connection, sub_product_id)
+        ):
+            expanded.extend(
+                expand_composition(connection, sub_product_id, item_quantity, visited)
+            )
+        else:
+            expanded.append((row, item_quantity))
+
+    return expanded

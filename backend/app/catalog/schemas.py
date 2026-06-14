@@ -215,6 +215,7 @@ class PriceSummary(BaseModel):
 class ComponentVariantOut(BaseModel):
     component_variant_id: int
     family_id: int | None = None
+    product_id: int | None = None
     family: str | None = None
     product: str | None = None
     component: str
@@ -233,6 +234,28 @@ class ComponentVariantSearchResult(BaseModel):
     page: int
     page_size: int
     total: int
+
+
+# ---------------------------------------------------------------------------
+# Composição de produtos
+# ---------------------------------------------------------------------------
+
+
+class ProductCompositionItemIn(BaseModel):
+    component_variant_id: int
+    quantity: int = Field(default=1, ge=1)
+
+
+class ProductCompositionItemOut(BaseModel):
+    id: int
+    product_id: int
+    quantity: int
+    variant: ComponentVariantOut
+
+
+class ProductCompositionExpandedItem(BaseModel):
+    variant: ComponentVariantOut
+    quantity: int
 
 
 # ---------------------------------------------------------------------------

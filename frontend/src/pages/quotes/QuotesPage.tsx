@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react'
 import {
+  getProductComposition,
+  listDimensions,
   listFamilies,
+  listFinishes,
+  listProducts,
   searchComponents,
   type ComponentVariant,
+  type Dimension,
+  type Finish,
   type FinishGroup,
+  type Product,
   type ProductFamily,
 } from '../../api/catalog'
 import {
@@ -12,6 +19,7 @@ import {
   addItem,
   createCustomer,
   createQuote,
+  deleteQuote,
   duplicateQuote,
   exportQuotePdf,
   freezeTotals,
@@ -169,12 +177,16 @@ function NewQuoteForm({ customers, onCreated }: { customers: Customer[]; onCreat
 
 function ComponentPicker({
   families,
+  finishes = [],
+  dimensions = [],
   onPick,
   pickLabel = 'Adicionar',
   dimensionFilter,
   finishGroupFilter,
 }: {
   families: ProductFamily[]
+  finishes?: Finish[]
+  dimensions?: Dimension[]
   onPick: (variant: ComponentVariant) => void
   pickLabel?: string
   // RN-03: restringe os resultados à dimensão já escolhida para a linha.
@@ -184,16 +196,21 @@ function ComponentPicker({
   finishGroupFilter?: FinishGroup | null
 }) {
   const [familyFilter, setFamilyFilter] = useState('')
+  const [finishFilter, setFinishFilter] = useState('')
+  const [dimensionFilterManual, setDimensionFilterManual] = useState('')
   const [results, setResults] = useState<ComponentVariant[]>([])
   const [variantId, setVariantId] = useState('')
   const [error, setError] = useState<string | null>(null)
+
+  const effectiveDimension = dimensionFilter || dimensionFilterManual
 
   useEffect(() => {
     async function runSearch() {
       try {
         const result = await searchComponents({
           family: familyFilter || undefined,
-          dimension: dimensionFilter || undefined,
+          dimension: effectiveDimension || undefined,
+          finish: finishFilter || undefined,
           finish_group: finishGroupFilter || undefined,
         })
         setResults(result.items)
@@ -203,7 +220,7 @@ function ComponentPicker({
       }
     }
     void runSearch()
-  }, [familyFilter, dimensionFilter, finishGroupFilter])
+  }, [familyFilter, effectiveDimension, finishFilter, finishGroupFilter])
 
   function handlePick() {
     const variant = results.find((item) => item.component_variant_id === Number(variantId))
@@ -222,6 +239,28 @@ function ComponentPicker({
           </option>
         ))}
       </select>
+      {!finishGroupFilter && (
+        <select value={finishFilter} onChange={(e) => setFinishFilter(e.target.value)}>
+          <option value="">(todos os acabamentos)</option>
+          {finishes.map((finish) => (
+            <option key={finish.id} value={finish.name}>
+              {finish.name}
+            </option>
+          ))}
+        </select>
+      )}
+      {dimensionFilter ? (
+        <span className="badge badge-neutral">Dimensão: {dimensionFilter}</span>
+      ) : (
+        <select value={dimensionFilterManual} onChange={(e) => setDimensionFilterManual(e.target.value)}>
+          <option value="">(todas as dimensões)</option>
+          {dimensions.map((dimension) => (
+            <option key={dimension.id} value={dimension.raw_label ?? ''}>
+              {dimension.raw_label ?? `#${dimension.id}`}
+            </option>
+          ))}
+        </select>
+      )}
       <select value={variantId} onChange={(e) => setVariantId(e.target.value)} style={{ flex: 1, minWidth: '20rem' }}>
         <option value="">(selecione uma variação)</option>
         {results.map((item) => (
@@ -239,16 +278,105 @@ function ComponentPicker({
 }
 
 // ---------------------------------------------------------------------------
+// Carrega a composição pré-cadastrada de um produto (expandida recursivamente)
+// ---------------------------------------------------------------------------
+
+function ProductCompositionLoader({
+  families,
+  onLoad,
+}: {
+  families: ProductFamily[]
+  onLoad: (variants: ComponentVariant[], productName: string) => void
+}) {
+  const [familyFilter, setFamilyFilter] = useState('')
+  const [products, setProducts] = useState<Product[]>([])
+  const [productId, setProductId] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        setProducts(await listProducts())
+      } catch (err) {
+        setError(describeError(err))
+      }
+    }
+    void loadProducts()
+  }, [])
+
+  const family = families.find((f) => f.name === familyFilter)
+  const filteredProducts = family ? products.filter((p) => p.family_id === family.id) : products
+
+  async function handleLoad() {
+    if (!productId) return
+    setError(null)
+    try {
+      const compositionItems = await getProductComposition(Number(productId))
+      if (compositionItems.length === 0) {
+        setError('Este produto não tem itens de composição cadastrados.')
+        return
+      }
+      const variants: ComponentVariant[] = []
+      for (const item of compositionItems) {
+        for (let i = 0; i < item.quantity; i += 1) {
+          variants.push(item.variant)
+        }
+      }
+      const product = products.find((p) => p.id === Number(productId))
+      onLoad(variants, product?.name ?? '')
+      setProductId('')
+    } catch (err) {
+      setError(describeError(err))
+    }
+  }
+
+  return (
+    <div className="action-group">
+      <select
+        value={familyFilter}
+        onChange={(e) => {
+          setFamilyFilter(e.target.value)
+          setProductId('')
+        }}
+      >
+        <option value="">(todas as famílias)</option>
+        {families.map((f) => (
+          <option key={f.id} value={f.name}>
+            {f.name}
+          </option>
+        ))}
+      </select>
+      <select value={productId} onChange={(e) => setProductId(e.target.value)} style={{ flex: 1, minWidth: '16rem' }}>
+        <option value="">(carregar produto completo)</option>
+        {filteredProducts.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+      <button type="button" className="secondary" onClick={() => void handleLoad()} disabled={!productId}>
+        carregar produto completo
+      </button>
+      <ErrorMessage error={error} />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Tela 7 — montagem: adicionar item com composição (1+ componentes)
 // ---------------------------------------------------------------------------
 
 function NewItemForm({
   quoteId,
   families,
+  finishes,
+  dimensions,
   onAdded,
 }: {
   quoteId: number
   families: ProductFamily[]
+  finishes: Finish[]
+  dimensions: Dimension[]
   onAdded: () => void
 }) {
   const [label, setLabel] = useState('')
@@ -262,6 +390,11 @@ function NewItemForm({
 
   function handleRemovePending(index: number) {
     setPending((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function handleLoadComposition(variants: ComponentVariant[], productName: string) {
+    setPending((prev) => [...prev, ...variants])
+    setLabel((prev) => prev || productName)
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -295,8 +428,11 @@ function NewItemForm({
   return (
     <section>
       <h3>Adicionar item</h3>
+      <ProductCompositionLoader families={families} onLoad={handleLoadComposition} />
       <ComponentPicker
         families={families}
+        finishes={finishes}
+        dimensions={dimensions}
         onPick={handlePick}
         pickLabel="+ componente"
         dimensionFilter={dimensionFilter}
@@ -338,11 +474,15 @@ function EditItemPanel({
   item,
   quoteId,
   families,
+  finishes,
+  dimensions,
   onChanged,
 }: {
   item: QuoteItem
   quoteId: number
   families: ProductFamily[]
+  finishes: Finish[]
+  dimensions: Dimension[]
   onChanged: () => void
 }) {
   const [error, setError] = useState<string | null>(null)
@@ -443,6 +583,8 @@ function EditItemPanel({
                 )}
                 <ComponentPicker
                   families={families}
+                  finishes={finishes}
+                  dimensions={dimensions}
                   pickLabel="Trocar variação"
                   onPick={(variant) => handleSwap(component.id, variant)}
                 />
@@ -452,7 +594,13 @@ function EditItemPanel({
         </ul>
         <div className="action-group" style={{ marginTop: 'var(--space-3)' }}>
           <strong>+ componente</strong>
-          <ComponentPicker families={families} pickLabel="Adicionar componente" onPick={handleAddComponent} />
+          <ComponentPicker
+            families={families}
+            finishes={finishes}
+            dimensions={dimensions}
+            pickLabel="Adicionar componente"
+            onPick={handleAddComponent}
+          />
         </div>
         <ErrorMessage error={error} />
       </td>
@@ -464,11 +612,15 @@ function ItemRow({
   item,
   quoteId,
   families,
+  finishes,
+  dimensions,
   onChanged,
 }: {
   item: QuoteItem
   quoteId: number
   families: ProductFamily[]
+  finishes: Finish[]
+  dimensions: Dimension[]
   onChanged: () => void
 }) {
   const [quantity, setQuantity] = useState(String(item.quantity))
@@ -556,7 +708,16 @@ function ItemRow({
         </td>
         <td>{item.line_subtotal.toFixed(2)}</td>
       </tr>
-      {editing && <EditItemPanel item={item} quoteId={quoteId} families={families} onChanged={onChanged} />}
+      {editing && (
+        <EditItemPanel
+          item={item}
+          quoteId={quoteId}
+          families={families}
+          finishes={finishes}
+          dimensions={dimensions}
+          onChanged={onChanged}
+        />
+      )}
     </>
   )
 }
@@ -572,20 +733,26 @@ function QuoteDetail({
 }) {
   const [items, setItems] = useState<QuoteItem[]>([])
   const [families, setFamilies] = useState<ProductFamily[]>([])
+  const [finishes, setFinishes] = useState<Finish[]>([])
+  const [dimensions, setDimensions] = useState<Dimension[]>([])
   const [totals, setTotals] = useState<QuoteTotals | null>(null)
   const [checklist, setChecklist] = useState<QuoteReviewChecklist | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function reload() {
     try {
-      const [itemsData, familiesData, totalsData, checklistData] = await Promise.all([
+      const [itemsData, familiesData, finishesData, dimensionsData, totalsData, checklistData] = await Promise.all([
         listItems(quote.id),
         listFamilies(),
+        listFinishes(),
+        listDimensions(),
         getTotals(quote.id),
         getReviewChecklist(quote.id),
       ])
       setItems(itemsData)
       setFamilies(familiesData)
+      setFinishes(finishesData)
+      setDimensions(dimensionsData)
       setTotals(totalsData)
       setChecklist(checklistData)
       setError(null)
@@ -691,13 +858,27 @@ function QuoteDetail({
         </thead>
         <tbody>
           {items.map((item) => (
-            <ItemRow key={item.id} item={item} quoteId={quote.id} families={families} onChanged={handleItemChanged} />
+            <ItemRow
+              key={item.id}
+              item={item}
+              quoteId={quote.id}
+              families={families}
+              finishes={finishes}
+              dimensions={dimensions}
+              onChanged={handleItemChanged}
+            />
           ))}
         </tbody>
       </table>
 
       {quote.status === 'rascunho' && (
-        <NewItemForm quoteId={quote.id} families={families} onAdded={() => void reload()} />
+        <NewItemForm
+          quoteId={quote.id}
+          families={families}
+          finishes={finishes}
+          dimensions={dimensions}
+          onAdded={() => void reload()}
+        />
       )}
 
       {checklist && (
@@ -792,32 +973,62 @@ export function QuotesPage() {
     await reload()
   }
 
+  async function handleDelete(quote: Quote) {
+    if (!window.confirm(`Excluir o orçamento ${quote.quote_number}? Esta ação não pode ser desfeita.`)) {
+      return
+    }
+    setError(null)
+    try {
+      await deleteQuote(quote.id)
+      setQuotes((prev) => prev.filter((q) => q.id !== quote.id))
+      setSelectedQuoteId((current) => (current === quote.id ? null : current))
+    } catch (err) {
+      setError(describeError(err))
+    }
+  }
+
+  const inProgressQuotes = quotes.filter((q) => q.status === 'rascunho' || q.status === 'enviado')
+  const finishedQuotes = quotes.filter(
+    (q) => q.status === 'aprovado' || q.status === 'rejeitado' || q.status === 'expirado',
+  )
+
+  function renderQuoteItem(quote: Quote) {
+    return (
+      <li
+        key={quote.id}
+        className={`list-item-card ${quote.id === selectedQuoteId ? 'is-selected' : ''}`}
+      >
+        <span>
+          <strong>{quote.quote_number}</strong> — {quote.customer.name}
+        </span>
+        <span className="action-group">
+          <StatusBadge status={quote.status} />
+          <button type="button" className="secondary" onClick={() => setSelectedQuoteId(quote.id)}>
+            {quote.id === selectedQuoteId ? 'Selecionado' : 'Abrir'}
+          </button>
+          <button type="button" className="danger" onClick={() => void handleDelete(quote)}>
+            excluir
+          </button>
+        </span>
+      </li>
+    )
+  }
+
   return (
     <div>
       <h1>Orçamentos — montagem</h1>
       <ErrorMessage error={error} />
 
       <section>
-        <h2>Orçamentos existentes</h2>
-        {quotes.length === 0 && <p>Nenhum orçamento cadastrado ainda.</p>}
-        <ul className="list-plain">
-          {quotes.map((quote) => (
-            <li
-              key={quote.id}
-              className={`list-item-card ${quote.id === selectedQuoteId ? 'is-selected' : ''}`}
-            >
-              <span>
-                <strong>{quote.quote_number}</strong> — {quote.customer.name}
-              </span>
-              <span className="action-group">
-                <StatusBadge status={quote.status} />
-                <button type="button" className="secondary" onClick={() => setSelectedQuoteId(quote.id)}>
-                  {quote.id === selectedQuoteId ? 'Selecionado' : 'Abrir'}
-                </button>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <h2>Orçamentos em andamento</h2>
+        {inProgressQuotes.length === 0 && <p>Nenhum orçamento em andamento.</p>}
+        <ul className="list-plain">{inProgressQuotes.map(renderQuoteItem)}</ul>
+      </section>
+
+      <section>
+        <h2>Orçamentos finalizados</h2>
+        {finishedQuotes.length === 0 && <p>Nenhum orçamento finalizado.</p>}
+        <ul className="list-plain">{finishedQuotes.map(renderQuoteItem)}</ul>
       </section>
 
       <NewCustomerForm onCreated={handleCustomerCreated} />

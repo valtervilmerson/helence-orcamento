@@ -27,6 +27,9 @@ from app.catalog.schemas import (
     ProductComponentIn,
     ProductComponentOut,
     ProductComponentPatch,
+    ProductCompositionExpandedItem,
+    ProductCompositionItemIn,
+    ProductCompositionItemOut,
     ProductFamilyIn,
     ProductFamilyOut,
     ProductFamilyPatch,
@@ -160,6 +163,57 @@ _register_crud(
     patch_model=FamilyComponentRequirementPatch,
     out_model=FamilyComponentRequirementOut,
 )
+
+
+# ---------------------------------------------------------------------------
+# Composição de produtos
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/catalog/products/{id}/composition-items",
+    response_model=list[ProductCompositionItemOut],
+    dependencies=[Depends(get_current_user)],
+)
+def list_composition_items(
+    id: int, connection: sqlite3.Connection = Depends(get_db)
+) -> list[ProductCompositionItemOut]:
+    return service.list_composition_items(connection, id)
+
+
+@router.post(
+    "/catalog/products/{id}/composition-items",
+    response_model=ProductCompositionItemOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_role("admin"))],
+)
+def add_composition_item(
+    id: int, payload: ProductCompositionItemIn, connection: sqlite3.Connection = Depends(get_db)
+) -> ProductCompositionItemOut:
+    return service.add_composition_item(connection, id, payload)
+
+
+@router.delete(
+    "/catalog/products/{id}/composition-items/{component_variant_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+    dependencies=[Depends(require_role("admin"))],
+)
+def remove_composition_item(
+    id: int, component_variant_id: int, connection: sqlite3.Connection = Depends(get_db)
+) -> None:
+    service.remove_composition_item(connection, id, component_variant_id)
+
+
+@router.get(
+    "/catalog/products/{id}/composition",
+    response_model=list[ProductCompositionExpandedItem],
+    dependencies=[Depends(get_current_user)],
+)
+def get_product_composition(
+    id: int, connection: sqlite3.Connection = Depends(get_db)
+) -> list[ProductCompositionExpandedItem]:
+    return service.get_expanded_composition(connection, id)
 
 
 # ---------------------------------------------------------------------------
