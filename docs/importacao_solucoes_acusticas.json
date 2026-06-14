@@ -1,10 +1,5 @@
 {
   "contract_version": "1.0",
-  "price_table": {
-    "code": "01-2026",
-    "name": "Tabela de Preços 01-2026",
-    "valid_from": "2026-01-01"
-  },
   "source": {
     "description": "TABELA DE PREÇO 01-2026_SOLUCOES ACUSTICAS.xlsx",
     "generated_by": "codex-parser-manual",

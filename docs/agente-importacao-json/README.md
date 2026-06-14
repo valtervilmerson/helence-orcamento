@@ -41,7 +41,7 @@
 O JSON é enviado para `POST /api/v1/imports/json`. Itens "limpos" (fast
 path) são publicados automaticamente; os demais caem na fila de revisão
 humana. Itens com acabamento **novo** (não presente em
-`catalogo-atual.json`) sempre vão para revisão, e **a publicação da
-tabela de preços só funciona depois que o acabamento novo for cadastrado
-em `/catalog/finishes`** — combine com o time antes de gerar muitos
-itens com acabamentos novos.
+`catalogo-atual.json`) sempre vão para revisão, e **a publicação desses
+itens só funciona depois que o acabamento novo for cadastrado em
+`/catalog/finishes`** — combine com o time antes de gerar muitos itens
+com acabamentos novos.

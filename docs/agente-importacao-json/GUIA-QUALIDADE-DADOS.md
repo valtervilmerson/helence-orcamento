@@ -167,8 +167,8 @@ tipo `"item-1"`, `"item-2"`, ... sem nenhuma relação com o conteúdo.
 
 - [ ] JSON é válido (`json.load` não levanta erro).
 - [ ] `contract_version` é `"1.0"`.
-- [ ] Todos os campos obrigatórios de `price_table`, `source` e de cada
-      item (ver `CONTRATO.md`) estão presentes.
+- [ ] Todos os campos obrigatórios de `source` e de cada item (ver
+      `CONTRATO.md`) estão presentes.
 - [ ] Nenhuma string contém `U+FFFD` (`�`) — rodar o script da seção 1.
 - [ ] Todo `price` está arredondado para 2 casas decimais.
 - [ ] Todo `finish` que corresponde a um acabamento já cadastrado usa a

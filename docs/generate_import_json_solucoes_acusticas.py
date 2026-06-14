@@ -522,11 +522,6 @@ def build_contract() -> dict[str, object]:
 
     return {
         "contract_version": "1.0",
-        "price_table": {
-            "code": "01-2026",
-            "name": "Tabela de Preços 01-2026",
-            "valid_from": "2026-01-01",
-        },
         "source": {
             "description": SOURCE_PATH.name,
             "generated_by": "codex-parser-manual",

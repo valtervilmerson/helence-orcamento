@@ -65,11 +65,6 @@ Os dois braços já existem (ou estão desenhados) no sistema atual:
 ```jsonc
 {
   "contract_version": "1.0",
-  "price_table": {
-    "code": "01-2026",          // -> price_tables.code (cria se não existir)
-    "name": "Tabela de Preços 01-2026",
-    "valid_from": "2026-01-01"
-  },
   "source": {
     "description": "TABELA DE PRECO 01-2026_REUNIOES.xlsx + ...",
     "generated_by": "agente-ia-externo",
@@ -81,19 +76,19 @@ Os dois braços já existem (ou estão desenhados) no sistema atual:
 
 - `contract_version`: permite evoluir o contrato sem quebrar imports
   antigos guardados para auditoria.
-- `price_table`: identifica a versão de tabela de preços a que os itens
-  pertencem. Se `code` já existe, os itens atualizam/complementam essa
-  versão; se não existe, uma nova `price_tables` é criada com
-  `status='rascunho'` (segue a mesma regra de `price_tables` já
-  existente — promoção para `vigente` acontece na publicação, Fase 7).
 - `source`: metadados livres para auditoria (gravados em
   `imported_files.notes` ou equivalente); não afeta a normalização.
 
+> Não existe mais o conceito de "tabela de preços"/vigência. Cada item
+> carrega o preço atual do `component_variant` correspondente; reimportar
+> um item já existente apenas atualiza `prices.amount` (upsert).
+
 ### 3.2 Item
 
-Cada item descreve **uma combinação vendável**: produto-base ×
-componente × dimensão × acabamento × SKU × preço — o mesmo nível de
-granularidade de uma linha de `extracted_items`.
+Cada item descreve **uma variação vendável** (de um item avulso a um
+componente de um produto maior): família × (produto-base opcional) ×
+componente × dimensão × acabamento × (SKU opcional) × preço — o mesmo
+nível de granularidade de uma linha de `extracted_items`.
 
 ```jsonc
 {
@@ -116,15 +111,15 @@ granularidade de uma linha de `extracted_items`.
 | Campo | Tipo | Obrigatório | Mapeia para | Observações |
 |---|---|:---:|---|---|
 | `ref` | string | sim | `extracted_items.source_text` | Identificação legível da origem (arquivo, aba, linhas) — só auditoria, não é parseado. |
-| `family` | string | sim | `product_families.name` (lookup; cria se ausente) | `extracted_items.family_raw` guarda o valor recebido. |
-| `product_context` | string | sim | `products.name` (lookup sob a família; cria se ausente) | `extracted_items.product_context_raw`. |
+| `family` | string | sim | `product_families.name` (lookup; cria se ausente) | `extracted_items.family_raw` guarda o valor recebido. Também grava direto em `component_variants.family_id` — é a "linha de produto" do item, independente de `product_context`. |
+| `product_context` | string ou `null` | não | `products.name` (lookup sob a família; cria se ausente) | `extracted_items.product_context_raw`. Ausente/`null` ⇒ item **avulso**, vendável por si só (`component_variants.product_id = NULL`). Presente ⇒ item é um componente de um produto-base (ex.: "Reunião 1200x900"). |
 | `component_type` | string | sim | `product_components.name` (lookup; cria se ausente) | `extracted_items.component_type_raw`. |
 | `description` | string | não | `component_variants.description` | `extracted_items.description_raw`. |
 | `dimension` | string | sim | `dimensions` — parse de `"1200x900"` (W×D), `"900MM"` (diâmetro) ou `"1200x500x1000"` (W×D×H) | `extracted_items.dimension_raw`. Reaproveitar/extrair o parser de dimensão já usado em `extraction.py`, se existir. |
 | `finish` | string | sim | `finishes.name` (lookup) | `extracted_items.finish_raw`. Criar uma `finish` nova **exige** `finish_group` (ver abaixo) — mesma regra já implementada na Fase 6 para "cadastrar novo acabamento". |
 | `finish_group` | enum `madeirado\|metalico\|pe_estrutura\|outro` | só se `finish` for novo | `finishes.finish_group` | Ausente/`null` quando `finish` já existe. |
-| `sku` | string | sim | `skus.code` (lookup/cria) | `extracted_items.sku_raw`. |
-| `price` | number | sim | `prices.amount` (2 casas decimais) | `extracted_items.price_raw` guarda o valor recebido como string. Agente deve arredondar artefatos de ponto flutuante (ex.: `543.1800000000001` → `543.18`) antes de gerar o JSON. |
+| `sku` | string ou `null` | não | `skus.code` (lookup/cria) | `extracted_items.sku_raw`. Ausente/`null` ⇒ `prices.sku_id = NULL` (item sem código de SKU próprio, ex.: produto completo vendido como um todo). |
+| `price` | number | sim | `prices.amount` (2 casas decimais) — **um preço único por `component_variant`**, sem versionamento | `extracted_items.price_raw` guarda o valor recebido como string. Agente deve arredondar artefatos de ponto flutuante (ex.: `543.1800000000001` → `543.18`) antes de gerar o JSON. Reimportar o mesmo item com `price` diferente **atualiza** `prices.amount` (upsert). |
 | `currency` | string | não (default `"BRL"`) | `prices.currency` / `extracted_items.currency` | |
 | `confidence` | number 0-1 ou `null` | não | `extracted_items.confidence` + `confidence_level` derivado (`alta`≥0.9, `media`≥0.7, `baixa`<0.7; `null`→tratado como `baixa`) | Autoavaliação do agente — usada só para decidir fast path vs. revisão. |
 | `notes` | string ou `null` | não | gera `import_warnings` (severity=`atencao`, ligado ao `extracted_item_id`) | Qualquer `notes` não nulo força `review_status='pendente'`, independente da confiança. |
@@ -137,13 +132,14 @@ publicado direto em `component_variants`/`skus`/`prices`) quando
 
 1. `confidence` é `alta` (≥ 0.9);
 2. `notes` é nulo/ausente;
-3. `family`, `product_context`, `component_type` e `finish` **já
-   existem** no catálogo (nenhuma criação implícita de entidade que
-   exija julgamento humano).
+3. `family`, `component_type` e `finish` **já existem** no catálogo, e
+   `product_context` (quando informado) também já existe sob a família
+   (nenhuma criação implícita de entidade que exija julgamento humano).
 
-`sku` novo e `price` novo/atualizado **não** impedem o fast path — são
-exatamente o que se espera de uma atualização normal de tabela de
-preços (criar/atualizar `skus` e inserir/atualizar `prices` é mecânico).
+`sku` ausente/novo, `product_context` ausente (item avulso) e `price`
+novo/atualizado **não** impedem o fast path — são exatamente o que se
+espera de uma atualização normal de preços (criar/atualizar `skus` e
+inserir/atualizar `prices` é mecânico).
 
 Qualquer outro caso vai para `review_status='pendente'` na fila de
 revisão (Fase 6), com um `import_warning` explicando o motivo (entidade
@@ -151,8 +147,8 @@ nova, confiança baixa/média, ou `notes` do agente).
 
 > Nota: esta regra refina o critério originalmente esboçado (que também
 > exigia `sku` pré-existente); exigir `sku` existente tornaria o fast
-> path inútil para o caso comum de "tabela nova com SKUs novos para
-> variações já cadastradas".
+> path inútil para o caso comum de "atualização de preços com SKUs novos
+> para variações já cadastradas".
 
 ### 3.4 Itens sem página real (`imported_pages` sintética)
 
