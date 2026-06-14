@@ -6,7 +6,10 @@ import logging
 from typing import Any
 
 from fastapi import Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 logger = logging.getLogger("app.error")
 
@@ -413,6 +416,51 @@ async def domain_error_handler(request: Request, exc: Exception) -> JSONResponse
     return JSONResponse(
         status_code=exc.status_code,
         content=error_envelope(exc.code, exc.message, exc.details),
+    )
+
+
+async def http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Cobre `HTTPException` (ex. rota inexistente, método não permitido,
+    `raise HTTPException(...)` em endpoints administrativos) com o
+    envelope padrão — sem isso, essas respostas ficam no formato
+    `{"detail": ...}` do Starlette/FastAPI."""
+    assert isinstance(exc, StarletteHTTPException)
+    request_id = getattr(request.state, "request_id", None)
+    logger.warning(
+        "%s %s -> %s HTTP_%s",
+        request.method,
+        request.url.path,
+        exc.status_code,
+        exc.status_code,
+        extra={"request_id": request_id},
+    )
+    detail = exc.detail if isinstance(exc.detail, str) else "Erro ao processar a requisição."
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_envelope(f"HTTP_{exc.status_code}", detail),
+        headers=exc.headers,
+    )
+
+
+async def validation_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Cobre `RequestValidationError` (422 de validação do Pydantic) com o
+    envelope padrão — sem isso, essas respostas ficam no formato
+    `{"detail": [...]}` do FastAPI."""
+    assert isinstance(exc, RequestValidationError)
+    request_id = getattr(request.state, "request_id", None)
+    logger.warning(
+        "%s %s -> 422 DADOS_INVALIDOS",
+        request.method,
+        request.url.path,
+        extra={"request_id": request_id},
+    )
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=error_envelope(
+            "DADOS_INVALIDOS",
+            "Dados inválidos na requisição.",
+            {"errors": jsonable_encoder(exc.errors())},
+        ),
     )
 
 

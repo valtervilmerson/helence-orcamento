@@ -9,11 +9,15 @@ import logging
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
+from fastapi.exceptions import RequestValidationError
 
 from app.shared.errors import (
     ItemSemPrecoError,
     domain_error_handler,
+    http_exception_handler,
     unhandled_exception_handler,
+    validation_error_handler,
 )
 
 
@@ -35,6 +39,44 @@ def test_domain_error_is_logged_with_request_id(caplog: pytest.LogCaptureFixture
     record = next(r for r in caplog.records if r.name == "app.error")
     assert record.levelno == logging.WARNING
     assert "ITEM_SEM_PRECO" in record.getMessage()
+    assert record.request_id == "req-123"
+
+
+def test_http_exception_uses_standard_envelope(caplog: pytest.LogCaptureFixture) -> None:
+    exc = HTTPException(status_code=403, detail="Chave inválida.")
+
+    with caplog.at_level(logging.WARNING, logger="app.error"):
+        response = asyncio.run(http_exception_handler(_request(), exc))
+
+    assert response.status_code == 403
+    body = response.body.decode()
+    assert '"code":"HTTP_403"' in body
+    assert "Chave inválida." in body
+    record = next(r for r in caplog.records if r.name == "app.error")
+    assert record.request_id == "req-123"
+
+
+def test_validation_error_uses_standard_envelope(caplog: pytest.LogCaptureFixture) -> None:
+    try:
+        from pydantic import BaseModel
+
+        class Payload(BaseModel):
+            name: str
+
+        Payload.model_validate({})
+    except Exception as raised:
+        pydantic_error = raised
+
+    exc = RequestValidationError(errors=pydantic_error.errors())
+
+    with caplog.at_level(logging.WARNING, logger="app.error"):
+        response = asyncio.run(validation_error_handler(_request(), exc))
+
+    assert response.status_code == 422
+    body = response.body.decode()
+    assert '"code":"DADOS_INVALIDOS"' in body
+    assert '"errors"' in body
+    record = next(r for r in caplog.records if r.name == "app.error")
     assert record.request_id == "req-123"
 
 

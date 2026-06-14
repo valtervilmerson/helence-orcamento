@@ -3,13 +3,21 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.router import router as v1_router
 from app.config import get_settings
 from app.db.connection import get_connection
 from app.db.migrate import apply_migrations
-from app.shared.errors import DomainError, domain_error_handler, unhandled_exception_handler
+from app.shared.errors import (
+    DomainError,
+    domain_error_handler,
+    http_exception_handler,
+    unhandled_exception_handler,
+    validation_error_handler,
+)
 from app.shared.logging import configure_logging, request_logging_middleware
 
 
@@ -41,6 +49,8 @@ def create_app() -> FastAPI:
     app.middleware("http")(request_logging_middleware)
 
     app.add_exception_handler(DomainError, domain_error_handler)
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_error_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
     app.include_router(v1_router)
