@@ -271,6 +271,23 @@ li {
   padding-left: var(--space-5);
 }
 
+/* Tabelas dentro de um split-layout devem respeitar a largura da coluna
+   esquerda — sem table-layout: fixed, colunas largas (ex.: SKU) fazem a
+   tabela "vazar" visualmente para cima do painel de detalhes à direita. */
+.split-layout table {
+  table-layout: fixed;
+}
+
+.split-layout th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.split-layout td {
+  overflow-wrap: anywhere;
+}
+
 /* Mensagens de estado */
 .feedback-error {
   color: var(--color-danger);

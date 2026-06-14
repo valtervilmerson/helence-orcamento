@@ -178,12 +178,10 @@ export function ConsultaPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Produto</th>
-                  <th>Componente</th>
-                  <th>Dimensão</th>
-                  <th>Acabamento</th>
-                  <th>SKU</th>
-                  <th>Preço</th>
+                  <th style={{ width: '38%' }}>Produto</th>
+                  <th style={{ width: '22%' }}>Componente</th>
+                  <th style={{ width: '22%' }}>Acabamento</th>
+                  <th style={{ width: '18%' }}>Preço</th>
                 </tr>
               </thead>
               <tbody>
@@ -199,9 +197,7 @@ export function ConsultaPage() {
                       {item.product ?? '—'} {item.descriptor ? `— ${item.descriptor}` : ''}
                     </td>
                     <td>{item.component}</td>
-                    <td>{item.dimension?.raw_label ?? '—'}</td>
                     <td>{item.finish ?? '—'}</td>
-                    <td>{item.sku ?? '—'}</td>
                     <td>{formatPrice(item.price)}</td>
                   </tr>
                 ))}

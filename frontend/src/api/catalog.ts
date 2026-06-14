@@ -226,3 +226,21 @@ export interface PriceTable {
 }
 
 export const listPriceTables = () => request<PriceTable[]>('/catalog/price-tables')
+
+export interface PublishPriceTableOut {
+  price_table_id: number
+  code: string
+  status: string
+  items_published: number
+  previous_vigente: {
+    id: number
+    code: string
+    new_status: string
+  } | null
+}
+
+export const publishPriceTable = (id: number) =>
+  request<PublishPriceTableOut>(`/price-tables/${id}/publish`, {
+    method: 'POST',
+    body: JSON.stringify({ confirm: true }),
+  })
