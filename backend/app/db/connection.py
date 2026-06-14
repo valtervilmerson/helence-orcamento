@@ -3,6 +3,14 @@
 A pragma não é persistida pelo SQLite (docs/03, nota da seção 3) — por
 isso é configurada aqui, no único ponto de abertura de conexão usado
 pela aplicação.
+
+``check_same_thread=False``: dependências FastAPI síncronas (geradores
+``Depends``) podem ter sua configuração e seu uso despachados para
+threads diferentes do threadpool do anyio dentro da mesma requisição —
+sem essa flag, isso causa ``sqlite3.ProgrammingError: SQLite objects
+created in a thread can only be used in that same thread``. Cada conexão
+é usada sequencialmente por uma única requisição, nunca
+concorrentemente por múltiplas threads, então é seguro.
 """
 
 from __future__ import annotations
@@ -17,7 +25,7 @@ from app.config import get_settings
 @contextmanager
 def get_connection() -> Iterator[sqlite3.Connection]:
     settings = get_settings()
-    connection = sqlite3.connect(settings.database_path)
+    connection = sqlite3.connect(settings.database_path, check_same_thread=False)
     connection.execute("PRAGMA foreign_keys = ON")
     connection.row_factory = sqlite3.Row
     try:
