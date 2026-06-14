@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { listFinishes, type Finish, type FinishGroup } from '../../../api/catalog'
+import { useAuth } from '../../../context/useAuth'
 import {
   ImportsApiError,
   applyBatchCorrection,
@@ -350,6 +351,8 @@ interface ItemDetailProps {
 }
 
 function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
+  const { user } = useAuth()
+  const canReview = user?.role === 'revisor' || user?.role === 'admin'
   const [field, setField] = useState<string>('')
   const [correctedValue, setCorrectedValue] = useState('')
   const [finishMode, setFinishMode] = useState<'existing' | 'new'>('existing')
@@ -493,7 +496,7 @@ function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
                     type="button"
                     className="secondary"
                     onClick={() => startCorrection(f)}
-                    disabled={isFinal}
+                    disabled={isFinal || !canReview}
                   >
                     ✎ Corrigir
                   </button>
@@ -522,6 +525,10 @@ function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
         <p>
           <em>Decisão final registrada: {item.review_status}.</em>
         </p>
+      ) : !canReview ? (
+        <p>
+          <em>Somente Revisor ou Admin podem decidir sobre este item.</em>
+        </p>
       ) : (
         <p className="action-group">
           <button type="button" className="danger" onClick={() => void handleReject()} disabled={submitting}>
@@ -547,6 +554,8 @@ function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
 }
 
 export function ReviewPage({ importId, onBack }: { importId: number; onBack: () => void }) {
+  const { user } = useAuth()
+  const canReview = user?.role === 'revisor' || user?.role === 'admin'
   const [items, setItems] = useState<ExtractedItem[]>([])
   const [total, setTotal] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -744,7 +753,7 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
         </table>
       )}
 
-      {selectedIds.size > 0 && (
+      {selectedIds.size > 0 && canReview && (
         <div
           className="action-group"
           style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-3)', marginTop: 'var(--space-3)' }}

@@ -4,6 +4,7 @@ import sqlite3
 
 from fastapi import APIRouter, Depends, Query, status
 
+from app.auth.dependencies import get_current_user, require_role
 from app.catalog import repository, service
 from app.catalog.repository import SimpleRepository
 from app.catalog.schemas import (
@@ -58,22 +59,41 @@ def _register_crud(
     patch_model: type,
     out_model: type,
 ) -> None:
-    @router.get(path, response_model=list[out_model], name=f"list_{path}")
+    @router.get(
+        path,
+        response_model=list[out_model],
+        name=f"list_{path}",
+        dependencies=[Depends(get_current_user)],
+    )
     def list_all(connection: sqlite3.Connection = Depends(get_db)) -> list[dict]:
         return [_row_to_dict(row) for row in service.list_entities(connection, repo)]
 
     @router.post(
-        path, response_model=out_model, status_code=status.HTTP_201_CREATED, name=f"create_{path}"
+        path,
+        response_model=out_model,
+        status_code=status.HTTP_201_CREATED,
+        name=f"create_{path}",
+        dependencies=[Depends(require_role("admin"))],
     )
     def create(payload: in_model, connection: sqlite3.Connection = Depends(get_db)) -> dict:  # type: ignore[valid-type]
         row = service.create_entity(connection, repo, payload.model_dump())
         return _row_to_dict(row)
 
-    @router.get(f"{path}/{{id}}", response_model=out_model, name=f"get_{path}")
+    @router.get(
+        f"{path}/{{id}}",
+        response_model=out_model,
+        name=f"get_{path}",
+        dependencies=[Depends(get_current_user)],
+    )
     def get_one(id: int, connection: sqlite3.Connection = Depends(get_db)) -> dict:
         return _row_to_dict(service.get_entity(connection, repo, id))
 
-    @router.patch(f"{path}/{{id}}", response_model=out_model, name=f"update_{path}")
+    @router.patch(
+        f"{path}/{{id}}",
+        response_model=out_model,
+        name=f"update_{path}",
+        dependencies=[Depends(require_role("admin"))],
+    )
     def update(
         id: int,
         payload: patch_model,
@@ -88,6 +108,7 @@ def _register_crud(
         status_code=status.HTTP_204_NO_CONTENT,
         response_model=None,
         name=f"delete_{path}",
+        dependencies=[Depends(require_role("admin"))],
     )
     def delete(id: int, connection: sqlite3.Connection = Depends(get_db)) -> None:
         service.delete_entity(connection, repo, id)
@@ -144,12 +165,20 @@ _register_crud(
 )
 
 
-@router.get("/catalog/price-tables", response_model=list[PriceTableSummary])
+@router.get(
+    "/catalog/price-tables",
+    response_model=list[PriceTableSummary],
+    dependencies=[Depends(get_current_user)],
+)
 def list_price_tables(connection: sqlite3.Connection = Depends(get_db)) -> list[dict]:
     return [_row_to_dict(row) for row in repository.list_price_tables(connection)]
 
 
-@router.post("/price-tables/{id}/publish", response_model=PublishOut)
+@router.post(
+    "/price-tables/{id}/publish",
+    response_model=PublishOut,
+    dependencies=[Depends(require_role("admin"))],
+)
 def publish_price_table(
     id: int, payload: PublishIn, connection: sqlite3.Connection = Depends(get_db)
 ) -> PublishOut:
@@ -161,7 +190,11 @@ def publish_price_table(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/components", response_model=ComponentVariantSearchResult)
+@router.get(
+    "/components",
+    response_model=ComponentVariantSearchResult,
+    dependencies=[Depends(get_current_user)],
+)
 def search_components(
     family: str | None = Query(default=None),
     product: str | None = Query(default=None),
@@ -188,25 +221,41 @@ def search_components(
     )
 
 
-@router.post("/components", response_model=ComponentVariantOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/components",
+    response_model=ComponentVariantOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_role("admin"))],
+)
 def create_component(
     payload: ComponentVariantIn, connection: sqlite3.Connection = Depends(get_db)
 ) -> ComponentVariantOut:
     return service.create_variant(connection, payload)
 
 
-@router.get("/components/{id}", response_model=ComponentVariantOut)
+@router.get(
+    "/components/{id}", response_model=ComponentVariantOut, dependencies=[Depends(get_current_user)]
+)
 def get_component(id: int, connection: sqlite3.Connection = Depends(get_db)) -> ComponentVariantOut:
     return service.get_variant(connection, id)
 
 
-@router.patch("/components/{id}", response_model=ComponentVariantOut)
+@router.patch(
+    "/components/{id}",
+    response_model=ComponentVariantOut,
+    dependencies=[Depends(require_role("admin"))],
+)
 def update_component(
     id: int, payload: ComponentVariantPatch, connection: sqlite3.Connection = Depends(get_db)
 ) -> ComponentVariantOut:
     return service.update_variant(connection, id, payload)
 
 
-@router.delete("/components/{id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+@router.delete(
+    "/components/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+    dependencies=[Depends(require_role("admin"))],
+)
 def delete_component(id: int, connection: sqlite3.Connection = Depends(get_db)) -> None:
     service.delete_variant(connection, id)

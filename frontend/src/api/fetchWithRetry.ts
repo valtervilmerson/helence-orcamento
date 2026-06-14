@@ -12,9 +12,11 @@
 const RETRY_DELAYS_MS = [200, 400, 800]
 
 export async function fetchWithRetry(url: string, init?: RequestInit): Promise<Response> {
+  const options: RequestInit = { credentials: 'include', ...init }
+
   for (const delay of RETRY_DELAYS_MS) {
     try {
-      return await fetch(url, init)
+      return await fetch(url, options)
     } catch (err) {
       if (!(err instanceof TypeError)) {
         throw err
@@ -22,5 +24,5 @@ export async function fetchWithRetry(url: string, init?: RequestInit): Promise<R
       await new Promise((resolve) => setTimeout(resolve, delay))
     }
   }
-  return await fetch(url, init)
+  return await fetch(url, options)
 }

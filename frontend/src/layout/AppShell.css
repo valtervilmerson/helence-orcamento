@@ -64,6 +64,39 @@
   text-align: center;
 }
 
+.app-sidebar__user {
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.app-sidebar__user-info {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--font-size-sm);
+  line-height: 1.3;
+  min-width: 0;
+}
+
+.app-sidebar__user-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-sidebar__user-info span {
+  color: var(--color-text-muted);
+}
+
+.app-sidebar__user button {
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
 .app-sidebar__status {
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--color-border);

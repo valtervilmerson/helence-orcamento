@@ -4,6 +4,7 @@ import sqlite3
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile, status
 
+from app.auth.dependencies import get_current_user, require_role
 from app.config import get_settings
 from app.db.connection import get_connection
 from app.files.storage import FileStorage
@@ -40,7 +41,12 @@ def get_storage() -> FileStorage:
     return FileStorage(settings.uploads_dir)
 
 
-@router.post("", response_model=ImportedFileOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=ImportedFileOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_role("importador", "admin"))],
+)
 def upload_import(
     file: UploadFile = File(...),
     notes: str | None = Form(default=None),
@@ -59,7 +65,12 @@ def upload_import(
     )
 
 
-@router.post("/json", response_model=ImportJsonOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/json",
+    response_model=ImportJsonOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_role("importador", "admin"))],
+)
 def import_json(
     body: ImportJsonIn,
     connection: sqlite3.Connection = Depends(get_db),
@@ -68,7 +79,7 @@ def import_json(
     return json_ingest.ingest_json(connection, body, storage=storage)
 
 
-@router.get("", response_model=ImportListOut)
+@router.get("", response_model=ImportListOut, dependencies=[Depends(get_current_user)])
 def list_imports(
     status_: str | None = Query(default=None, alias="status"),
     page: int = Query(default=1, ge=1),
@@ -82,6 +93,7 @@ def list_imports(
     "/{import_id}/process",
     response_model=ProcessImportOut,
     status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_role("importador", "admin"))],
 )
 def process_import(
     import_id: int,
@@ -99,7 +111,9 @@ def process_import(
     return result
 
 
-@router.get("/{import_id}/status", response_model=ImportStatusOut)
+@router.get(
+    "/{import_id}/status", response_model=ImportStatusOut, dependencies=[Depends(get_current_user)]
+)
 def get_import_status(
     import_id: int,
     connection: sqlite3.Connection = Depends(get_db),
@@ -107,7 +121,11 @@ def get_import_status(
     return service.get_status(connection, import_id)
 
 
-@router.get("/{import_id}/items", response_model=ExtractedItemsListOut)
+@router.get(
+    "/{import_id}/items",
+    response_model=ExtractedItemsListOut,
+    dependencies=[Depends(get_current_user)],
+)
 def list_extracted_items(
     import_id: int,
     review_status: str | None = Query(default=None),
@@ -130,7 +148,11 @@ def list_extracted_items(
     )
 
 
-@extracted_items_router.post("/{item_id}/review", response_model=ReviewItemOut)
+@extracted_items_router.post(
+    "/{item_id}/review",
+    response_model=ReviewItemOut,
+    dependencies=[Depends(require_role("revisor", "admin"))],
+)
 def review_extracted_item(
     item_id: int,
     body: ReviewItemIn,
@@ -139,7 +161,11 @@ def review_extracted_item(
     return service.review_item(connection, item_id, body)
 
 
-@extracted_items_router.post("/batch-review", response_model=BatchReviewOut)
+@extracted_items_router.post(
+    "/batch-review",
+    response_model=BatchReviewOut,
+    dependencies=[Depends(require_role("revisor", "admin"))],
+)
 def batch_review_extracted_items(
     body: BatchReviewIn,
     connection: sqlite3.Connection = Depends(get_db),
@@ -148,7 +174,9 @@ def batch_review_extracted_items(
 
 
 @extracted_items_router.get(
-    "/{item_id}/batch-correction/preview", response_model=BatchCorrectionPreviewOut
+    "/{item_id}/batch-correction/preview",
+    response_model=BatchCorrectionPreviewOut,
+    dependencies=[Depends(require_role("revisor", "admin"))],
 )
 def preview_batch_correction(
     item_id: int,
@@ -160,7 +188,9 @@ def preview_batch_correction(
 
 
 @extracted_items_router.post(
-    "/{item_id}/batch-correction/apply", response_model=BatchCorrectionApplyOut
+    "/{item_id}/batch-correction/apply",
+    response_model=BatchCorrectionApplyOut,
+    dependencies=[Depends(require_role("revisor", "admin"))],
 )
 def apply_batch_correction(
     item_id: int,

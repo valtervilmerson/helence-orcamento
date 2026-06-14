@@ -6,6 +6,7 @@ import {
   uploadImport,
   type ImportListItem,
 } from '../../../api/imports'
+import { useAuth } from '../../../context/useAuth'
 import { ReviewPage } from '../review/ReviewPage'
 
 function ErrorMessage({ error }: { error: string | null }) {
@@ -79,6 +80,8 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
 }
 
 export function ImportsPage() {
+  const { user } = useAuth()
+  const canManageImports = user?.role === 'importador' || user?.role === 'admin'
   const [imports, setImports] = useState<ImportListItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [processingError, setProcessingError] = useState<string | null>(null)
@@ -129,7 +132,7 @@ export function ImportsPage() {
       <ErrorMessage error={error} />
       <ErrorMessage error={processingError} />
 
-      <UploadForm onUploaded={() => void reload()} />
+      {canManageImports && <UploadForm onUploaded={() => void reload()} />}
 
       <section>
         <h2>Arquivos enviados</h2>
@@ -157,7 +160,7 @@ export function ImportsPage() {
                 <td>{item.page_count ?? '—'}</td>
                 <td>{item.imported_at}</td>
                 <td>
-                  {item.status === 'recebido' && (
+                  {item.status === 'recebido' && canManageImports && (
                     <button type="button" onClick={() => void handleProcess(item.id)}>
                       Processar
                     </button>

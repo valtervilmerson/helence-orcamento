@@ -19,6 +19,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from app.auth.security import hash_password
 from app.config import get_settings
 from app.db.connection import get_connection
 from app.db.migrate import apply_migrations
@@ -30,6 +31,10 @@ SEED_USERS = [
     ("Vendedor Teste", "vendedor@helence.local", "vendedor"),
     ("Auditor Teste", "auditor@helence.local", "colaborador"),
 ]
+
+# Senha padrão dos usuários de teste — apenas para ambiente de
+# desenvolvimento/demonstração (docs/07, Fase 11).
+SEED_USER_PASSWORD = "helence123"
 
 SEED_PRICE_TABLE_CODE = "SEED-VAZIA"
 
@@ -65,6 +70,10 @@ def seed(connection: sqlite3.Connection) -> None:
         connection.execute(
             "INSERT OR IGNORE INTO users (name, email, role) VALUES (?, ?, ?)",
             (name, email, role),
+        )
+        connection.execute(
+            "UPDATE users SET password_hash = ? WHERE email = ? AND password_hash IS NULL",
+            (hash_password(SEED_USER_PASSWORD), email),
         )
 
     connection.execute(

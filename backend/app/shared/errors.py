@@ -34,6 +34,24 @@ def error_envelope(
     return {"error": {"code": code, "message": message, "details": details or {}}}
 
 
+class NaoAutenticadoError(DomainError):
+    code = "NAO_AUTENTICADO"
+    status_code = status.HTTP_401_UNAUTHORIZED
+    message = "É necessário autenticar-se para acessar este recurso."
+
+
+class CredenciaisInvalidasError(DomainError):
+    code = "CREDENCIAIS_INVALIDAS"
+    status_code = status.HTTP_401_UNAUTHORIZED
+    message = "E-mail ou senha inválidos."
+
+
+class PermissaoNegadaError(DomainError):
+    code = "PERMISSAO_NEGADA"
+    status_code = status.HTTP_403_FORBIDDEN
+    message = "Você não tem permissão para realizar esta ação."
+
+
 class RegistroNaoEncontradoError(DomainError):
     code = "REGISTRO_NAO_ENCONTRADO"
     status_code = status.HTTP_404_NOT_FOUND
