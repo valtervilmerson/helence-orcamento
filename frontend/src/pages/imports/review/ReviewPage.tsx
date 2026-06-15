@@ -674,6 +674,7 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
   const [confidenceLevel, setConfidenceLevel] = useState<ConfidenceLevel | ''>('')
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [selectingAll, setSelectingAll] = useState(false)
   const [bulkNotes, setBulkNotes] = useState('')
   const [bulkError, setBulkError] = useState<string | null>(null)
   const [bulkResult, setBulkResult] = useState<string | null>(null)
@@ -735,6 +736,34 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
     setSelectedIds((prev) =>
       prev.size === items.length ? new Set() : new Set(items.map((item) => item.id)),
     )
+  }
+
+  async function selectAllMatchingFilter() {
+    setBulkError(null)
+    setSelectingAll(true)
+    try {
+      const ids = new Set<number>()
+      const pageSize = 200
+      let page = 1
+      let totalMatching = Infinity
+      while (ids.size < totalMatching) {
+        const result = await getImportItems(importId, {
+          review_status: reviewStatus || undefined,
+          confidence_level: confidenceLevel || undefined,
+          page,
+          page_size: pageSize,
+        })
+        totalMatching = result.total
+        if (result.items.length === 0) break
+        result.items.forEach((item) => ids.add(item.id))
+        page += 1
+      }
+      setSelectedIds(ids)
+    } catch (err) {
+      setBulkError(describeError(err))
+    } finally {
+      setSelectingAll(false)
+    }
   }
 
   async function handleBulkDecision(decision: 'aprovado' | 'rejeitado') {
@@ -872,7 +901,22 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
         )}
         {bulkError && <ErrorMessageBlock error={bulkError} />}
 
-        <p>{total} itens encontrados.</p>
+        <p>
+          {total} itens encontrados.
+          {canReview && total > items.length && (
+            <button
+              type="button"
+              className="secondary"
+              style={{ marginLeft: 'var(--space-2)' }}
+              onClick={() => void selectAllMatchingFilter()}
+              disabled={selectingAll}
+            >
+              {selectingAll
+                ? 'Selecionando...'
+                : `Selecionar todos os ${total} itens deste filtro`}
+            </button>
+          )}
+        </p>
 
         {items.length === 0 ? (
           <p>Nenhum item encontrado com esses filtros.</p>
