@@ -24,12 +24,17 @@ def login(payload: LoginIn, response: Response) -> UserOut:
         user = service.authenticate(connection, payload.email, payload.password)
     settings = get_settings()
     token = create_session_token(user["id"])
+    # Frontend e backend rodam em subdomínios distintos do up.railway.app
+    # (sites diferentes para fins de SameSite). Sem SameSite=None o
+    # cookie de sessão não é enviado nas chamadas cross-site, mesmo com
+    # credentials: 'include' no fetch. SameSite=None exige Secure=True.
+    samesite = "none" if settings.session_cookie_secure else "lax"
     response.set_cookie(
         SESSION_COOKIE_NAME,
         token,
         max_age=SESSION_MAX_AGE_SECONDS,
         httponly=True,
-        samesite="lax",
+        samesite=samesite,
         secure=settings.session_cookie_secure,
     )
     return _user_out(user)
@@ -37,7 +42,14 @@ def login(payload: LoginIn, response: Response) -> UserOut:
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
 def logout(response: Response) -> None:
-    response.delete_cookie(SESSION_COOKIE_NAME)
+    settings = get_settings()
+    samesite = "none" if settings.session_cookie_secure else "lax"
+    response.delete_cookie(
+        SESSION_COOKIE_NAME,
+        httponly=True,
+        samesite=samesite,
+        secure=settings.session_cookie_secure,
+    )
 
 
 @router.get("/me", response_model=UserOut)
