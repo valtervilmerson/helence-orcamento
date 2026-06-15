@@ -9,7 +9,7 @@ from typing import Any
 
 def get_customer(connection: sqlite3.Connection, customer_id: int) -> sqlite3.Row | None:
     return connection.execute(
-        "SELECT id, name FROM customers WHERE id = ?", (customer_id,)
+        "SELECT * FROM customers WHERE id = ?", (customer_id,)
     ).fetchone()
 
 
