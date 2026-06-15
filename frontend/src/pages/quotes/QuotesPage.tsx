@@ -294,41 +294,54 @@ function ComponentPicker({
   }
 
   return (
-    <div className="action-group">
-      <select value={familyFilter} onChange={(e) => setFamilyFilter(e.target.value)}>
-        <option value="">(todas as famílias)</option>
-        {families.map((family) => (
-          <option key={family.id} value={family.name}>
-            {family.name}
-          </option>
-        ))}
-      </select>
-      {!finishGroupFilter && (
-        <select value={finishFilter} onChange={(e) => setFinishFilter(e.target.value)}>
-          <option value="">(todos os acabamentos)</option>
-          {finishes.map((finish) => (
-            <option key={finish.id} value={finish.name}>
-              {finish.name}
-            </option>
-          ))}
-        </select>
-      )}
-      {dimensionFilter ? (
-        <span className="badge badge-neutral">Dimensão: {dimensionFilter}</span>
-      ) : (
-        <select value={dimensionFilterManual} onChange={(e) => setDimensionFilterManual(e.target.value)}>
-          <option value="">(todas as dimensões)</option>
-          {dimensions.map((dimension) => (
-            <option key={dimension.id} value={dimension.raw_label ?? ''}>
-              {dimension.raw_label ?? `#${dimension.id}`}
-            </option>
-          ))}
-        </select>
-      )}
-      <VariantCombobox results={results} variantId={variantId} onSelect={setVariantId} />
-      <button type="button" className="secondary" onClick={handlePick} disabled={!variantId}>
-        {pickLabel}
-      </button>
+    <div className="component-picker">
+      <div className="form-row">
+        <div className="form-field">
+          <span className="form-field__label">Família</span>
+          <select value={familyFilter} onChange={(e) => setFamilyFilter(e.target.value)}>
+            <option value="">(todas as famílias)</option>
+            {families.map((family) => (
+              <option key={family.id} value={family.name}>
+                {family.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {!finishGroupFilter && (
+          <div className="form-field">
+            <span className="form-field__label">Acabamento</span>
+            <select value={finishFilter} onChange={(e) => setFinishFilter(e.target.value)}>
+              <option value="">(todos os acabamentos)</option>
+              {finishes.map((finish) => (
+                <option key={finish.id} value={finish.name}>
+                  {finish.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="form-field">
+          <span className="form-field__label">Dimensão</span>
+          {dimensionFilter ? (
+            <span className="badge badge-neutral">{dimensionFilter}</span>
+          ) : (
+            <select value={dimensionFilterManual} onChange={(e) => setDimensionFilterManual(e.target.value)}>
+              <option value="">(todas as dimensões)</option>
+              {dimensions.map((dimension) => (
+                <option key={dimension.id} value={dimension.raw_label ?? ''}>
+                  {dimension.raw_label ?? `#${dimension.id}`}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      </div>
+      <div className="form-row form-row--actions">
+        <VariantCombobox results={results} variantId={variantId} onSelect={setVariantId} />
+        <button type="button" className="secondary" onClick={handlePick} disabled={!variantId}>
+          {pickLabel}
+        </button>
+      </div>
       <ErrorMessage error={error} />
     </div>
   )
@@ -388,29 +401,35 @@ function ProductCompositionLoader({
   }
 
   return (
-    <div className="action-group">
-      <select
-        value={familyFilter}
-        onChange={(e) => {
-          setFamilyFilter(e.target.value)
-          setProductId('')
-        }}
-      >
-        <option value="">(todas as famílias)</option>
-        {families.map((f) => (
-          <option key={f.id} value={f.name}>
-            {f.name}
-          </option>
-        ))}
-      </select>
-      <select value={productId} onChange={(e) => setProductId(e.target.value)} style={{ flex: 1, minWidth: '16rem' }}>
-        <option value="">(carregar produto completo)</option>
-        {filteredProducts.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
+    <div className="form-row">
+      <div className="form-field">
+        <span className="form-field__label">Família</span>
+        <select
+          value={familyFilter}
+          onChange={(e) => {
+            setFamilyFilter(e.target.value)
+            setProductId('')
+          }}
+        >
+          <option value="">(todas as famílias)</option>
+          {families.map((f) => (
+            <option key={f.id} value={f.name}>
+              {f.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="form-field" style={{ flex: 1, minWidth: '16rem' }}>
+        <span className="form-field__label">Produto</span>
+        <select value={productId} onChange={(e) => setProductId(e.target.value)} style={{ width: '100%' }}>
+          <option value="">(carregar produto completo)</option>
+          {filteredProducts.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
       <button type="button" className="secondary" onClick={() => void handleLoad()} disabled={!productId}>
         carregar produto completo
       </button>
@@ -485,39 +504,52 @@ function NewItemForm({
   return (
     <section>
       <h3>Adicionar item</h3>
-      <ProductCompositionLoader families={families} onLoad={handleLoadComposition} />
-      <ComponentPicker
-        families={families}
-        finishes={finishes}
-        dimensions={dimensions}
-        onPick={handlePick}
-        pickLabel="+ componente"
-        dimensionFilter={dimensionFilter}
-      />
-      {pending.length > 0 && (
-        <ul className="list-plain">
-          {pending.map((variant, index) => (
-            <li key={`${variant.component_variant_id}-${index}`} className="list-item-card">
-              <span>{describeVariant(variant)}</span>
-              <button type="button" className="secondary" onClick={() => handleRemovePending(index)}>
-                remover
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <form onSubmit={handleSubmit} className="action-group">
-        <input placeholder="Descrição do item" value={label} onChange={(e) => setLabel(e.target.value)} required />
-        <input
-          type="number"
-          min="1"
-          placeholder="Quantidade"
-          style={{ width: '6rem' }}
-          value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
+
+      <div className="form-block">
+        <h4 className="form-block__title">1. Carregar composição pronta de um produto (opcional)</h4>
+        <ProductCompositionLoader families={families} onLoad={handleLoadComposition} />
+      </div>
+
+      <div className="form-block">
+        <h4 className="form-block__title">2. Buscar e adicionar componentes</h4>
+        <ComponentPicker
+          families={families}
+          finishes={finishes}
+          dimensions={dimensions}
+          onPick={handlePick}
+          pickLabel="+ componente"
+          dimensionFilter={dimensionFilter}
         />
-        <button type="submit">Adicionar item (composição: {pendingTotal.toFixed(2)})</button>
-      </form>
+        {pending.length > 0 && (
+          <ul className="list-plain form-block__pending">
+            {pending.map((variant, index) => (
+              <li key={`${variant.component_variant_id}-${index}`} className="list-item-card">
+                <span>{describeVariant(variant)}</span>
+                <button type="button" className="secondary" onClick={() => handleRemovePending(index)}>
+                  remover
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="form-block">
+        <h4 className="form-block__title">3. Finalizar item</h4>
+        <form onSubmit={handleSubmit} className="action-group">
+          <input placeholder="Descrição do item" value={label} onChange={(e) => setLabel(e.target.value)} required />
+          <input
+            type="number"
+            min="1"
+            placeholder="Quantidade"
+            style={{ width: '6rem' }}
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
+          <button type="submit">Adicionar item (composição: {pendingTotal.toFixed(2)})</button>
+        </form>
+      </div>
+
       <ErrorMessage error={error} />
     </section>
   )
@@ -649,8 +681,8 @@ function EditItemPanel({
             )
           })}
         </ul>
-        <div className="action-group" style={{ marginTop: 'var(--space-3)' }}>
-          <strong>+ componente</strong>
+        <div className="form-block" style={{ marginTop: 'var(--space-3)' }}>
+          <h4 className="form-block__title">+ componente</h4>
           <ComponentPicker
             families={families}
             finishes={finishes}
