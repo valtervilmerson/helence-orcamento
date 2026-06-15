@@ -74,6 +74,70 @@ function StatusBadge({ status }: { status: QuoteStatus }) {
   return <span className={`badge ${STATUS_BADGE_CLASS[status]}`}>{status}</span>
 }
 
+// ---------------------------------------------------------------------------
+// Combobox de busca: permite digitar parte do nome/SKU/acabamento para
+// localizar uma variação entre os resultados já filtrados.
+// ---------------------------------------------------------------------------
+
+function VariantCombobox({
+  results,
+  variantId,
+  onSelect,
+}: {
+  results: ComponentVariant[]
+  variantId: string
+  onSelect: (id: string) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+
+  const selected = results.find((item) => item.component_variant_id === Number(variantId))
+
+  const normalized = query.trim().toLowerCase()
+  const filtered = normalized
+    ? results.filter((item) => describeVariant(item).toLowerCase().includes(normalized))
+    : results
+
+  function handleSelect(item: ComponentVariant) {
+    onSelect(String(item.component_variant_id))
+    setQuery('')
+    setOpen(false)
+  }
+
+  function handleChange(value: string) {
+    setQuery(value)
+    setOpen(true)
+    if (variantId) onSelect('')
+  }
+
+  const inputValue = open || !selected ? query : describeVariant(selected)
+
+  return (
+    <div className="combobox" style={{ flex: 1, minWidth: '18rem' }}>
+      <input
+        type="text"
+        placeholder="Digite para buscar por produto, SKU, acabamento..."
+        value={inputValue}
+        onChange={(e) => handleChange(e.target.value)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+      />
+      {open && (
+        <ul className="combobox-list">
+          {filtered.length === 0 && <li className="combobox-empty">Nenhuma variação encontrada.</li>}
+          {filtered.slice(0, 30).map((item) => (
+            <li key={item.component_variant_id}>
+              <button type="button" onMouseDown={() => handleSelect(item)}>
+                {describeVariant(item)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function describeVariant(variant: ComponentVariant): string {
   const price = variant.price ? `${variant.price.currency} ${variant.price.amount.toFixed(2)}` : 'sem preço'
   return `${variant.product ?? variant.component} — ${variant.component} — ${variant.descriptor ?? ''} — ${variant.finish ?? '—'} — ${variant.sku ?? 'sem SKU'} — ${price}`
@@ -261,14 +325,7 @@ function ComponentPicker({
           ))}
         </select>
       )}
-      <select value={variantId} onChange={(e) => setVariantId(e.target.value)} style={{ flex: 1, minWidth: '20rem' }}>
-        <option value="">(selecione uma variação)</option>
-        {results.map((item) => (
-          <option key={item.component_variant_id} value={item.component_variant_id}>
-            {describeVariant(item)}
-          </option>
-        ))}
-      </select>
+      <VariantCombobox results={results} variantId={variantId} onSelect={setVariantId} />
       <button type="button" className="secondary" onClick={handlePick} disabled={!variantId}>
         {pickLabel}
       </button>
@@ -826,50 +883,57 @@ function QuoteDetail({
 
   return (
     <section>
-      <h2>
-        {quote.quote_number} — {quote.customer.name} <StatusBadge status={quote.status} />
-      </h2>
-      {quote.source_quote_id !== null && <p>Duplicado do orçamento #{quote.source_quote_id}.</p>}
-      <div className="action-group">
-        <button type="button" className="secondary" onClick={() => void handleDuplicate()}>
-          Duplicar orçamento
-        </button>
-        {transitions.length > 0 && (
-          <>
-            <span style={{ color: 'var(--color-text-muted)' }}>Mudar status para:</span>
-            {transitions.map((status) => (
-              <button key={status} className="secondary" onClick={() => handleStatusChange(status)}>
-                {status}
-              </button>
-            ))}
-          </>
-        )}
+      <div className="quote-header">
+        <div className="quote-header__title">
+          <span className="quote-header__number">{quote.quote_number}</span>
+          <h2>
+            {quote.customer.name} <StatusBadge status={quote.status} />
+          </h2>
+          {quote.source_quote_id !== null && <p>Duplicado do orçamento #{quote.source_quote_id}.</p>}
+        </div>
+        <div className="action-group">
+          <button type="button" className="secondary" onClick={() => void handleDuplicate()}>
+            Duplicar orçamento
+          </button>
+          {transitions.length > 0 && (
+            <>
+              <span style={{ color: 'var(--color-text-muted)' }}>Mudar status para:</span>
+              {transitions.map((status) => (
+                <button key={status} className="secondary" onClick={() => handleStatusChange(status)}>
+                  {status}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Item</th>
-            <th>Componentes</th>
-            <th>Quantidade / desconto / ações</th>
-            <th>Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <ItemRow
-              key={item.id}
-              item={item}
-              quoteId={quote.id}
-              families={families}
-              finishes={finishes}
-              dimensions={dimensions}
-              onChanged={handleItemChanged}
-            />
-          ))}
-        </tbody>
-      </table>
+      <div className="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Item</th>
+              <th>Componentes</th>
+              <th>Quantidade / desconto / ações</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <ItemRow
+                key={item.id}
+                item={item}
+                quoteId={quote.id}
+                families={families}
+                finishes={finishes}
+                dimensions={dimensions}
+                onChanged={handleItemChanged}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {quote.status === 'rascunho' && (
         <NewItemForm
@@ -903,13 +967,26 @@ function QuoteDetail({
       {totals && (
         <section>
           <h3>Totais{totals.is_snapshot ? ' (congelado)' : ' (ao vivo)'}</h3>
-          <p>
-            Subtotal: {totals.currency} {totals.subtotal.toFixed(2)} | Desconto: {totals.currency}{' '}
-            {totals.discount_amount.toFixed(2)} ({totals.discount_percent.toFixed(2)}%) | Total:{' '}
-            <strong>
-              {totals.currency} {totals.total.toFixed(2)}
-            </strong>
-          </p>
+          <div className="totals-card__grid">
+            <div className="totals-card__item">
+              <span className="totals-card__label">Subtotal</span>
+              <span className="totals-card__value">
+                {totals.currency} {totals.subtotal.toFixed(2)}
+              </span>
+            </div>
+            <div className="totals-card__item">
+              <span className="totals-card__label">Desconto</span>
+              <span className="totals-card__value">
+                {totals.currency} {totals.discount_amount.toFixed(2)} ({totals.discount_percent.toFixed(2)}%)
+              </span>
+            </div>
+            <div className="totals-card__item totals-card__item--total">
+              <span className="totals-card__label">Total</span>
+              <span className="totals-card__value">
+                {totals.currency} {totals.total.toFixed(2)}
+              </span>
+            </div>
+          </div>
           {totals.warnings.map((warning) => (
             <p key={warning.code} className="feedback-warning">
               {warning.message}
@@ -935,6 +1012,7 @@ export function QuotesPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [selectedQuoteId, setSelectedQuoteId] = useState<number | null>(null)
+  const [search, setSearch] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   async function reload() {
@@ -987,29 +1065,37 @@ export function QuotesPage() {
     }
   }
 
-  const inProgressQuotes = quotes.filter((q) => q.status === 'rascunho' || q.status === 'enviado')
+  const normalizedSearch = search.trim().toLowerCase()
+  const matchesSearch = (quote: Quote) =>
+    !normalizedSearch ||
+    quote.quote_number.toLowerCase().includes(normalizedSearch) ||
+    quote.customer.name.toLowerCase().includes(normalizedSearch)
+
+  const inProgressQuotes = quotes.filter((q) => (q.status === 'rascunho' || q.status === 'enviado') && matchesSearch(q))
   const finishedQuotes = quotes.filter(
-    (q) => q.status === 'aprovado' || q.status === 'rejeitado' || q.status === 'expirado',
+    (q) => (q.status === 'aprovado' || q.status === 'rejeitado' || q.status === 'expirado') && matchesSearch(q),
   )
 
   function renderQuoteItem(quote: Quote) {
     return (
       <li
         key={quote.id}
-        className={`list-item-card ${quote.id === selectedQuoteId ? 'is-selected' : ''}`}
+        className={`list-item-card list-item-card--column ${quote.id === selectedQuoteId ? 'is-selected' : ''}`}
       >
-        <span>
-          <strong>{quote.quote_number}</strong> — {quote.customer.name}
-        </span>
-        <span className="action-group">
+        <div className="list-item-card__row">
+          <span>
+            <strong>{quote.quote_number}</strong> — {quote.customer.name}
+          </span>
           <StatusBadge status={quote.status} />
+        </div>
+        <div className="action-group">
           <button type="button" className="secondary" onClick={() => setSelectedQuoteId(quote.id)}>
             {quote.id === selectedQuoteId ? 'Selecionado' : 'Abrir'}
           </button>
           <button type="button" className="danger" onClick={() => void handleDelete(quote)}>
             excluir
           </button>
-        </span>
+        </div>
       </li>
     )
   }
@@ -1019,29 +1105,53 @@ export function QuotesPage() {
       <h1>Orçamentos — montagem</h1>
       <ErrorMessage error={error} />
 
-      <section>
-        <h2>Orçamentos em andamento</h2>
-        {inProgressQuotes.length === 0 && <p>Nenhum orçamento em andamento.</p>}
-        <ul className="list-plain">{inProgressQuotes.map(renderQuoteItem)}</ul>
-      </section>
+      <div className="quotes-layout">
+        <aside className="quotes-sidebar">
+          <input
+            type="search"
+            className="quotes-search"
+            placeholder="Buscar por número ou cliente..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
 
-      <section>
-        <h2>Orçamentos finalizados</h2>
-        {finishedQuotes.length === 0 && <p>Nenhum orçamento finalizado.</p>}
-        <ul className="list-plain">{finishedQuotes.map(renderQuoteItem)}</ul>
-      </section>
+          <section>
+            <h2>Orçamentos em andamento</h2>
+            {inProgressQuotes.length === 0 && <p>Nenhum orçamento em andamento.</p>}
+            <ul className="list-plain">{inProgressQuotes.map(renderQuoteItem)}</ul>
+          </section>
 
-      <NewCustomerForm onCreated={handleCustomerCreated} />
+          <section>
+            <h2>Orçamentos finalizados</h2>
+            {finishedQuotes.length === 0 && <p>Nenhum orçamento finalizado.</p>}
+            <ul className="list-plain">{finishedQuotes.map(renderQuoteItem)}</ul>
+          </section>
 
-      <NewQuoteForm customers={customers} onCreated={handleCreated} />
+          <details>
+            <summary>Novo cliente</summary>
+            <NewCustomerForm onCreated={handleCustomerCreated} />
+          </details>
 
-      {selectedQuote && (
-        <QuoteDetail
-          quote={selectedQuote}
-          onChanged={() => void handleSelectionChanged()}
-          onDuplicated={handleDuplicated}
-        />
-      )}
+          <details>
+            <summary>Novo orçamento</summary>
+            <NewQuoteForm customers={customers} onCreated={handleCreated} />
+          </details>
+        </aside>
+
+        <main className="quotes-main">
+          {selectedQuote ? (
+            <QuoteDetail
+              quote={selectedQuote}
+              onChanged={() => void handleSelectionChanged()}
+              onDuplicated={handleDuplicated}
+            />
+          ) : (
+            <section className="quotes-empty-state">
+              <p>Selecione um orçamento na lista ao lado ou crie um novo para começar.</p>
+            </section>
+          )}
+        </main>
+      </div>
     </div>
   )
 }
