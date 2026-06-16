@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any
 
 from app.quotes import export, pricing, repository
+from app.settings import repository as settings_repository
 from app.quotes.schemas import (
     CustomerSummary,
     QuoteItemComponentCreateIn,
@@ -85,6 +86,7 @@ def _row_to_quote_out(row: sqlite3.Row) -> QuoteOut:
         notes=row["notes"],
         source_quote_id=row["source_quote_id"],
         markup_percent=row["markup_percent"] or 0.0,
+        markup_uses_global=bool(row["markup_uses_global"]),
         quote_discount_percent=row["quote_discount_percent"],
         quote_discount_amount=row["quote_discount_amount"],
         quote_discount_reason=row["quote_discount_reason"],
@@ -167,6 +169,10 @@ def update_quote_settings(
     if markup is not None and markup < 0:
         raise DescontoInvalidoError(details={"markup_percent": markup, "message": "markup_percent não pode ser negativo."})
 
+    # Se estiver definindo override específico, desativa herança global automaticamente
+    if "markup_percent" in data and data.get("markup_uses_global") is None:
+        data["markup_uses_global"] = False
+
     has_pct = "quote_discount_percent" in data and data["quote_discount_percent"] is not None
     has_amt = "quote_discount_amount" in data and data["quote_discount_amount"] is not None
     if has_pct and has_amt:
@@ -209,6 +215,7 @@ def duplicate_quote(connection: sqlite3.Connection, quote_id: int) -> QuoteOut:
         notes=source_row["notes"],
         source_quote_id=quote_id,
         markup_percent=source_row["markup_percent"] or 0.0,
+        markup_uses_global=bool(source_row["markup_uses_global"]),
         quote_discount_percent=source_row["quote_discount_percent"],
         quote_discount_amount=source_row["quote_discount_amount"],
         quote_discount_reason=source_row["quote_discount_reason"],
@@ -282,8 +289,14 @@ def _require_draft_quote(connection: sqlite3.Connection, quote_id: int) -> sqlit
     return row
 
 
-def _get_markup_factor(quote_row: sqlite3.Row) -> float:
-    return 1.0 + (quote_row["markup_percent"] or 0.0) / 100.0
+def _get_effective_markup_percent(connection: sqlite3.Connection, quote_row: sqlite3.Row) -> float:
+    if quote_row["markup_uses_global"]:
+        return settings_repository.get_global_markup(connection)
+    return quote_row["markup_percent"] or 0.0
+
+
+def _get_markup_factor(connection: sqlite3.Connection, quote_row: sqlite3.Row) -> float:
+    return 1.0 + _get_effective_markup_percent(connection, quote_row) / 100.0
 
 
 # ---------------------------------------------------------------------------
@@ -444,7 +457,7 @@ def add_item(
     connection: sqlite3.Connection, quote_id: int, payload: QuoteItemCreateIn
 ) -> QuoteItemOut:
     quote_row = _require_draft_quote(connection, quote_id)
-    markup_factor = _get_markup_factor(quote_row)
+    markup_factor = _get_markup_factor(connection, quote_row)
 
     component_variant_ids = _resolve_component_variant_ids(payload)
 
@@ -484,7 +497,7 @@ def list_items(connection: sqlite3.Connection, quote_id: int) -> list[QuoteItemO
     if not repository.quote_exists(connection, quote_id):
         raise OrcamentoNaoEncontradoError(details={"id": quote_id})
     quote_row = repository.get_quote_row(connection, quote_id)
-    markup_factor = _get_markup_factor(quote_row)
+    markup_factor = _get_markup_factor(connection, quote_row)
     item_rows = repository.list_items_with_components(connection, quote_id)
     return [_build_item_out(connection, row, markup_factor) for row in item_rows]
 
@@ -493,7 +506,7 @@ def get_item(connection: sqlite3.Connection, quote_id: int, item_id: int) -> Quo
     if not repository.quote_exists(connection, quote_id):
         raise OrcamentoNaoEncontradoError(details={"id": quote_id})
     quote_row = repository.get_quote_row(connection, quote_id)
-    markup_factor = _get_markup_factor(quote_row)
+    markup_factor = _get_markup_factor(connection, quote_row)
     item_row = repository.get_item_row(connection, quote_id, item_id)
     if item_row is None:
         raise ItemNaoEncontradoError(details={"id": item_id})
@@ -508,7 +521,7 @@ def add_component(
 ) -> QuoteItemOut:
     """Adiciona um componente a uma linha existente, validando RN-04 (docs/05)."""
     quote_row = _require_draft_quote(connection, quote_id)
-    markup_factor = _get_markup_factor(quote_row)
+    markup_factor = _get_markup_factor(connection, quote_row)
 
     item_row = repository.get_item_row(connection, quote_id, item_id)
     if item_row is None:
@@ -616,7 +629,7 @@ def remove_component(
     — para isso, a linha inteira deve ser removida (`remove_item`).
     """
     quote_row = _require_draft_quote(connection, quote_id)
-    markup_factor = _get_markup_factor(quote_row)
+    markup_factor = _get_markup_factor(connection, quote_row)
 
     item_row = repository.get_item_row(connection, quote_id, item_id)
     if item_row is None:
@@ -639,7 +652,7 @@ def update_item(
     connection: sqlite3.Connection, quote_id: int, item_id: int, payload: QuoteItemPatchIn
 ) -> QuoteItemOut:
     quote_row = _require_draft_quote(connection, quote_id)
-    markup_factor = _get_markup_factor(quote_row)
+    markup_factor = _get_markup_factor(connection, quote_row)
 
     item_row = repository.get_item_row(connection, quote_id, item_id)
     if item_row is None:
@@ -838,7 +851,7 @@ def get_totals(connection: sqlite3.Connection, quote_id: int) -> QuoteTotalsOut:
     entries = _items_with_components(connection, quote_id)
     totals = pricing.compute_totals(
         entries,
-        markup_percent=quote_row["markup_percent"] or 0.0,
+        markup_percent=_get_effective_markup_percent(connection, quote_row),
         quote_discount_percent=quote_row["quote_discount_percent"],
         quote_discount_amount=quote_row["quote_discount_amount"],
     )
@@ -870,7 +883,7 @@ def freeze_totals(connection: sqlite3.Connection, quote_id: int) -> QuoteTotalsO
     quote_row = repository.get_quote_row(connection, quote_id)
     totals = pricing.compute_totals(
         entries,
-        markup_percent=quote_row["markup_percent"] or 0.0,
+        markup_percent=_get_effective_markup_percent(connection, quote_row),
         quote_discount_percent=quote_row["quote_discount_percent"],
         quote_discount_amount=quote_row["quote_discount_amount"],
     )

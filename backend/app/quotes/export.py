@@ -19,6 +19,7 @@ from pathlib import Path
 import fitz
 
 from app.quotes import pricing, repository
+from app.settings import repository as settings_repository
 
 _PAGE_WIDTH = 595.0
 _PAGE_HEIGHT = 842.0
@@ -335,7 +336,11 @@ def generate_pdf(connection: sqlite3.Connection, quote_id: int) -> bytes:
     totals_row = repository.get_quote_totals_row(connection, quote_id)
     catalog_observations = repository.get_catalog_observations_for_quote(connection, quote_id)
     currency = totals_row["currency"] if totals_row else "BRL"
-    markup_factor = 1.0 + (quote_row["markup_percent"] or 0.0) / 100.0
+    if quote_row["markup_uses_global"]:
+        effective_markup = settings_repository.get_global_markup(connection)
+    else:
+        effective_markup = quote_row["markup_percent"] or 0.0
+    markup_factor = 1.0 + effective_markup / 100.0
 
     doc = fitz.open()
     generated_at = datetime.now().strftime("%d/%m/%Y %H:%M")

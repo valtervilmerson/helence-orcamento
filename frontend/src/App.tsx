@@ -15,6 +15,7 @@ import { VariantsPage } from './pages/catalog/variants/VariantsPage'
 import { LoginPage } from './pages/auth/LoginPage'
 import { ImportsPage } from './pages/imports/upload/ImportsPage'
 import { QuotesPage } from './pages/quotes/QuotesPage'
+import { SettingsPage } from './pages/settings/SettingsPage'
 
 type ApiStatus = 'loading' | 'ok' | 'error'
 
@@ -56,6 +57,7 @@ function App() {
         </Route>
         <Route path="consulta" element={<ConsultaPage />} />
         <Route path="importacoes" element={<ImportsPage />} />
+        <Route path="configuracoes" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/orcamentos" replace />} />
       </Route>
     </Routes>

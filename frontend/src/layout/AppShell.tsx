@@ -20,6 +20,12 @@ const NAV_ITEMS: { to: string; label: string; icon: string; roles: UserRole[] }[
     icon: '\u{1F4E5}',
     roles: ['importador', 'revisor', 'admin'],
   },
+  {
+    to: '/configuracoes',
+    label: 'Configurações',
+    icon: '⚙️',
+    roles: ['admin'],
+  },
 ]
 
 const ROLE_LABELS: Record<UserRole, string> = {

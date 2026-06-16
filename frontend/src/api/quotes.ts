@@ -76,6 +76,7 @@ export interface Quote {
   notes: string | null
   source_quote_id: number | null
   markup_percent: number
+  markup_uses_global: boolean
   quote_discount_percent: number | null
   quote_discount_amount: number | null
   quote_discount_reason: string | null
@@ -95,6 +96,7 @@ export const updateQuoteSettings = (
   id: number,
   data: Partial<{
     markup_percent: number
+    markup_uses_global: boolean
     quote_discount_percent: number | null
     quote_discount_amount: number | null
     quote_discount_reason: string | null

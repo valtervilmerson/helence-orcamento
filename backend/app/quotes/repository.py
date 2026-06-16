@@ -51,6 +51,7 @@ def insert_quote(
     notes: str | None,
     source_quote_id: int | None = None,
     markup_percent: float = 0.0,
+    markup_uses_global: bool = True,
     quote_discount_percent: float | None = None,
     quote_discount_amount: float | None = None,
     quote_discount_reason: str | None = None,
@@ -59,9 +60,10 @@ def insert_quote(
         """
         INSERT INTO quotes (
             quote_number, customer_id, status, valid_until, notes, source_quote_id,
-            markup_percent, quote_discount_percent, quote_discount_amount, quote_discount_reason
+            markup_percent, markup_uses_global,
+            quote_discount_percent, quote_discount_amount, quote_discount_reason
         )
-        VALUES (?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             quote_number,
@@ -70,6 +72,7 @@ def insert_quote(
             notes,
             source_quote_id,
             markup_percent,
+            markup_uses_global,
             quote_discount_percent,
             quote_discount_amount,
             quote_discount_reason,
@@ -89,6 +92,7 @@ _QUOTE_BASE = """
         q.notes AS notes,
         q.source_quote_id AS source_quote_id,
         q.markup_percent AS markup_percent,
+        q.markup_uses_global AS markup_uses_global,
         q.quote_discount_percent AS quote_discount_percent,
         q.quote_discount_amount AS quote_discount_amount,
         q.quote_discount_reason AS quote_discount_reason,
@@ -128,6 +132,7 @@ def update_quote_status(connection: sqlite3.Connection, quote_id: int, new_statu
 def update_quote_settings(connection: sqlite3.Connection, quote_id: int, data: dict[str, Any]) -> None:
     allowed_cols = [
         "markup_percent",
+        "markup_uses_global",
         "quote_discount_percent",
         "quote_discount_amount",
         "quote_discount_reason",

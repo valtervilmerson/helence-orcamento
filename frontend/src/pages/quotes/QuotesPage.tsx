@@ -42,6 +42,7 @@ import {
   type QuoteStatus,
   type QuoteTotals,
 } from '../../api/quotes'
+import { getSettings } from '../../api/settings'
 
 const STATUS_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
   rascunho: ['enviado', 'rejeitado', 'expirado'],
@@ -997,7 +998,15 @@ function ItemRow({
   )
 }
 
-function QuoteSettingsForm({ quote, onChanged }: { quote: Quote; onChanged: () => void }) {
+function QuoteSettingsForm({
+  quote,
+  onChanged,
+}: {
+  quote: Quote
+  onChanged: () => void
+}) {
+  const [globalMarkup, setGlobalMarkup] = useState<number | null>(null)
+  const [usesGlobal, setUsesGlobal] = useState(quote.markup_uses_global)
   const [markupPercent, setMarkupPercent] = useState(quote.markup_percent.toString())
   const [discountMode, setDiscountMode] = useState<'none' | 'percent' | 'amount'>(
     quote.quote_discount_percent != null ? 'percent' : quote.quote_discount_amount != null ? 'amount' : 'none',
@@ -1007,6 +1016,12 @@ function QuoteSettingsForm({ quote, onChanged }: { quote: Quote; onChanged: () =
   )
   const [discountReason, setDiscountReason] = useState(quote.quote_discount_reason ?? '')
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    getSettings()
+      .then((s) => setGlobalMarkup(s.global_markup_percent))
+      .catch(() => null)
+  }, [])
 
   function handleDiscountModeChange(mode: 'none' | 'percent' | 'amount') {
     setDiscountMode(mode)
@@ -1018,7 +1033,8 @@ function QuoteSettingsForm({ quote, onChanged }: { quote: Quote; onChanged: () =
     setError(null)
     try {
       await updateQuoteSettings(quote.id, {
-        markup_percent: Number(markupPercent) || 0,
+        markup_uses_global: usesGlobal,
+        markup_percent: usesGlobal ? 0 : Number(markupPercent) || 0,
         quote_discount_percent: discountMode === 'percent' ? Number(discountValue) || 0 : null,
         quote_discount_amount: discountMode === 'amount' ? Number(discountValue) || 0 : null,
         quote_discount_reason: discountReason || null,
@@ -1032,21 +1048,33 @@ function QuoteSettingsForm({ quote, onChanged }: { quote: Quote; onChanged: () =
   return (
     <section>
       <h3>Configurações de preço</h3>
-      <form onSubmit={handleSave} className="action-group">
+      <form onSubmit={handleSave} className="action-group" style={{ flexWrap: 'wrap' }}>
         <div className="form-field">
           <span className="form-field__label">% de venda</span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="0"
-            style={{ width: '6rem' }}
-            value={markupPercent}
-            onChange={(e) => setMarkupPercent(e.target.value)}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={usesGlobal}
+                onChange={(e) => setUsesGlobal(e.target.checked)}
+              />
+              <span>Global{globalMarkup !== null ? ` (${globalMarkup}%)` : ''}</span>
+            </label>
+            {!usesGlobal && (
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0"
+                style={{ width: '6rem' }}
+                value={markupPercent}
+                onChange={(e) => setMarkupPercent(e.target.value)}
+              />
+            )}
+          </div>
         </div>
         <div className="form-field">
-          <span className="form-field__label">Desconto global</span>
+          <span className="form-field__label">Desconto orçamento</span>
           <select
             value={discountMode}
             onChange={(e) => handleDiscountModeChange(e.target.value as 'none' | 'percent' | 'amount')}
@@ -1238,7 +1266,10 @@ function QuoteDetail({
 
       {quote.status === 'rascunho' && (
         <>
-          <QuoteSettingsForm quote={quote} onChanged={onChanged} />
+          <QuoteSettingsForm
+            quote={quote}
+            onChanged={() => { void reload(); onChanged() }}
+          />
           <NewItemForm
             quoteId={quote.id}
             families={families}
@@ -1393,9 +1424,13 @@ export function QuotesPage() {
     quote.quote_number.toLowerCase().includes(normalizedSearch) ||
     quote.customer.name.toLowerCase().includes(normalizedSearch)
 
-  const inProgressQuotes = quotes.filter((q) => (q.status === 'rascunho' || q.status === 'enviado') && matchesSearch(q))
+  const inProgressQuotes = quotes.filter(
+    (q) => (q.status === 'rascunho' || q.status === 'enviado') && matchesSearch(q),
+  )
   const finishedQuotes = quotes.filter(
-    (q) => (q.status === 'aprovado' || q.status === 'rejeitado' || q.status === 'expirado') && matchesSearch(q),
+    (q) =>
+      (q.status === 'aprovado' || q.status === 'rejeitado' || q.status === 'expirado') &&
+      matchesSearch(q),
   )
 
   function renderQuoteItem(quote: Quote) {
@@ -1438,16 +1473,29 @@ export function QuotesPage() {
           />
 
           <section>
-            <h2>Orçamentos em andamento</h2>
-            {inProgressQuotes.length === 0 && <p>Nenhum orçamento em andamento.</p>}
+            <h2>Em andamento</h2>
+            {inProgressQuotes.length === 0 && (
+              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
+                Nenhum orçamento em andamento.
+              </p>
+            )}
             <ul className="list-plain">{inProgressQuotes.map(renderQuoteItem)}</ul>
           </section>
 
-          <section>
-            <h2>Orçamentos finalizados</h2>
-            {finishedQuotes.length === 0 && <p>Nenhum orçamento finalizado.</p>}
-            <ul className="list-plain">{finishedQuotes.map(renderQuoteItem)}</ul>
-          </section>
+          <details>
+            <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+              Finalizados ({finishedQuotes.length})
+            </summary>
+            <ul className="list-plain" style={{ marginTop: 'var(--space-2)' }}>
+              {finishedQuotes.length === 0 ? (
+                <li style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
+                  Nenhum orçamento finalizado.
+                </li>
+              ) : (
+                finishedQuotes.map(renderQuoteItem)
+              )}
+            </ul>
+          </details>
 
           <details>
             <summary>Novo cliente</summary>

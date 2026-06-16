@@ -7,6 +7,7 @@ from app.imports.router import extracted_items_router
 from app.imports.router import router as imports_router
 from app.quotes.router import customers_router
 from app.quotes.router import router as quotes_router
+from app.settings.router import router as settings_router
 
 router = APIRouter(prefix="/api/v1", tags=["health"])
 
@@ -17,6 +18,7 @@ def get_health() -> dict[str, str]:
 
 
 router.include_router(auth_router)
+router.include_router(settings_router)
 router.include_router(catalog_router)
 router.include_router(quotes_router)
 router.include_router(customers_router)

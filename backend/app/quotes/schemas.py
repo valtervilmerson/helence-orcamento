@@ -53,6 +53,7 @@ class QuoteOut(BaseModel):
     notes: str | None = None
     source_quote_id: int | None = None
     markup_percent: float = 0.0
+    markup_uses_global: bool = True
     quote_discount_percent: float | None = None
     quote_discount_amount: float | None = None
     quote_discount_reason: str | None = None
@@ -60,6 +61,7 @@ class QuoteOut(BaseModel):
 
 class QuoteSettingsPatchIn(BaseModel):
     markup_percent: float | None = None
+    markup_uses_global: bool | None = None
     quote_discount_percent: float | None = None
     quote_discount_amount: float | None = None
     quote_discount_reason: str | None = None
