@@ -57,6 +57,8 @@ class QuoteOut(BaseModel):
     quote_discount_percent: float | None = None
     quote_discount_amount: float | None = None
     quote_discount_reason: str | None = None
+    installment_count: int = 1
+    installment_interest_percent: float = 0.0
 
 
 class QuoteSettingsPatchIn(BaseModel):
@@ -65,6 +67,8 @@ class QuoteSettingsPatchIn(BaseModel):
     quote_discount_percent: float | None = None
     quote_discount_amount: float | None = None
     quote_discount_reason: str | None = None
+    installment_count: int | None = None
+    installment_interest_percent: float | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +191,11 @@ class QuoteTotalsOut(BaseModel):
     tax_amount: float
     freight_amount: float
     total: float
+    installment_count: int = 1
+    installment_interest_percent: float = 0.0
+    installment_interest_amount: float = 0.0
+    installment_total: float = 0.0
+    installment_value: float = 0.0
     currency: str
     is_snapshot: bool
     calculated_at: str

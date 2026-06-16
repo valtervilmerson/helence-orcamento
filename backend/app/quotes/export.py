@@ -413,25 +413,48 @@ def generate_pdf(connection: sqlite3.Connection, quote_id: int) -> bytes:
 
     # Totais
     totals_dict = dict(totals_row)
-    item_discount = totals_dict.get("item_discount_amount") or 0.0
-    quote_discount_val = totals_dict.get("quote_discount_amount") or 0.0
-    legacy_discount = totals_dict.get("discount_amount") or 0.0
+    item_disc = totals_dict.get("item_discount_amount") or 0.0
+    quote_disc = totals_dict.get("quote_discount_amount") or 0.0
+    legacy_disc = totals_dict.get("discount_amount") or 0.0
+    inst_count = int(totals_dict.get("installment_count") or 1)
+    inst_interest_pct = totals_dict.get("installment_interest_percent") or 0.0
+    inst_interest_amt = totals_dict.get("installment_interest_amount") or 0.0
+    inst_total = totals_dict.get("installment_total") or totals_dict["total"]
+    inst_value = totals_dict.get("installment_value") or totals_dict["total"]
 
     totals_rows: list[tuple[str, float, str, bool]] = [
         ("Subtotal", totals_dict["subtotal"], currency, False)
     ]
-    if item_discount > 0 or quote_discount_val > 0:
-        if item_discount > 0:
-            totals_rows.append(("Desc. itens", -item_discount, currency, False))
-        if quote_discount_val > 0:
-            totals_rows.append(("Desc. orçamento", -quote_discount_val, currency, False))
-    elif legacy_discount > 0:
-        totals_rows.append(("Desconto", -legacy_discount, currency, False))
+
+    # Descontos — exibir só se houver
+    if item_disc > 0 or quote_disc > 0:
+        if item_disc > 0:
+            totals_rows.append(("Desc. itens", -item_disc, currency, False))
+        if quote_disc > 0:
+            totals_rows.append(("Desc. orçamento", -quote_disc, currency, False))
+    elif legacy_disc > 0:
+        totals_rows.append(("Desconto", -legacy_disc, currency, False))
+
     if totals_dict.get("tax_amount"):
         totals_rows.append(("Impostos", totals_dict["tax_amount"], currency, False))
     if totals_dict.get("freight_amount"):
         totals_rows.append(("Frete", totals_dict["freight_amount"], currency, False))
-    totals_rows.append(("Total", totals_dict["total"], currency, True))
+
+    # Parcelamento — exibir só se houver parcelas
+    if inst_count > 1:
+        # Com juros: mostrar "Total à vista" antes dos juros
+        if inst_interest_amt > 0:
+            totals_rows.append(("Total à vista", totals_dict["total"], currency, False))
+            pct_label = f"{inst_interest_pct:g}%".replace(".", ",")
+            totals_rows.append((f"Juros ({pct_label})", inst_interest_amt, currency, False))
+            totals_rows.append(("Total c/ juros", inst_total, currency, True))
+        else:
+            totals_rows.append(("Total", totals_dict["total"], currency, True))
+        n_label = f"{inst_count}× de"
+        totals_rows.append((n_label, inst_value, currency, False))
+    else:
+        totals_rows.append(("Total", totals_dict["total"], currency, True))
+
     writer.totals_box(totals_rows)
 
     if catalog_observations:

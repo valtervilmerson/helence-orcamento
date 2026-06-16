@@ -1015,6 +1015,12 @@ function QuoteSettingsForm({
     quote.quote_discount_percent?.toString() ?? quote.quote_discount_amount?.toString() ?? '',
   )
   const [discountReason, setDiscountReason] = useState(quote.quote_discount_reason ?? '')
+  const [installmentCount, setInstallmentCount] = useState(
+    quote.installment_count > 1 ? quote.installment_count.toString() : '',
+  )
+  const [installmentInterest, setInstallmentInterest] = useState(
+    quote.installment_interest_percent > 0 ? quote.installment_interest_percent.toString() : '',
+  )
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -1031,6 +1037,8 @@ function QuoteSettingsForm({
   async function handleSave(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    const count = Number(installmentCount) || 1
+    const interest = count > 1 ? Number(installmentInterest) || 0 : 0
     try {
       await updateQuoteSettings(quote.id, {
         markup_uses_global: usesGlobal,
@@ -1038,6 +1046,8 @@ function QuoteSettingsForm({
         quote_discount_percent: discountMode === 'percent' ? Number(discountValue) || 0 : null,
         quote_discount_amount: discountMode === 'amount' ? Number(discountValue) || 0 : null,
         quote_discount_reason: discountReason || null,
+        installment_count: count,
+        installment_interest_percent: interest,
       })
       onChanged()
     } catch (err) {
@@ -1045,10 +1055,13 @@ function QuoteSettingsForm({
     }
   }
 
+  const count = Number(installmentCount) || 1
+
   return (
     <section>
       <h3>Configurações de preço</h3>
-      <form onSubmit={handleSave} className="action-group" style={{ flexWrap: 'wrap' }}>
+      <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        {/* Markup */}
         <div className="form-field">
           <span className="form-field__label">% de venda</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -1073,35 +1086,75 @@ function QuoteSettingsForm({
             )}
           </div>
         </div>
-        <div className="form-field">
-          <span className="form-field__label">Desconto orçamento</span>
-          <select
-            value={discountMode}
-            onChange={(e) => handleDiscountModeChange(e.target.value as 'none' | 'percent' | 'amount')}
-          >
-            <option value="none">Sem desconto</option>
-            <option value="percent">%</option>
-            <option value="amount">R$</option>
-          </select>
-        </div>
-        {discountMode !== 'none' && (
+
+        {/* Desconto */}
+        <div className="action-group">
+          <div className="form-field">
+            <span className="form-field__label">Desconto orçamento</span>
+            <select
+              value={discountMode}
+              onChange={(e) => handleDiscountModeChange(e.target.value as 'none' | 'percent' | 'amount')}
+            >
+              <option value="none">Sem desconto</option>
+              <option value="percent">%</option>
+              <option value="amount">R$</option>
+            </select>
+          </div>
+          {discountMode !== 'none' && (
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder={discountMode === 'percent' ? '0 %' : '0,00'}
+              style={{ width: '7rem' }}
+              value={discountValue}
+              onChange={(e) => setDiscountValue(e.target.value)}
+            />
+          )}
           <input
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder={discountMode === 'percent' ? '0 %' : '0,00'}
-            style={{ width: '7rem' }}
-            value={discountValue}
-            onChange={(e) => setDiscountValue(e.target.value)}
+            placeholder="Justificativa desconto"
+            style={{ width: '12rem' }}
+            value={discountReason}
+            onChange={(e) => setDiscountReason(e.target.value)}
           />
-        )}
-        <input
-          placeholder="Justificativa desconto"
-          style={{ width: '12rem' }}
-          value={discountReason}
-          onChange={(e) => setDiscountReason(e.target.value)}
-        />
-        <button type="submit">Salvar</button>
+        </div>
+
+        {/* Parcelamento */}
+        <div className="action-group">
+          <div className="form-field">
+            <span className="form-field__label">Parcelamento</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+              <input
+                type="number"
+                min="1"
+                max="60"
+                placeholder="1"
+                style={{ width: '4rem' }}
+                value={installmentCount}
+                onChange={(e) => setInstallmentCount(e.target.value)}
+              />
+              <span style={{ color: 'var(--color-text-muted)' }}>×</span>
+            </div>
+          </div>
+          {count > 1 && (
+            <div className="form-field">
+              <span className="form-field__label">Juros (%)</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0"
+                style={{ width: '6rem' }}
+                value={installmentInterest}
+                onChange={(e) => setInstallmentInterest(e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+
+        <div>
+          <button type="submit">Salvar configurações</button>
+        </div>
       </form>
       <ErrorMessage error={error} />
     </section>
@@ -1333,12 +1386,44 @@ function QuoteDetail({
                 </span>
               </div>
             )}
-            <div className="totals-card__item totals-card__item--total">
-              <span className="totals-card__label">Total</span>
-              <span className="totals-card__value">
-                {totals.currency} {totals.total.toFixed(2)}
-              </span>
-            </div>
+            {totals.installment_count > 1 && totals.installment_interest_amount > 0 ? (
+              <>
+                <div className="totals-card__item">
+                  <span className="totals-card__label">Total à vista</span>
+                  <span className="totals-card__value">{totals.currency} {totals.total.toFixed(2)}</span>
+                </div>
+                <div className="totals-card__item">
+                  <span className="totals-card__label">Juros ({totals.installment_interest_percent}%)</span>
+                  <span className="totals-card__value">+ {totals.currency} {totals.installment_interest_amount.toFixed(2)}</span>
+                </div>
+                <div className="totals-card__item totals-card__item--total">
+                  <span className="totals-card__label">Total c/ juros</span>
+                  <span className="totals-card__value">{totals.currency} {totals.installment_total.toFixed(2)}</span>
+                </div>
+                <div className="totals-card__item">
+                  <span className="totals-card__label">{totals.installment_count}× de</span>
+                  <span className="totals-card__value">{totals.currency} {totals.installment_value.toFixed(2)}</span>
+                </div>
+              </>
+            ) : totals.installment_count > 1 ? (
+              <>
+                <div className="totals-card__item totals-card__item--total">
+                  <span className="totals-card__label">Total</span>
+                  <span className="totals-card__value">{totals.currency} {totals.total.toFixed(2)}</span>
+                </div>
+                <div className="totals-card__item">
+                  <span className="totals-card__label">{totals.installment_count}× de</span>
+                  <span className="totals-card__value">{totals.currency} {totals.installment_value.toFixed(2)}</span>
+                </div>
+              </>
+            ) : (
+              <div className="totals-card__item totals-card__item--total">
+                <span className="totals-card__label">Total</span>
+                <span className="totals-card__value">
+                  {totals.currency} {totals.total.toFixed(2)}
+                </span>
+              </div>
+            )}
           </div>
           {totals.warnings.map((warning) => (
             <p key={warning.code} className="feedback-warning">

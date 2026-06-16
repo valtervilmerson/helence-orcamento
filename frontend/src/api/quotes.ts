@@ -80,6 +80,8 @@ export interface Quote {
   quote_discount_percent: number | null
   quote_discount_amount: number | null
   quote_discount_reason: string | null
+  installment_count: number
+  installment_interest_percent: number
 }
 
 export const listQuotes = () => request<Quote[]>('/quotes')
@@ -100,6 +102,8 @@ export const updateQuoteSettings = (
     quote_discount_percent: number | null
     quote_discount_amount: number | null
     quote_discount_reason: string | null
+    installment_count: number
+    installment_interest_percent: number
   }>,
 ) => request<Quote>(`/quotes/${id}/settings`, { method: 'PATCH', body: JSON.stringify(data) })
 export const duplicateQuote = (id: number) =>
@@ -228,6 +232,11 @@ export interface QuoteTotals {
   tax_amount: number
   freight_amount: number
   total: number
+  installment_count: number
+  installment_interest_percent: number
+  installment_interest_amount: number
+  installment_total: number
+  installment_value: number
   currency: string
   is_snapshot: boolean
   calculated_at: string

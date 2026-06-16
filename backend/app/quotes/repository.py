@@ -55,15 +55,18 @@ def insert_quote(
     quote_discount_percent: float | None = None,
     quote_discount_amount: float | None = None,
     quote_discount_reason: str | None = None,
+    installment_count: int = 1,
+    installment_interest_percent: float = 0.0,
 ) -> int:
     cursor = connection.execute(
         """
         INSERT INTO quotes (
             quote_number, customer_id, status, valid_until, notes, source_quote_id,
             markup_percent, markup_uses_global,
-            quote_discount_percent, quote_discount_amount, quote_discount_reason
+            quote_discount_percent, quote_discount_amount, quote_discount_reason,
+            installment_count, installment_interest_percent
         )
-        VALUES (?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             quote_number,
@@ -76,6 +79,8 @@ def insert_quote(
             quote_discount_percent,
             quote_discount_amount,
             quote_discount_reason,
+            installment_count,
+            installment_interest_percent,
         ),
     )
     connection.commit()
@@ -96,6 +101,8 @@ _QUOTE_BASE = """
         q.quote_discount_percent AS quote_discount_percent,
         q.quote_discount_amount AS quote_discount_amount,
         q.quote_discount_reason AS quote_discount_reason,
+        q.installment_count AS installment_count,
+        q.installment_interest_percent AS installment_interest_percent,
         c.id AS customer_id,
         c.name AS customer_name,
         u.id AS created_by_id,
@@ -136,6 +143,8 @@ def update_quote_settings(connection: sqlite3.Connection, quote_id: int, data: d
         "quote_discount_percent",
         "quote_discount_amount",
         "quote_discount_reason",
+        "installment_count",
+        "installment_interest_percent",
     ]
     cols = [c for c in allowed_cols if c in data]
     if not cols:
@@ -488,15 +497,22 @@ def upsert_quote_totals(
     tax_amount: float,
     freight_amount: float,
     total: float,
+    installment_count: int,
+    installment_interest_percent: float,
+    installment_interest_amount: float,
+    installment_total: float,
+    installment_value: float,
     currency: str,
 ) -> sqlite3.Row:
     connection.execute(
         """
         INSERT INTO quote_totals
             (quote_id, subtotal, item_discount_amount, quote_discount_amount,
-             discount_percent, discount_amount, tax_amount,
-             freight_amount, total, currency, calculated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+             discount_percent, discount_amount, tax_amount, freight_amount, total,
+             installment_count, installment_interest_percent,
+             installment_interest_amount, installment_total, installment_value,
+             currency, calculated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
         ON CONFLICT(quote_id) DO UPDATE SET
             subtotal = excluded.subtotal,
             item_discount_amount = excluded.item_discount_amount,
@@ -506,6 +522,11 @@ def upsert_quote_totals(
             tax_amount = excluded.tax_amount,
             freight_amount = excluded.freight_amount,
             total = excluded.total,
+            installment_count = excluded.installment_count,
+            installment_interest_percent = excluded.installment_interest_percent,
+            installment_interest_amount = excluded.installment_interest_amount,
+            installment_total = excluded.installment_total,
+            installment_value = excluded.installment_value,
             currency = excluded.currency,
             calculated_at = excluded.calculated_at
         """,
@@ -519,6 +540,11 @@ def upsert_quote_totals(
             tax_amount,
             freight_amount,
             total,
+            installment_count,
+            installment_interest_percent,
+            installment_interest_amount,
+            installment_total,
+            installment_value,
             currency,
         ),
     )

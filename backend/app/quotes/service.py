@@ -90,6 +90,8 @@ def _row_to_quote_out(row: sqlite3.Row) -> QuoteOut:
         quote_discount_percent=row["quote_discount_percent"],
         quote_discount_amount=row["quote_discount_amount"],
         quote_discount_reason=row["quote_discount_reason"],
+        installment_count=row["installment_count"] or 1,
+        installment_interest_percent=row["installment_interest_percent"] or 0.0,
     )
 
 
@@ -138,6 +140,8 @@ def create_quote(
     quote_discount_percent: float | None = None,
     quote_discount_amount: float | None = None,
     quote_discount_reason: str | None = None,
+    installment_count: int = 1,
+    installment_interest_percent: float = 0.0,
 ) -> QuoteOut:
     customer = repository.get_customer(connection, customer_id)
     if customer is None:
@@ -154,6 +158,8 @@ def create_quote(
         quote_discount_percent=quote_discount_percent,
         quote_discount_amount=quote_discount_amount,
         quote_discount_reason=quote_discount_reason,
+        installment_count=installment_count,
+        installment_interest_percent=installment_interest_percent,
     )
     return get_quote(connection, quote_id)
 
@@ -219,6 +225,8 @@ def duplicate_quote(connection: sqlite3.Connection, quote_id: int) -> QuoteOut:
         quote_discount_percent=source_row["quote_discount_percent"],
         quote_discount_amount=source_row["quote_discount_amount"],
         quote_discount_reason=source_row["quote_discount_reason"],
+        installment_count=source_row["installment_count"] or 1,
+        installment_interest_percent=source_row["installment_interest_percent"] or 0.0,
     )
 
     for item_row in repository.list_items_with_components(connection, quote_id):
@@ -297,6 +305,21 @@ def _get_effective_markup_percent(connection: sqlite3.Connection, quote_row: sql
 
 def _get_markup_factor(connection: sqlite3.Connection, quote_row: sqlite3.Row) -> float:
     return 1.0 + _get_effective_markup_percent(connection, quote_row) / 100.0
+
+
+def _compute_installments(total: float, quote_row: sqlite3.Row) -> dict[str, Any]:
+    count = int(quote_row["installment_count"] or 1)
+    interest_pct = float(quote_row["installment_interest_percent"] or 0.0)
+    interest_amt = round(total * interest_pct / 100.0, 2)
+    inst_total = round(total + interest_amt, 2)
+    inst_value = round(inst_total / count, 2) if count > 1 else inst_total
+    return {
+        "installment_count": count,
+        "installment_interest_percent": interest_pct,
+        "installment_interest_amount": interest_amt,
+        "installment_total": inst_total,
+        "installment_value": inst_value,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -856,12 +879,14 @@ def get_totals(connection: sqlite3.Connection, quote_id: int) -> QuoteTotalsOut:
         quote_discount_amount=quote_row["quote_discount_amount"],
     )
 
+    inst = _compute_installments(totals["total"], quote_row)
     return QuoteTotalsOut(
         quote_id=quote_id,
         is_snapshot=False,
         calculated_at=_now(),
         warnings=[QuoteTotalWarning(**w) for w in totals["warnings"]],
         **{k: v for k, v in totals.items() if k != "warnings"},
+        **inst,
     )
 
 
@@ -888,6 +913,7 @@ def freeze_totals(connection: sqlite3.Connection, quote_id: int) -> QuoteTotalsO
         quote_discount_amount=quote_row["quote_discount_amount"],
     )
 
+    inst = _compute_installments(totals["total"], quote_row)
     row = repository.upsert_quote_totals(
         connection,
         quote_id=quote_id,
@@ -899,6 +925,11 @@ def freeze_totals(connection: sqlite3.Connection, quote_id: int) -> QuoteTotalsO
         tax_amount=totals["tax_amount"],
         freight_amount=totals["freight_amount"],
         total=totals["total"],
+        installment_count=inst["installment_count"],
+        installment_interest_percent=inst["installment_interest_percent"],
+        installment_interest_amount=inst["installment_interest_amount"],
+        installment_total=inst["installment_total"],
+        installment_value=inst["installment_value"],
         currency=totals["currency"],
     )
     logger.info(
@@ -918,6 +949,11 @@ def freeze_totals(connection: sqlite3.Connection, quote_id: int) -> QuoteTotalsO
         tax_amount=row["tax_amount"],
         freight_amount=row["freight_amount"],
         total=row["total"],
+        installment_count=row["installment_count"] or 1,
+        installment_interest_percent=row["installment_interest_percent"] or 0.0,
+        installment_interest_amount=row["installment_interest_amount"] or 0.0,
+        installment_total=row["installment_total"] or 0.0,
+        installment_value=row["installment_value"] or 0.0,
         currency=row["currency"],
         is_snapshot=True,
         calculated_at=row["calculated_at"],
