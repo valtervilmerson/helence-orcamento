@@ -967,3 +967,48 @@ mesma `price_table.code` atualizando preços de variações já publicadas.
 | 9 | As regras de composição mais complexas (e mais valiosas comercialmente) estão provadas contra dados reais em volume |
 | 11 | O sistema está pronto, tecnicamente, para operar de forma confiável e recuperável |
 | 12 | O sistema está pronto para ser **operado por alguém além do time que o construiu** |
+| 13 | Importação via planilhas Excel funciona end-to-end via agente de IA externo + contrato JSON |
+
+---
+
+## Melhorias pós-Fase 13 (implementadas em 2026-06-15)
+
+Estas melhorias foram entregues após o plano original de 13 fases,
+respondendo a necessidades operacionais identificadas em uso real.
+
+### Itens avulsos vs. compostos no orçamento (commit `d404fca`)
+
+O formulário de adição de item passou a diferenciar explicitamente
+dois modos:
+
+- **Avulso**: exatamente um componente; fluxo simplificado (escolher
+  componente → nomear → adicionar).
+- **Composto**: componente base obrigatório (define a dimensão via
+  RN-03) + 1 ou mais componentes adicionais; o nome é livre. O botão
+  de submissão fica desabilitado enquanto não houver ao menos um
+  componente além do base.
+
+Diferenciação visual nas linhas do orçamento: badge verde
+"Composto" ou cinza "Avulso" ao lado do nome; itens compostos listam
+todos os componentes com o primeiro marcado "base". O PDF exportado
+prefixia a linha com `[Composto]` e o primeiro componente com `BASE —`.
+
+**Arquivos alterados**: `frontend/src/pages/quotes/QuotesPage.tsx`,
+`frontend/src/index.css`, `backend/app/quotes/export.py`.
+
+### Edição inline de variações no catálogo (commit `0e8ddca`)
+
+A página de variações vendáveis (`/catalogo/variacoes`) ganhou botão
+**"editar"** por linha. Ao clicar, expande um formulário inline (padrão
+já usado nos orçamentos) com todos os campos editáveis:
+
+- Tipo de componente, produto-base, dimensão, acabamento (dropdowns
+  pré-populados pelo match de nome com os dados do contexto).
+- Descritor, descrição, SKU e **preço** (inputs de texto/número).
+
+Expõe o endpoint `PATCH /api/v1/components/{id}` já existente no
+backend, que até então não tinha interface de uso.
+
+**Arquivos alterados**: `frontend/src/api/catalog.ts` (nova função
+`updateComponent` + tipo `ComponentVariantPatchInput`),
+`frontend/src/pages/catalog/variants/VariantsPage.tsx`.
