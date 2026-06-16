@@ -198,9 +198,13 @@ export interface ComponentVariantInput {
   price?: { amount: number; currency: string } | null
 }
 
+export type ComponentVariantPatchInput = Partial<ComponentVariantInput>
+
 export const createComponent = (data: ComponentVariantInput) =>
   request<ComponentVariant>('/components', { method: 'POST', body: JSON.stringify(data) })
 export const getComponent = (id: number) => request<ComponentVariant>(`/components/${id}`)
+export const updateComponent = (id: number, data: ComponentVariantPatchInput) =>
+  request<ComponentVariant>(`/components/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const deleteComponent = (id: number) =>
   request<void>(`/components/${id}`, { method: 'DELETE' })
 

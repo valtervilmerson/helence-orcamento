@@ -2,14 +2,179 @@ import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import {
   type ComponentVariant,
+  type Dimension,
+  type Finish,
+  type Product,
+  type ProductComponentType,
   createComponent,
   deleteComponent,
   searchComponents,
+  updateComponent,
 } from '../../../api/catalog'
 import { ErrorMessage } from '../shared'
 import { describeError, type CatalogContextValue } from '../catalogContext'
 
 const PAGE_SIZE = 25
+
+// ---------------------------------------------------------------------------
+// Formulário de edição inline de uma variação (linha expandida na tabela)
+// ---------------------------------------------------------------------------
+
+function EditVariantForm({
+  item,
+  componentTypes,
+  products,
+  dimensions,
+  finishes,
+  onSaved,
+  onCancel,
+}: {
+  item: ComponentVariant
+  componentTypes: ProductComponentType[]
+  products: Product[]
+  dimensions: Dimension[]
+  finishes: Finish[]
+  onSaved: () => void
+  onCancel: () => void
+}) {
+  const currentComponentType = componentTypes.find((ct) => ct.name === item.component)
+  const currentProduct = products.find((p) => p.name === item.product)
+  const currentDimension = dimensions.find((d) => d.raw_label === item.dimension?.raw_label)
+  const currentFinish = finishes.find((f) => f.name === item.finish)
+
+  const [componentTypeId, setComponentTypeId] = useState(String(currentComponentType?.id ?? ''))
+  const [productId, setProductId] = useState(String(currentProduct?.id ?? ''))
+  const [dimensionId, setDimensionId] = useState(String(currentDimension?.id ?? ''))
+  const [finishId, setFinishId] = useState(String(currentFinish?.id ?? ''))
+  const [descriptor, setDescriptor] = useState(item.descriptor ?? '')
+  const [description, setDescription] = useState(item.description ?? '')
+  const [skuCode, setSkuCode] = useState(item.sku ?? '')
+  const [priceAmount, setPriceAmount] = useState(item.price?.amount.toFixed(2) ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSave(event: React.FormEvent) {
+    event.preventDefault()
+    setSaving(true)
+    setError(null)
+    try {
+      await updateComponent(item.component_variant_id, {
+        component_id: componentTypeId ? Number(componentTypeId) : undefined,
+        product_id: productId ? Number(productId) : null,
+        dimension_id: dimensionId ? Number(dimensionId) : null,
+        finish_id: finishId ? Number(finishId) : null,
+        descriptor: descriptor || null,
+        description: description || null,
+        sku: skuCode ? { code: skuCode } : null,
+        price: priceAmount ? { amount: Number(priceAmount), currency: 'BRL' } : null,
+      })
+      onSaved()
+    } catch (err) {
+      setError(describeError(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSave}>
+      <div className="form-row">
+        <div className="form-field">
+          <span className="form-field__label">Tipo de componente *</span>
+          <select value={componentTypeId} onChange={(e) => setComponentTypeId(e.target.value)} required>
+            <option value="">(selecione)</option>
+            {componentTypes.map((ct) => (
+              <option key={ct.id} value={ct.id}>
+                {ct.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-field">
+          <span className="form-field__label">Produto-base</span>
+          <select value={productId} onChange={(e) => setProductId(e.target.value)}>
+            <option value="">(nenhum)</option>
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-field">
+          <span className="form-field__label">Dimensão</span>
+          <select value={dimensionId} onChange={(e) => setDimensionId(e.target.value)}>
+            <option value="">(nenhuma)</option>
+            {dimensions.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.raw_label ?? `#${d.id}`}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-field">
+          <span className="form-field__label">Acabamento</span>
+          <select value={finishId} onChange={(e) => setFinishId(e.target.value)}>
+            <option value="">(nenhum)</option>
+            {finishes.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="form-row" style={{ marginTop: 'var(--space-3)' }}>
+        <div className="form-field">
+          <span className="form-field__label">Descritor</span>
+          <input
+            value={descriptor}
+            onChange={(e) => setDescriptor(e.target.value)}
+            placeholder="ex.: Inteiro Simples"
+          />
+        </div>
+        <div className="form-field" style={{ flex: 2 }}>
+          <span className="form-field__label">Descrição</span>
+          <input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Descrição completa do item"
+            style={{ width: '100%' }}
+          />
+        </div>
+        <div className="form-field">
+          <span className="form-field__label">SKU</span>
+          <input
+            value={skuCode}
+            onChange={(e) => setSkuCode(e.target.value)}
+            placeholder="Código SKU"
+          />
+        </div>
+        <div className="form-field">
+          <span className="form-field__label">Preço (R$)</span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={priceAmount}
+            onChange={(e) => setPriceAmount(e.target.value)}
+            placeholder="0,00"
+            style={{ width: '8rem' }}
+          />
+        </div>
+      </div>
+      <div className="action-group" style={{ marginTop: 'var(--space-3)' }}>
+        <button type="submit" disabled={saving || !componentTypeId}>
+          {saving ? 'Salvando…' : 'Salvar'}
+        </button>
+        <button type="button" className="secondary" onClick={onCancel}>
+          Cancelar
+        </button>
+      </div>
+      <ErrorMessage error={error} />
+    </form>
+  )
+}
 
 export function VariantsPage() {
   const { families, products, dimensions, finishes, componentTypes, reload } =
@@ -26,6 +191,7 @@ export function VariantsPage() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
 
   const [productId, setProductId] = useState('')
   const [componentId, setComponentId] = useState('')
@@ -218,24 +384,63 @@ export function VariantsPage() {
         </thead>
         <tbody>
           {results.map((item) => (
-            <tr key={item.component_variant_id}>
-              <td>{item.component_variant_id}</td>
-              <td>{item.family ?? '—'}</td>
-              <td>{item.product ?? '—'}</td>
-              <td>{item.component}</td>
-              <td>{item.descriptor ?? '—'}</td>
-              <td>{item.dimension?.raw_label ?? '—'}</td>
-              <td>{item.finish ?? '—'}</td>
-              <td>{item.sku ?? '—'}</td>
-              <td>
-                {item.price ? `${item.price.currency} ${item.price.amount.toFixed(2)}` : '—'}
-              </td>
-              <td>
-                <button className="danger" onClick={() => void handleDelete(item.component_variant_id)}>
-                  excluir
-                </button>
-              </td>
-            </tr>
+            <>
+              <tr key={item.component_variant_id} className={editingId === item.component_variant_id ? 'is-selected' : ''}>
+                <td>{item.component_variant_id}</td>
+                <td>{item.family ?? '—'}</td>
+                <td>{item.product ?? '—'}</td>
+                <td>{item.component}</td>
+                <td>{item.descriptor ?? '—'}</td>
+                <td>{item.dimension?.raw_label ?? '—'}</td>
+                <td>{item.finish ?? '—'}</td>
+                <td>{item.sku ?? '—'}</td>
+                <td>
+                  {item.price ? `${item.price.currency} ${item.price.amount.toFixed(2)}` : '—'}
+                </td>
+                <td>
+                  <div className="action-group">
+                    <button
+                      className="secondary"
+                      onClick={() =>
+                        setEditingId(editingId === item.component_variant_id ? null : item.component_variant_id)
+                      }
+                    >
+                      {editingId === item.component_variant_id ? 'cancelar' : 'editar'}
+                    </button>
+                    <button
+                      className="danger"
+                      onClick={() => {
+                        if (editingId === item.component_variant_id) setEditingId(null)
+                        void handleDelete(item.component_variant_id)
+                      }}
+                    >
+                      excluir
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {editingId === item.component_variant_id && (
+                <tr key={`edit-${item.component_variant_id}`}>
+                  <td colSpan={10} style={{ background: 'var(--color-bg)', padding: 'var(--space-4)' }}>
+                    <p style={{ margin: '0 0 var(--space-3)', fontWeight: 600 }}>
+                      Editar variação #{item.component_variant_id} — {item.component}{item.descriptor ? ` · ${item.descriptor}` : ''}
+                    </p>
+                    <EditVariantForm
+                      item={item}
+                      componentTypes={componentTypes}
+                      products={products}
+                      dimensions={dimensions}
+                      finishes={finishes}
+                      onSaved={() => {
+                        setEditingId(null)
+                        void runSearch(page)
+                      }}
+                      onCancel={() => setEditingId(null)}
+                    />
+                  </td>
+                </tr>
+              )}
+            </>
           ))}
           {!loading && results.length === 0 && (
             <tr>
