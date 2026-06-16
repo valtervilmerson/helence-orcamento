@@ -335,6 +335,7 @@ def generate_pdf(connection: sqlite3.Connection, quote_id: int) -> bytes:
     totals_row = repository.get_quote_totals_row(connection, quote_id)
     catalog_observations = repository.get_catalog_observations_for_quote(connection, quote_id)
     currency = totals_row["currency"] if totals_row else "BRL"
+    markup_factor = 1.0 + (quote_row["markup_percent"] or 0.0) / 100.0
 
     doc = fitz.open()
     generated_at = datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -369,8 +370,8 @@ def generate_pdf(connection: sqlite3.Connection, quote_id: int) -> bytes:
         ]
         item_dict = dict(item_row)
         is_composite = len(component_rows) > 1
-        unit_value = pricing.component_total(component_rows)
-        subtotal = pricing.line_subtotal(item_dict, component_rows)
+        unit_value = pricing.component_total(component_rows, markup_factor)
+        subtotal = pricing.line_subtotal(item_dict, component_rows, markup_factor)
 
         label = item_row["label"]
         if is_composite:
@@ -379,7 +380,8 @@ def generate_pdf(connection: sqlite3.Connection, quote_id: int) -> bytes:
         for idx, component_row in enumerate(component_rows):
             if component_row["sku"]:
                 price_text = _format_currency(
-                    component_row["frozen_unit_price"], component_row["frozen_currency"]
+                    component_row["frozen_unit_price"] * markup_factor,
+                    component_row["frozen_currency"],
                 )
                 prefix = "BASE — " if (is_composite and idx == 0) else ""
                 writer.line(
@@ -405,16 +407,26 @@ def generate_pdf(connection: sqlite3.Connection, quote_id: int) -> bytes:
     writer.spacer(10)
 
     # Totais
+    totals_dict = dict(totals_row)
+    item_discount = totals_dict.get("item_discount_amount") or 0.0
+    quote_discount_val = totals_dict.get("quote_discount_amount") or 0.0
+    legacy_discount = totals_dict.get("discount_amount") or 0.0
+
     totals_rows: list[tuple[str, float, str, bool]] = [
-        ("Subtotal", totals_row["subtotal"], currency, False)
+        ("Subtotal", totals_dict["subtotal"], currency, False)
     ]
-    if totals_row["discount_amount"]:
-        totals_rows.append(("Desconto", -totals_row["discount_amount"], currency, False))
-    if totals_row["tax_amount"]:
-        totals_rows.append(("Impostos", totals_row["tax_amount"], currency, False))
-    if totals_row["freight_amount"]:
-        totals_rows.append(("Frete", totals_row["freight_amount"], currency, False))
-    totals_rows.append(("Total", totals_row["total"], currency, True))
+    if item_discount > 0 or quote_discount_val > 0:
+        if item_discount > 0:
+            totals_rows.append(("Desc. itens", -item_discount, currency, False))
+        if quote_discount_val > 0:
+            totals_rows.append(("Desc. orçamento", -quote_discount_val, currency, False))
+    elif legacy_discount > 0:
+        totals_rows.append(("Desconto", -legacy_discount, currency, False))
+    if totals_dict.get("tax_amount"):
+        totals_rows.append(("Impostos", totals_dict["tax_amount"], currency, False))
+    if totals_dict.get("freight_amount"):
+        totals_rows.append(("Frete", totals_dict["freight_amount"], currency, False))
+    totals_rows.append(("Total", totals_dict["total"], currency, True))
     writer.totals_box(totals_rows)
 
     if catalog_observations:

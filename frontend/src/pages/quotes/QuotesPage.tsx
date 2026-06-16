@@ -32,6 +32,7 @@ import {
   removeItem,
   swapComponent,
   updateItem,
+  updateQuoteSettings,
   updateQuoteStatus,
   type Customer,
   type Quote,
@@ -852,10 +853,20 @@ function ItemRow({
   onChanged: () => void
 }) {
   const [quantity, setQuantity] = useState(String(item.quantity))
-  const [discountPercent, setDiscountPercent] = useState(item.discount_percent?.toString() ?? '')
+  const [discountMode, setDiscountMode] = useState<'none' | 'percent' | 'amount'>(
+    item.discount_percent != null ? 'percent' : item.discount_amount != null ? 'amount' : 'none',
+  )
+  const [discountValue, setDiscountValue] = useState(
+    item.discount_percent?.toString() ?? item.discount_amount?.toString() ?? '',
+  )
   const [discountReason, setDiscountReason] = useState(item.discount_reason ?? '')
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  function handleDiscountModeChange(mode: 'none' | 'percent' | 'amount') {
+    setDiscountMode(mode)
+    setDiscountValue('')
+  }
 
   async function handleSave(event: React.FormEvent) {
     event.preventDefault()
@@ -863,7 +874,8 @@ function ItemRow({
     try {
       await updateItem(quoteId, item.id, {
         quantity: Number(quantity) || 1,
-        discount_percent: discountPercent ? Number(discountPercent) : null,
+        discount_percent: discountMode === 'percent' ? Number(discountValue) || 0 : null,
+        discount_amount: discountMode === 'amount' ? Number(discountValue) || 0 : null,
         discount_reason: discountReason || null,
       })
       onChanged()
@@ -931,15 +943,26 @@ function ItemRow({
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
             />
-            <input
-              type="number"
-              min="0"
-              max="100"
-              placeholder="% desc."
-              style={{ width: '5rem' }}
-              value={discountPercent}
-              onChange={(e) => setDiscountPercent(e.target.value)}
-            />
+            <select
+              style={{ width: '6rem' }}
+              value={discountMode}
+              onChange={(e) => handleDiscountModeChange(e.target.value as 'none' | 'percent' | 'amount')}
+            >
+              <option value="none">sem desc.</option>
+              <option value="percent">% desc.</option>
+              <option value="amount">R$ desc.</option>
+            </select>
+            {discountMode !== 'none' && (
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder={discountMode === 'percent' ? '0' : '0,00'}
+                style={{ width: '6rem' }}
+                value={discountValue}
+                onChange={(e) => setDiscountValue(e.target.value)}
+              />
+            )}
             <input
               placeholder="Justificativa"
               style={{ width: '8rem' }}
@@ -971,6 +994,89 @@ function ItemRow({
         />
       )}
     </>
+  )
+}
+
+function QuoteSettingsForm({ quote, onChanged }: { quote: Quote; onChanged: () => void }) {
+  const [markupPercent, setMarkupPercent] = useState(quote.markup_percent.toString())
+  const [discountMode, setDiscountMode] = useState<'none' | 'percent' | 'amount'>(
+    quote.quote_discount_percent != null ? 'percent' : quote.quote_discount_amount != null ? 'amount' : 'none',
+  )
+  const [discountValue, setDiscountValue] = useState(
+    quote.quote_discount_percent?.toString() ?? quote.quote_discount_amount?.toString() ?? '',
+  )
+  const [discountReason, setDiscountReason] = useState(quote.quote_discount_reason ?? '')
+  const [error, setError] = useState<string | null>(null)
+
+  function handleDiscountModeChange(mode: 'none' | 'percent' | 'amount') {
+    setDiscountMode(mode)
+    setDiscountValue('')
+  }
+
+  async function handleSave(event: React.FormEvent) {
+    event.preventDefault()
+    setError(null)
+    try {
+      await updateQuoteSettings(quote.id, {
+        markup_percent: Number(markupPercent) || 0,
+        quote_discount_percent: discountMode === 'percent' ? Number(discountValue) || 0 : null,
+        quote_discount_amount: discountMode === 'amount' ? Number(discountValue) || 0 : null,
+        quote_discount_reason: discountReason || null,
+      })
+      onChanged()
+    } catch (err) {
+      setError(describeError(err))
+    }
+  }
+
+  return (
+    <section>
+      <h3>Configurações de preço</h3>
+      <form onSubmit={handleSave} className="action-group">
+        <div className="form-field">
+          <span className="form-field__label">% de venda</span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="0"
+            style={{ width: '6rem' }}
+            value={markupPercent}
+            onChange={(e) => setMarkupPercent(e.target.value)}
+          />
+        </div>
+        <div className="form-field">
+          <span className="form-field__label">Desconto global</span>
+          <select
+            value={discountMode}
+            onChange={(e) => handleDiscountModeChange(e.target.value as 'none' | 'percent' | 'amount')}
+          >
+            <option value="none">Sem desconto</option>
+            <option value="percent">%</option>
+            <option value="amount">R$</option>
+          </select>
+        </div>
+        {discountMode !== 'none' && (
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder={discountMode === 'percent' ? '0 %' : '0,00'}
+            style={{ width: '7rem' }}
+            value={discountValue}
+            onChange={(e) => setDiscountValue(e.target.value)}
+          />
+        )}
+        <input
+          placeholder="Justificativa desconto"
+          style={{ width: '12rem' }}
+          value={discountReason}
+          onChange={(e) => setDiscountReason(e.target.value)}
+        />
+        <button type="submit">Salvar</button>
+      </form>
+      <ErrorMessage error={error} />
+    </section>
   )
 }
 
@@ -1131,13 +1237,16 @@ function QuoteDetail({
       </div>
 
       {quote.status === 'rascunho' && (
-        <NewItemForm
-          quoteId={quote.id}
-          families={families}
-          finishes={finishes}
-          dimensions={dimensions}
-          onAdded={() => void reload()}
-        />
+        <>
+          <QuoteSettingsForm quote={quote} onChanged={onChanged} />
+          <NewItemForm
+            quoteId={quote.id}
+            families={families}
+            finishes={finishes}
+            dimensions={dimensions}
+            onAdded={() => void reload()}
+          />
+        </>
       )}
 
       {checklist && (
@@ -1169,12 +1278,30 @@ function QuoteDetail({
                 {totals.currency} {totals.subtotal.toFixed(2)}
               </span>
             </div>
-            <div className="totals-card__item">
-              <span className="totals-card__label">Desconto</span>
-              <span className="totals-card__value">
-                {totals.currency} {totals.discount_amount.toFixed(2)} ({totals.discount_percent.toFixed(2)}%)
-              </span>
-            </div>
+            {totals.item_discount_amount > 0 && (
+              <div className="totals-card__item">
+                <span className="totals-card__label">Desc. itens</span>
+                <span className="totals-card__value">
+                  − {totals.currency} {totals.item_discount_amount.toFixed(2)}
+                </span>
+              </div>
+            )}
+            {totals.quote_discount_amount > 0 && (
+              <div className="totals-card__item">
+                <span className="totals-card__label">Desc. orçamento</span>
+                <span className="totals-card__value">
+                  − {totals.currency} {totals.quote_discount_amount.toFixed(2)}
+                </span>
+              </div>
+            )}
+            {totals.item_discount_amount === 0 && totals.quote_discount_amount === 0 && totals.discount_amount > 0 && (
+              <div className="totals-card__item">
+                <span className="totals-card__label">Desconto</span>
+                <span className="totals-card__value">
+                  − {totals.currency} {totals.discount_amount.toFixed(2)} ({totals.discount_percent.toFixed(2)}%)
+                </span>
+              </div>
+            )}
             <div className="totals-card__item totals-card__item--total">
               <span className="totals-card__label">Total</span>
               <span className="totals-card__value">

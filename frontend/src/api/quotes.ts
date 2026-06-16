@@ -75,14 +75,31 @@ export interface Quote {
   valid_until: string | null
   notes: string | null
   source_quote_id: number | null
+  markup_percent: number
+  quote_discount_percent: number | null
+  quote_discount_amount: number | null
+  quote_discount_reason: string | null
 }
 
 export const listQuotes = () => request<Quote[]>('/quotes')
 export const getQuote = (id: number) => request<Quote>(`/quotes/${id}`)
-export const createQuote = (data: { customer_id: number; valid_until?: string | null; notes?: string | null }) =>
-  request<Quote>('/quotes', { method: 'POST', body: JSON.stringify(data) })
+export const createQuote = (data: {
+  customer_id: number
+  valid_until?: string | null
+  notes?: string | null
+  markup_percent?: number
+}) => request<Quote>('/quotes', { method: 'POST', body: JSON.stringify(data) })
 export const updateQuoteStatus = (id: number, status: QuoteStatus) =>
   request<Quote>(`/quotes/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) })
+export const updateQuoteSettings = (
+  id: number,
+  data: Partial<{
+    markup_percent: number
+    quote_discount_percent: number | null
+    quote_discount_amount: number | null
+    quote_discount_reason: string | null
+  }>,
+) => request<Quote>(`/quotes/${id}/settings`, { method: 'PATCH', body: JSON.stringify(data) })
 export const duplicateQuote = (id: number) =>
   request<Quote>(`/quotes/${id}/duplicate`, { method: 'POST' })
 export const deleteQuote = (id: number) =>
@@ -202,6 +219,8 @@ export interface QuoteTotalWarning {
 export interface QuoteTotals {
   quote_id: number
   subtotal: number
+  item_discount_amount: number
+  quote_discount_amount: number
   discount_percent: number
   discount_amount: number
   tax_amount: number

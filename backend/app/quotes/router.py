@@ -20,6 +20,7 @@ from app.quotes.schemas import (
     QuoteItemPatchIn,
     QuoteOut,
     QuoteReviewChecklistOut,
+    QuoteSettingsPatchIn,
     QuoteStatusPatchIn,
     QuoteTotalsOut,
 )
@@ -63,7 +64,16 @@ def create_customer(
 def create_quote(
     payload: QuoteCreateIn, connection: sqlite3.Connection = Depends(get_db)
 ) -> QuoteOut:
-    return service.create_quote(connection, payload.customer_id, payload.valid_until, payload.notes)
+    return service.create_quote(
+        connection,
+        payload.customer_id,
+        payload.valid_until,
+        payload.notes,
+        markup_percent=payload.markup_percent,
+        quote_discount_percent=payload.quote_discount_percent,
+        quote_discount_amount=payload.quote_discount_amount,
+        quote_discount_reason=payload.quote_discount_reason,
+    )
 
 
 @router.get("", response_model=list[QuoteOut], dependencies=[Depends(get_current_user)])
@@ -85,6 +95,17 @@ def update_quote_status(
     quote_id: int, payload: QuoteStatusPatchIn, connection: sqlite3.Connection = Depends(get_db)
 ) -> QuoteOut:
     return service.update_status(connection, quote_id, payload.status)
+
+
+@router.patch(
+    "/{quote_id}/settings",
+    response_model=QuoteOut,
+    dependencies=[Depends(require_role("vendedor", "admin"))],
+)
+def update_quote_settings(
+    quote_id: int, payload: QuoteSettingsPatchIn, connection: sqlite3.Connection = Depends(get_db)
+) -> QuoteOut:
+    return service.update_quote_settings(connection, quote_id, payload)
 
 
 @router.delete(

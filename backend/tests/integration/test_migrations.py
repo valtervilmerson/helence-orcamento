@@ -48,6 +48,7 @@ def test_migrations_are_idempotent(connection) -> None:
         "0009_preco_por_item",
         "0010_product_kit_items",
         "0011_product_compositions",
+        "0012_quote_markup_and_discount",
     ]
     assert second == []
 
@@ -64,6 +65,7 @@ def test_migrations_are_idempotent(connection) -> None:
         "0009_preco_por_item",
         "0010_product_kit_items",
         "0011_product_compositions",
+        "0012_quote_markup_and_discount",
     ]
 
 

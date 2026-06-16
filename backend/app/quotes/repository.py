@@ -50,13 +50,30 @@ def insert_quote(
     valid_until: str | None,
     notes: str | None,
     source_quote_id: int | None = None,
+    markup_percent: float = 0.0,
+    quote_discount_percent: float | None = None,
+    quote_discount_amount: float | None = None,
+    quote_discount_reason: str | None = None,
 ) -> int:
     cursor = connection.execute(
         """
-        INSERT INTO quotes (quote_number, customer_id, status, valid_until, notes, source_quote_id)
-        VALUES (?, ?, 'rascunho', ?, ?, ?)
+        INSERT INTO quotes (
+            quote_number, customer_id, status, valid_until, notes, source_quote_id,
+            markup_percent, quote_discount_percent, quote_discount_amount, quote_discount_reason
+        )
+        VALUES (?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?)
         """,
-        (quote_number, customer_id, valid_until, notes, source_quote_id),
+        (
+            quote_number,
+            customer_id,
+            valid_until,
+            notes,
+            source_quote_id,
+            markup_percent,
+            quote_discount_percent,
+            quote_discount_amount,
+            quote_discount_reason,
+        ),
     )
     connection.commit()
     return int(cursor.lastrowid)
@@ -71,6 +88,10 @@ _QUOTE_BASE = """
         q.valid_until AS valid_until,
         q.notes AS notes,
         q.source_quote_id AS source_quote_id,
+        q.markup_percent AS markup_percent,
+        q.quote_discount_percent AS quote_discount_percent,
+        q.quote_discount_amount AS quote_discount_amount,
+        q.quote_discount_reason AS quote_discount_reason,
         c.id AS customer_id,
         c.name AS customer_name,
         u.id AS created_by_id,
@@ -101,6 +122,24 @@ def get_quote_status(connection: sqlite3.Connection, quote_id: int) -> str | Non
 
 def update_quote_status(connection: sqlite3.Connection, quote_id: int, new_status: str) -> None:
     connection.execute("UPDATE quotes SET status = ? WHERE id = ?", (new_status, quote_id))
+    connection.commit()
+
+
+def update_quote_settings(connection: sqlite3.Connection, quote_id: int, data: dict[str, Any]) -> None:
+    allowed_cols = [
+        "markup_percent",
+        "quote_discount_percent",
+        "quote_discount_amount",
+        "quote_discount_reason",
+    ]
+    cols = [c for c in allowed_cols if c in data]
+    if not cols:
+        return
+    set_clause = ", ".join(f"{c} = ?" for c in cols)
+    connection.execute(
+        f"UPDATE quotes SET {set_clause} WHERE id = ?",
+        (*(data[c] for c in cols), quote_id),
+    )
     connection.commit()
 
 
@@ -437,6 +476,8 @@ def upsert_quote_totals(
     *,
     quote_id: int,
     subtotal: float,
+    item_discount_amount: float,
+    quote_discount_amount: float,
     discount_percent: float,
     discount_amount: float,
     tax_amount: float,
@@ -447,11 +488,14 @@ def upsert_quote_totals(
     connection.execute(
         """
         INSERT INTO quote_totals
-            (quote_id, subtotal, discount_percent, discount_amount, tax_amount,
+            (quote_id, subtotal, item_discount_amount, quote_discount_amount,
+             discount_percent, discount_amount, tax_amount,
              freight_amount, total, currency, calculated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
         ON CONFLICT(quote_id) DO UPDATE SET
             subtotal = excluded.subtotal,
+            item_discount_amount = excluded.item_discount_amount,
+            quote_discount_amount = excluded.quote_discount_amount,
             discount_percent = excluded.discount_percent,
             discount_amount = excluded.discount_amount,
             tax_amount = excluded.tax_amount,
@@ -463,6 +507,8 @@ def upsert_quote_totals(
         (
             quote_id,
             subtotal,
+            item_discount_amount,
+            quote_discount_amount,
             discount_percent,
             discount_amount,
             tax_amount,

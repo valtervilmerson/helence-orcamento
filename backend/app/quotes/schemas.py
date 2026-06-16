@@ -18,6 +18,10 @@ class QuoteCreateIn(BaseModel):
     customer_id: int
     valid_until: str | None = None
     notes: str | None = None
+    markup_percent: float = 0.0
+    quote_discount_percent: float | None = None
+    quote_discount_amount: float | None = None
+    quote_discount_reason: str | None = None
 
 
 class CustomerSummary(BaseModel):
@@ -48,6 +52,17 @@ class QuoteOut(BaseModel):
     valid_until: str | None = None
     notes: str | None = None
     source_quote_id: int | None = None
+    markup_percent: float = 0.0
+    quote_discount_percent: float | None = None
+    quote_discount_amount: float | None = None
+    quote_discount_reason: str | None = None
+
+
+class QuoteSettingsPatchIn(BaseModel):
+    markup_percent: float | None = None
+    quote_discount_percent: float | None = None
+    quote_discount_amount: float | None = None
+    quote_discount_reason: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +178,8 @@ class QuoteTotalWarning(BaseModel):
 class QuoteTotalsOut(BaseModel):
     quote_id: int
     subtotal: float
+    item_discount_amount: float = 0.0
+    quote_discount_amount: float = 0.0
     discount_percent: float
     discount_amount: float
     tax_amount: float

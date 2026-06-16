@@ -25,6 +25,7 @@ from app.quotes.schemas import (
     QuoteOut,
     QuoteReviewChecklistItem,
     QuoteReviewChecklistOut,
+    QuoteSettingsPatchIn,
     QuoteTotalsOut,
     QuoteTotalWarning,
     UserSummary,
@@ -83,6 +84,10 @@ def _row_to_quote_out(row: sqlite3.Row) -> QuoteOut:
         valid_until=row["valid_until"],
         notes=row["notes"],
         source_quote_id=row["source_quote_id"],
+        markup_percent=row["markup_percent"] or 0.0,
+        quote_discount_percent=row["quote_discount_percent"],
+        quote_discount_amount=row["quote_discount_amount"],
+        quote_discount_reason=row["quote_discount_reason"],
     )
 
 
@@ -127,6 +132,10 @@ def create_quote(
     customer_id: int,
     valid_until: str | None,
     notes: str | None,
+    markup_percent: float = 0.0,
+    quote_discount_percent: float | None = None,
+    quote_discount_amount: float | None = None,
+    quote_discount_reason: str | None = None,
 ) -> QuoteOut:
     customer = repository.get_customer(connection, customer_id)
     if customer is None:
@@ -139,7 +148,43 @@ def create_quote(
         customer_id=customer_id,
         valid_until=valid_until,
         notes=notes,
+        markup_percent=markup_percent or 0.0,
+        quote_discount_percent=quote_discount_percent,
+        quote_discount_amount=quote_discount_amount,
+        quote_discount_reason=quote_discount_reason,
     )
+    return get_quote(connection, quote_id)
+
+
+def update_quote_settings(
+    connection: sqlite3.Connection, quote_id: int, payload: QuoteSettingsPatchIn
+) -> QuoteOut:
+    _require_draft_quote(connection, quote_id)
+
+    data = payload.model_dump(exclude_unset=True)
+
+    markup = data.get("markup_percent")
+    if markup is not None and markup < 0:
+        raise DescontoInvalidoError(details={"markup_percent": markup, "message": "markup_percent não pode ser negativo."})
+
+    has_pct = "quote_discount_percent" in data and data["quote_discount_percent"] is not None
+    has_amt = "quote_discount_amount" in data and data["quote_discount_amount"] is not None
+    if has_pct and has_amt:
+        raise DescontoInvalidoError(
+            details={"message": "Informe quote_discount_percent OU quote_discount_amount, não ambos."}
+        )
+    if has_pct and not (0 <= data["quote_discount_percent"] <= 100):
+        raise DescontoInvalidoError(details={"quote_discount_percent": data["quote_discount_percent"]})
+    if has_amt and data["quote_discount_amount"] < 0:
+        raise DescontoInvalidoError(details={"quote_discount_amount": data["quote_discount_amount"]})
+
+    # Garante exclusividade: ao definir um modo, limpa o outro
+    if has_pct:
+        data["quote_discount_amount"] = None
+    if has_amt:
+        data["quote_discount_percent"] = None
+
+    repository.update_quote_settings(connection, quote_id, data)
     return get_quote(connection, quote_id)
 
 
@@ -163,6 +208,10 @@ def duplicate_quote(connection: sqlite3.Connection, quote_id: int) -> QuoteOut:
         valid_until=None,
         notes=source_row["notes"],
         source_quote_id=quote_id,
+        markup_percent=source_row["markup_percent"] or 0.0,
+        quote_discount_percent=source_row["quote_discount_percent"],
+        quote_discount_amount=source_row["quote_discount_amount"],
+        quote_discount_reason=source_row["quote_discount_reason"],
     )
 
     for item_row in repository.list_items_with_components(connection, quote_id):
@@ -224,13 +273,17 @@ def duplicate_quote(connection: sqlite3.Connection, quote_id: int) -> QuoteOut:
     return get_quote(connection, new_quote_id)
 
 
-def _require_draft_quote(connection: sqlite3.Connection, quote_id: int) -> str:
-    status_value = repository.get_quote_status(connection, quote_id)
-    if status_value is None:
+def _require_draft_quote(connection: sqlite3.Connection, quote_id: int) -> sqlite3.Row:
+    row = repository.get_quote_row(connection, quote_id)
+    if row is None:
         raise OrcamentoNaoEncontradoError(details={"id": quote_id})
-    if status_value != "rascunho":
-        raise StatusInvalidoError(details={"status": status_value})
-    return status_value
+    if row["status"] != "rascunho":
+        raise StatusInvalidoError(details={"status": row["status"]})
+    return row
+
+
+def _get_markup_factor(quote_row: sqlite3.Row) -> float:
+    return 1.0 + (quote_row["markup_percent"] or 0.0) / 100.0
 
 
 # ---------------------------------------------------------------------------
@@ -279,13 +332,18 @@ def _pricing_pendencias(item_row: sqlite3.Row) -> list[str]:
     return json.loads(raw) if raw else []
 
 
-def _build_item_out(connection: sqlite3.Connection, item_row: sqlite3.Row) -> QuoteItemOut:
+def _build_item_out(
+    connection: sqlite3.Connection,
+    item_row: sqlite3.Row,
+    markup_factor: float = 1.0,
+) -> QuoteItemOut:
     component_rows = repository.get_item_components(connection, item_row["id"])
     components = [_component_row_to_out(row) for row in component_rows]
 
     subtotal = pricing.line_subtotal(
         dict(item_row),
         [dict(row) for row in component_rows],
+        markup_factor=markup_factor,
     )
 
     return QuoteItemOut(
@@ -385,7 +443,8 @@ def _resolve_component_variant_ids(payload: QuoteItemCreateIn) -> list[int]:
 def add_item(
     connection: sqlite3.Connection, quote_id: int, payload: QuoteItemCreateIn
 ) -> QuoteItemOut:
-    _require_draft_quote(connection, quote_id)
+    quote_row = _require_draft_quote(connection, quote_id)
+    markup_factor = _get_markup_factor(quote_row)
 
     component_variant_ids = _resolve_component_variant_ids(payload)
 
@@ -418,23 +477,27 @@ def add_item(
         )
 
     item_row = repository.get_item_row(connection, quote_id, item_id)
-    return _build_item_out(connection, item_row)
+    return _build_item_out(connection, item_row, markup_factor)
 
 
 def list_items(connection: sqlite3.Connection, quote_id: int) -> list[QuoteItemOut]:
     if not repository.quote_exists(connection, quote_id):
         raise OrcamentoNaoEncontradoError(details={"id": quote_id})
+    quote_row = repository.get_quote_row(connection, quote_id)
+    markup_factor = _get_markup_factor(quote_row)
     item_rows = repository.list_items_with_components(connection, quote_id)
-    return [_build_item_out(connection, row) for row in item_rows]
+    return [_build_item_out(connection, row, markup_factor) for row in item_rows]
 
 
 def get_item(connection: sqlite3.Connection, quote_id: int, item_id: int) -> QuoteItemOut:
     if not repository.quote_exists(connection, quote_id):
         raise OrcamentoNaoEncontradoError(details={"id": quote_id})
+    quote_row = repository.get_quote_row(connection, quote_id)
+    markup_factor = _get_markup_factor(quote_row)
     item_row = repository.get_item_row(connection, quote_id, item_id)
     if item_row is None:
         raise ItemNaoEncontradoError(details={"id": item_id})
-    return _build_item_out(connection, item_row)
+    return _build_item_out(connection, item_row, markup_factor)
 
 
 def add_component(
@@ -444,7 +507,8 @@ def add_component(
     payload: QuoteItemComponentCreateIn,
 ) -> QuoteItemOut:
     """Adiciona um componente a uma linha existente, validando RN-04 (docs/05)."""
-    _require_draft_quote(connection, quote_id)
+    quote_row = _require_draft_quote(connection, quote_id)
+    markup_factor = _get_markup_factor(quote_row)
 
     item_row = repository.get_item_row(connection, quote_id, item_id)
     if item_row is None:
@@ -466,7 +530,7 @@ def add_component(
     )
 
     item_row = repository.get_item_row(connection, quote_id, item_id)
-    return _build_item_out(connection, item_row)
+    return _build_item_out(connection, item_row, markup_factor)
 
 
 def update_item_component(
@@ -551,7 +615,8 @@ def remove_component(
     Remover o último componente de uma linha é bloqueado (`ULTIMO_COMPONENTE_DA_LINHA`)
     — para isso, a linha inteira deve ser removida (`remove_item`).
     """
-    _require_draft_quote(connection, quote_id)
+    quote_row = _require_draft_quote(connection, quote_id)
+    markup_factor = _get_markup_factor(quote_row)
 
     item_row = repository.get_item_row(connection, quote_id, item_id)
     if item_row is None:
@@ -567,13 +632,14 @@ def remove_component(
     repository.delete_item_component(connection, component_id)
 
     item_row = repository.get_item_row(connection, quote_id, item_id)
-    return _build_item_out(connection, item_row)
+    return _build_item_out(connection, item_row, markup_factor)
 
 
 def update_item(
     connection: sqlite3.Connection, quote_id: int, item_id: int, payload: QuoteItemPatchIn
 ) -> QuoteItemOut:
-    _require_draft_quote(connection, quote_id)
+    quote_row = _require_draft_quote(connection, quote_id)
+    markup_factor = _get_markup_factor(quote_row)
 
     item_row = repository.get_item_row(connection, quote_id, item_id)
     if item_row is None:
@@ -595,6 +661,12 @@ def update_item(
     if has_amount and data["discount_amount"] < 0:
         raise DescontoInvalidoError(details={"discount_amount": data["discount_amount"]})
 
+    # Garante exclusividade ao salvar: zera o outro modo de desconto
+    if has_percent:
+        data["discount_amount"] = None
+    if has_amount:
+        data["discount_percent"] = None
+
     has_reason = data.get("discount_reason") or item_row["discount_reason"]
     if (has_percent or has_amount) and not has_reason:
         raise DescontoSemJustificativaError()
@@ -602,7 +674,7 @@ def update_item(
     repository.update_item(connection, item_id, data)
 
     item_row = repository.get_item_row(connection, quote_id, item_id)
-    return _build_item_out(connection, item_row)
+    return _build_item_out(connection, item_row, markup_factor)
 
 
 # ---------------------------------------------------------------------------
@@ -762,8 +834,14 @@ def get_totals(connection: sqlite3.Connection, quote_id: int) -> QuoteTotalsOut:
     if not repository.quote_exists(connection, quote_id):
         raise OrcamentoNaoEncontradoError(details={"id": quote_id})
 
+    quote_row = repository.get_quote_row(connection, quote_id)
     entries = _items_with_components(connection, quote_id)
-    totals = pricing.compute_totals(entries)
+    totals = pricing.compute_totals(
+        entries,
+        markup_percent=quote_row["markup_percent"] or 0.0,
+        quote_discount_percent=quote_row["quote_discount_percent"],
+        quote_discount_amount=quote_row["quote_discount_amount"],
+    )
 
     return QuoteTotalsOut(
         quote_id=quote_id,
@@ -789,11 +867,20 @@ def freeze_totals(connection: sqlite3.Connection, quote_id: int) -> QuoteTotalsO
             details={"checklist": [item.model_dump() for item in pending]}
         )
 
-    totals = pricing.compute_totals(entries)
+    quote_row = repository.get_quote_row(connection, quote_id)
+    totals = pricing.compute_totals(
+        entries,
+        markup_percent=quote_row["markup_percent"] or 0.0,
+        quote_discount_percent=quote_row["quote_discount_percent"],
+        quote_discount_amount=quote_row["quote_discount_amount"],
+    )
+
     row = repository.upsert_quote_totals(
         connection,
         quote_id=quote_id,
         subtotal=totals["subtotal"],
+        item_discount_amount=totals["item_discount_amount"],
+        quote_discount_amount=totals["quote_discount_amount"],
         discount_percent=totals["discount_percent"],
         discount_amount=totals["discount_amount"],
         tax_amount=totals["tax_amount"],
@@ -811,6 +898,8 @@ def freeze_totals(connection: sqlite3.Connection, quote_id: int) -> QuoteTotalsO
     return QuoteTotalsOut(
         quote_id=quote_id,
         subtotal=row["subtotal"],
+        item_discount_amount=row["item_discount_amount"] or 0.0,
+        quote_discount_amount=row["quote_discount_amount"] or 0.0,
         discount_percent=row["discount_percent"],
         discount_amount=row["discount_amount"],
         tax_amount=row["tax_amount"],

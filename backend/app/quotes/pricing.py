@@ -10,9 +10,9 @@ from __future__ import annotations
 from typing import Any
 
 
-def component_total(components: list[dict[str, Any]]) -> float:
-    """Soma de `frozen_unit_price * quantity` dos componentes de um item."""
-    return sum(c["frozen_unit_price"] * c["quantity"] for c in components)
+def component_total(components: list[dict[str, Any]], markup_factor: float = 1.0) -> float:
+    """Soma de `frozen_unit_price * markup_factor * quantity` dos componentes de um item."""
+    return sum(c["frozen_unit_price"] * markup_factor * c["quantity"] for c in components)
 
 
 def item_discount(line_subtotal_raw: float, item: dict[str, Any]) -> float:
@@ -20,42 +20,66 @@ def item_discount(line_subtotal_raw: float, item: dict[str, Any]) -> float:
     if item.get("discount_percent") is not None:
         return line_subtotal_raw * item["discount_percent"] / 100
     if item.get("discount_amount") is not None:
-        return item["discount_amount"]
+        return float(item["discount_amount"])
     return 0.0
 
 
-def line_subtotal(item: dict[str, Any], components: list[dict[str, Any]]) -> float:
+def line_subtotal(
+    item: dict[str, Any], components: list[dict[str, Any]], markup_factor: float = 1.0
+) -> float:
     """Subtotal da linha (RN-08), já com o desconto da linha aplicado."""
-    raw = component_total(components) * item["quantity"]
+    raw = component_total(components, markup_factor) * item["quantity"]
     return raw - item_discount(raw, item)
 
 
-def compute_totals(items: list[dict[str, Any]], currency: str = "BRL") -> dict[str, Any]:
-    """Totais do orçamento a partir das linhas com seus componentes.
+def compute_totals(
+    items: list[dict[str, Any]],
+    currency: str = "BRL",
+    markup_percent: float = 0.0,
+    quote_discount_percent: float | None = None,
+    quote_discount_amount: float | None = None,
+) -> dict[str, Any]:
+    """Totais do orçamento.
 
     `items` é uma lista de dicts no formato
     ``{"item": {...quote_items...}, "components": [{...quote_item_components...}]}``.
+
+    O `markup_percent` é aplicado sobre cada `frozen_unit_price` e não é
+    exibido no PDF ao cliente final. Os descontos são aplicados em cascata:
+    primeiro por linha (item), depois no total do orçamento.
     """
-    subtotal = 0.0
-    discount_amount = 0.0
+    markup_factor = 1.0 + (markup_percent or 0.0) / 100.0
+    raw_total = 0.0
+    item_discount_total = 0.0
 
     for entry in items:
         item = entry["item"]
         components = entry["components"]
+        raw = component_total(components, markup_factor) * item["quantity"]
+        raw_total += raw
+        item_discount_total += item_discount(raw, item)
 
-        raw = component_total(components) * item["quantity"]
-        subtotal += raw
-        discount_amount += item_discount(raw, item)
+    post_item = raw_total - item_discount_total
 
-    total = subtotal - discount_amount
-    discount_percent = (discount_amount / subtotal * 100) if subtotal else 0.0
+    if quote_discount_percent is not None:
+        quote_disc = post_item * quote_discount_percent / 100.0
+    elif quote_discount_amount is not None:
+        quote_disc = float(quote_discount_amount)
+    else:
+        quote_disc = 0.0
+
+    total_discount = item_discount_total + quote_disc
+    total = raw_total - total_discount
+    combined_pct = (total_discount / raw_total * 100.0) if raw_total else 0.0
 
     warnings: list[dict[str, Any]] = []
 
     return {
-        "subtotal": round(subtotal, 2),
-        "discount_percent": round(discount_percent, 2),
-        "discount_amount": round(discount_amount, 2),
+        "subtotal": round(raw_total, 2),
+        "item_discount_amount": round(item_discount_total, 2),
+        "quote_discount_amount": round(quote_disc, 2),
+        "discount_percent": round(combined_pct, 2),
+        "discount_amount": round(total_discount, 2),
         "tax_amount": 0.0,
         "freight_amount": 0.0,
         "total": round(total, 2),
