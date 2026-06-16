@@ -124,9 +124,10 @@ cobre:
 
 Listado em `docs/09` (seção 19) e consolidado aqui:
 
-- **Margem, desconto, impostos, frete** — não existem no PDF de origem; RN-09/
-  RN-10 (`docs/05`) ficam **pendentes de definição com a área comercial**
-  (ver seção 15 deste documento).
+- **Impostos, frete** — não existem no PDF de origem; ficam fora do escopo do MVP.
+- **Markup de venda e descontos** — implementados em 2026-06-16 (ver seção 10.2):
+  markup global + override por orçamento, desconto por item e por orçamento (% ou R$),
+  parcelamento com juros. RN-09/RN-10 considerados resolvidos.
 - **OCR** — o PDF tem texto nativo; não é necessário processamento de imagem.
 - **Multi-idioma / múltiplas moedas** — sistema fixo em pt-BR / BRL.
 - **SSO, MFA, gestão avançada de usuários** — autenticação por sessão simples
@@ -527,6 +528,31 @@ As regras completas estão em `docs/05`; as mais estruturais para o MVP:
   `quote_scenarios` de `docs/samples/fixtures-orcamento.json` e devem virar
   testes E2E.
 
+### 10.2 Precificação avançada (implementado 2026-06-16)
+
+Funcionalidades adicionadas além do congelamento de preço base:
+
+**Markup de venda** (invisível ao cliente):
+- `app_settings.global_markup_percent` — valor padrão para todos os orçamentos.
+- `quotes.markup_uses_global` (bool, default `true`) + `quotes.markup_percent` — override específico por orçamento.
+- O markup nunca é gravado no `frozen_unit_price`; é aplicado em runtime em cada cálculo. Mudar o markup global atualiza imediatamente todos os orçamentos não-sobrescritos.
+- Admin acessa via `/configuracoes` (`GET/PATCH /api/v1/settings`).
+
+**Descontos** (% XOR R$, mutuamente exclusivos):
+- Por item: `quote_items.discount_percent` / `quote_items.discount_amount`.
+- Por orçamento: `quotes.quote_discount_percent` / `quotes.quote_discount_amount` + `quote_discount_reason`.
+- Setar um campo zera o outro automaticamente na camada de serviço.
+- `quote_totals` armazena `item_discount_amount` e `quote_discount_amount` separadamente no snapshot.
+
+**Parcelamento**:
+- `quotes.installment_count` (default 1) + `quotes.installment_interest_percent` (default 0).
+- Juros calculados sobre o total pós-desconto: `interest_amt = total × pct/100`.
+- Snapshot em `quote_totals`: `installment_count`, `installment_interest_percent`, `installment_interest_amount`, `installment_total`, `installment_value`.
+
+**Ordem de cálculo**: `raw = frozen_unit_price × markup_factor × qty` → desconto de item → subtotal pós-item → desconto do orçamento → `total` → juros de parcelamento → `installment_total`.
+
+**PDF**: descontos e parcelamento são exibidos condicionalmente — se não há desconto nem parcelamento, a seção não aparece.
+
 ---
 
 ## 11. Estratégia de extração de PDF
@@ -624,8 +650,7 @@ RN correspondentes.
 
 ### 12.4 Fora de escopo de testes
 
-Carga/performance, E2E de UI, autenticação/papéis detalhada, desconto/margem
-(pendente de definição de regra).
+Carga/performance, E2E de UI, autenticação/papéis detalhada.
 
 ---
 
@@ -713,8 +738,8 @@ observabilidade externa (logs via *log stream* da Railway); sem
 notificações por e-mail; backup/restauração de produção dependem de uma
 rotina interna da aplicação + *object storage* externo (até implementada,
 exigem `railway shell`); migrações destrutivas de SQLite são arriscadas e
-manuais; RN-09/RN-10 (desconto/margem) pendentes; RN-04 (compatibilidade
-tampo↔estrutura) é heurística; sem i18n, moeda fixa em BRL.
+manuais; RN-04 (compatibilidade tampo↔estrutura) é heurística; sem impostos/frete;
+sem i18n, moeda fixa em BRL.
 
 ---
 
@@ -764,11 +789,11 @@ antes ou durante as fases correspondentes:
 4. **Preços importados podem ser editados manualmente após publicação?**
    Definir se o PDF é fonte de verdade somente-leitura ou se há edição pontual
    com rastreabilidade (impacta modelagem de `prices` e auditoria).
-5. **Margem, desconto, impostos, frete (RN-09/RN-10)**: nada disso está no
-   PDF. Definir se são camada separada do orçamento, regras por
-   cliente/região/canal, e se há percentuais/faixas predefinidos — **bloqueia
-   a implementação completa do fluxo de orçamento financeiro**, embora não
-   bloqueie o MVP de catálogo+composição+congelamento.
+5. **Markup, desconto e parcelamento (RN-09/RN-10)**: **RESOLVIDO em 2026-06-16.**
+   Implementado: markup global + override por orçamento, desconto por item e por
+   orçamento (% ou R$, mutuamente exclusivos), parcelamento com juros. Ver seção
+   10.2 e migration `0012`–`0014`. Pendente: impostos e frete continuam fora de
+   escopo do MVP.
 6. **Compatibilidade tampo↔estrutura (RN-04)**: confirmar se a heurística por
    dimensão é suficiente ou se há regras adicionais do fabricante.
 7. **Terminologia "Acessórios" vs. "Conexão STAFF"** (`docs/01`, seção 6):
