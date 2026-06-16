@@ -439,8 +439,10 @@ function ProductCompositionLoader({
 }
 
 // ---------------------------------------------------------------------------
-// Tela 7 — montagem: adicionar item com composição (1+ componentes)
+// Tela 7 — montagem: adicionar item avulso ou composto
 // ---------------------------------------------------------------------------
+
+type ItemMode = 'avulso' | 'composto'
 
 function NewItemForm({
   quoteId,
@@ -455,100 +457,237 @@ function NewItemForm({
   dimensions: Dimension[]
   onAdded: () => void
 }) {
+  const [mode, setMode] = useState<ItemMode>('avulso')
   const [label, setLabel] = useState('')
   const [quantity, setQuantity] = useState('1')
-  const [pending, setPending] = useState<ComponentVariant[]>([])
+  // components[0] é sempre o componente base (quando presente)
+  const [components, setComponents] = useState<ComponentVariant[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  function handlePick(variant: ComponentVariant) {
-    setPending((prev) => [...prev, variant])
+  const baseComponent = components[0] ?? null
+  // RN-03: depois do componente base escolhido, restringe os adicionais à mesma dimensão.
+  const dimensionFilter = baseComponent?.dimension?.raw_label ?? null
+  const totalPrice = components.reduce((sum, v) => sum + (v.price?.amount ?? 0), 0)
+
+  function reset() {
+    setLabel('')
+    setQuantity('1')
+    setComponents([])
+    setError(null)
   }
 
-  function handleRemovePending(index: number) {
-    setPending((prev) => prev.filter((_, i) => i !== index))
+  function handleModeChange(newMode: ItemMode) {
+    setMode(newMode)
+    reset()
+  }
+
+  function handlePickBase(variant: ComponentVariant) {
+    setComponents([variant])
+    setLabel((prev) => prev || variant.descriptor || variant.component || '')
+  }
+
+  function handleAddExtra(variant: ComponentVariant) {
+    setComponents((prev) => [...prev, variant])
+  }
+
+  function handleRemoveAt(index: number) {
+    if (index === 0) {
+      // Remover a base limpa tudo
+      setComponents([])
+      setLabel('')
+    } else {
+      setComponents((prev) => prev.filter((_, i) => i !== index))
+    }
   }
 
   function handleLoadComposition(variants: ComponentVariant[], productName: string) {
-    setPending((prev) => [...prev, ...variants])
+    setComponents(variants)
     setLabel((prev) => prev || productName)
   }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
-    if (pending.length === 0) {
-      setError('Adicione ao menos um componente à composição.')
+    if (components.length === 0) {
+      setError(mode === 'avulso' ? 'Selecione o componente.' : 'Selecione o componente base.')
+      return
+    }
+    if (mode === 'composto' && components.length < 2) {
+      setError('Adicione ao menos um componente além do base para criar um item composto.')
       return
     }
     try {
       await addItem(quoteId, {
         label,
         quantity: Number(quantity) || 1,
-        components: pending.map((variant) => ({ component_variant_id: variant.component_variant_id })),
+        components: components.map((v) => ({ component_variant_id: v.component_variant_id })),
       })
-      setLabel('')
-      setQuantity('1')
-      setPending([])
+      reset()
       onAdded()
     } catch (err) {
       setError(describeError(err))
     }
   }
 
-  const pendingTotal = pending.reduce((sum, variant) => sum + (variant.price?.amount ?? 0), 0)
-
-  // RN-03: depois do primeiro componente escolhido, restringe os próximos à
-  // mesma dimensão (ex.: tampo e estrutura de uma mesma mesa).
-  const dimensionFilter = pending[0]?.dimension?.raw_label ?? null
-
   return (
     <section>
       <h3>Adicionar item</h3>
 
-      <div className="form-block">
-        <h4 className="form-block__title">1. Carregar composição pronta de um produto (opcional)</h4>
-        <ProductCompositionLoader families={families} onLoad={handleLoadComposition} />
+      {/* Seletor de modo */}
+      <div className="mode-toggle">
+        <span className="mode-toggle__label">Tipo</span>
+        <button
+          type="button"
+          className={mode !== 'avulso' ? 'secondary' : ''}
+          onClick={() => handleModeChange('avulso')}
+        >
+          Avulso
+        </button>
+        <button
+          type="button"
+          className={mode !== 'composto' ? 'secondary' : ''}
+          onClick={() => handleModeChange('composto')}
+        >
+          Composto
+        </button>
       </div>
 
-      <div className="form-block">
-        <h4 className="form-block__title">2. Buscar e adicionar componentes</h4>
-        <ComponentPicker
-          families={families}
-          finishes={finishes}
-          dimensions={dimensions}
-          onPick={handlePick}
-          pickLabel="+ componente"
-          dimensionFilter={dimensionFilter}
-        />
-        {pending.length > 0 && (
-          <ul className="list-plain form-block__pending">
-            {pending.map((variant, index) => (
-              <li key={`${variant.component_variant_id}-${index}`} className="list-item-card">
-                <span>{describeVariant(variant)}</span>
-                <button type="button" className="secondary" onClick={() => handleRemovePending(index)}>
-                  remover
+      {/* ── Modo: Avulso ── */}
+      {mode === 'avulso' && (
+        <>
+          <div className="form-block">
+            <h4 className="form-block__title">Componente</h4>
+            {baseComponent ? (
+              <div className="list-item-card">
+                <span style={{ flex: 1 }}>{describeVariant(baseComponent)}</span>
+                <button type="button" className="secondary" onClick={() => setComponents([])}>
+                  trocar
                 </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+              </div>
+            ) : (
+              <ComponentPicker
+                families={families}
+                finishes={finishes}
+                dimensions={dimensions}
+                onPick={handlePickBase}
+                pickLabel="Selecionar"
+              />
+            )}
+          </div>
 
-      <div className="form-block">
-        <h4 className="form-block__title">3. Finalizar item</h4>
-        <form onSubmit={handleSubmit} className="action-group">
-          <input placeholder="Descrição do item" value={label} onChange={(e) => setLabel(e.target.value)} required />
-          <input
-            type="number"
-            min="1"
-            placeholder="Quantidade"
-            style={{ width: '6rem' }}
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-          />
-          <button type="submit">Adicionar item (composição: {pendingTotal.toFixed(2)})</button>
-        </form>
-      </div>
+          {baseComponent && (
+            <div className="form-block">
+              <h4 className="form-block__title">Finalizar</h4>
+              <form onSubmit={handleSubmit} className="action-group">
+                <input
+                  placeholder="Descrição do item"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  required
+                />
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Qtd"
+                  style={{ width: '5rem' }}
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                />
+                <button type="submit">Adicionar avulso</button>
+              </form>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Modo: Composto ── */}
+      {mode === 'composto' && (
+        <>
+          <div className="form-block">
+            <h4 className="form-block__title">1. Componente base</h4>
+            {baseComponent ? (
+              <div className="list-item-card">
+                <span className="badge badge-composite badge--sm">base</span>
+                <span style={{ flex: 1 }}>{describeVariant(baseComponent)}</span>
+                <button type="button" className="secondary" onClick={() => handleRemoveAt(0)}>
+                  trocar
+                </button>
+              </div>
+            ) : (
+              <ComponentPicker
+                families={families}
+                finishes={finishes}
+                dimensions={dimensions}
+                onPick={handlePickBase}
+                pickLabel="Selecionar como base"
+              />
+            )}
+          </div>
+
+          {baseComponent && (
+            <>
+              <div className="form-block">
+                <h4 className="form-block__title">2. Componentes adicionais</h4>
+                {components.slice(1).length > 0 && (
+                  <ul className="list-plain form-block__pending">
+                    {components.slice(1).map((variant, i) => (
+                      <li key={`extra-${variant.component_variant_id}-${i}`} className="list-item-card">
+                        <span style={{ flex: 1 }}>{describeVariant(variant)}</span>
+                        <button type="button" className="secondary" onClick={() => handleRemoveAt(i + 1)}>
+                          remover
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div style={{ marginTop: components.length > 1 ? 'var(--space-3)' : 0 }}>
+                  <ComponentPicker
+                    families={families}
+                    finishes={finishes}
+                    dimensions={dimensions}
+                    onPick={handleAddExtra}
+                    pickLabel="+ componente"
+                    dimensionFilter={dimensionFilter}
+                  />
+                </div>
+              </div>
+
+              <div className="form-block">
+                <h4 className="form-block__title">Ou carregar composição de produto pronto</h4>
+                <ProductCompositionLoader families={families} onLoad={handleLoadComposition} />
+              </div>
+
+              <div className="form-block">
+                <h4 className="form-block__title">3. Finalizar</h4>
+                <form onSubmit={handleSubmit} className="action-group">
+                  <input
+                    placeholder="Nome do item composto"
+                    value={label}
+                    onChange={(e) => setLabel(e.target.value)}
+                    required
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Qtd"
+                    style={{ width: '5rem' }}
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                  />
+                  <button type="submit" disabled={components.length < 2}>
+                    Adicionar composto ({totalPrice.toFixed(2)})
+                  </button>
+                </form>
+                {components.length < 2 && (
+                  <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', margin: 'var(--space-2) 0 0' }}>
+                    Adicione ao menos um componente além do base.
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </>
+      )}
 
       <ErrorMessage error={error} />
     </section>
@@ -744,17 +883,41 @@ function ItemRow({
     }
   }
 
+  const isComposite = item.components.length > 1
+
   return (
     <>
       <tr>
         <td>{item.id}</td>
-        <td>{item.label}</td>
         <td>
-          {item.components.map((c) => (
-            <div key={c.id}>
-              {c.sku ?? 'sem SKU'} — {c.frozen_currency} {c.frozen_unit_price.toFixed(2)}
-            </div>
-          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <span className={`badge ${isComposite ? 'badge-composite' : 'badge-neutral'}`}>
+              {isComposite ? 'Composto' : 'Avulso'}
+            </span>
+            {item.label}
+          </div>
+        </td>
+        <td>
+          {isComposite ? (
+            <ul className="component-list">
+              {item.components.map((c, idx) => (
+                <li key={c.id} className="component-list__item">
+                  {idx === 0 && (
+                    <span className="badge badge-composite badge--sm">base</span>
+                  )}
+                  <span>
+                    {c.sku ?? 'sem SKU'} — {c.frozen_currency} {c.frozen_unit_price.toFixed(2)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            item.components.map((c) => (
+              <div key={c.id}>
+                {c.sku ?? 'sem SKU'} — {c.frozen_currency} {c.frozen_unit_price.toFixed(2)}
+              </div>
+            ))
+          )}
           {item.pricing_pendencias.length > 0 && (
             <p className="feedback-error">{item.pricing_pendencias.join('; ')}</p>
           )}

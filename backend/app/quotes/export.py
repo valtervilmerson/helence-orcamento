@@ -368,17 +368,22 @@ def generate_pdf(connection: sqlite3.Connection, quote_id: int) -> bytes:
             dict(row) for row in repository.get_item_components(connection, item_row["id"])
         ]
         item_dict = dict(item_row)
+        is_composite = len(component_rows) > 1
         unit_value = pricing.component_total(component_rows)
         subtotal = pricing.line_subtotal(item_dict, component_rows)
 
-        writer.item_row(item_row["label"], item_row["quantity"], unit_value, subtotal, currency)
-        for component_row in component_rows:
+        label = item_row["label"]
+        if is_composite:
+            label = f"[Composto] {label}"
+        writer.item_row(label, item_row["quantity"], unit_value, subtotal, currency)
+        for idx, component_row in enumerate(component_rows):
             if component_row["sku"]:
                 price_text = _format_currency(
                     component_row["frozen_unit_price"], component_row["frozen_currency"]
                 )
+                prefix = "BASE — " if (is_composite and idx == 0) else ""
                 writer.line(
-                    f"SKU {component_row['sku']} — {price_text} × {component_row['quantity']:g}",
+                    f"{prefix}SKU {component_row['sku']} — {price_text} × {component_row['quantity']:g}",
                     size=8.5,
                     color=_GRAY,
                     indent=10,
