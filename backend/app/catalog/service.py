@@ -242,18 +242,34 @@ def update_variant(
     if not repository.variant_exists(connection, variant_id):
         raise ComponenteNaoEncontradoError(details={"id": variant_id})
 
-    data = payload.model_dump(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True, exclude={"sku", "price"})
     _validate_variant_references(connection, data)
 
     try:
         repository.update_variant(connection, variant_id, data)
-        connection.commit()
     except sqlite3.IntegrityError as exc:
         connection.rollback()
         if "UNIQUE" in str(exc):
             raise VariacaoDuplicadaError() from exc
         raise ReferenciaInvalidaError() from exc
 
+    if "price" in payload.model_fields_set and payload.price is not None:
+        sku_id = None
+        if payload.sku is not None:
+            sku_id = repository.get_or_create_sku(connection, payload.sku.code, payload.sku.notes)
+        try:
+            repository.upsert_price(
+                connection,
+                component_variant_id=variant_id,
+                sku_id=sku_id,
+                amount=payload.price.amount,
+                currency=payload.price.currency,
+            )
+        except sqlite3.IntegrityError as exc:
+            connection.rollback()
+            raise PrecoDuplicadoError() from exc
+
+    connection.commit()
     return get_variant(connection, variant_id)
 
 

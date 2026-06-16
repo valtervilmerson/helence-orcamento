@@ -197,6 +197,8 @@ class ComponentVariantPatch(BaseModel):
     finish_id: int | None = None
     descriptor: str | None = None
     description: str | None = None
+    sku: SkuIn | None = None
+    price: PriceIn | None = None
 
 
 class DimensionSummary(BaseModel):
