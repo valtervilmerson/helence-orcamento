@@ -1319,16 +1319,16 @@ function QuoteDetail({
 
       {quote.status === 'rascunho' && (
         <>
-          <QuoteSettingsForm
-            quote={quote}
-            onChanged={() => { void reload(); onChanged() }}
-          />
           <NewItemForm
             quoteId={quote.id}
             families={families}
             finishes={finishes}
             dimensions={dimensions}
             onAdded={() => void reload()}
+          />
+          <QuoteSettingsForm
+            quote={quote}
+            onChanged={() => { void reload(); onChanged() }}
           />
         </>
       )}
