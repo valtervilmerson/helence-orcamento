@@ -441,7 +441,12 @@ def generate_pdf(connection: sqlite3.Connection, quote_id: int) -> bytes:
         totals_rows.append(("Frete", totals_dict["freight_amount"], currency, False))
 
     # Parcelamento — exibir só se houver parcelas
-    entrada_amount = float(quote_row["entrada_amount"] or 0.0)
+    _entrada_pct = float(quote_row["entrada_percent"] or 0.0)
+    _base_for_entrada = inst_total if inst_count > 1 else totals_dict["total"]
+    if _entrada_pct > 0:
+        entrada_amount = round(_base_for_entrada * _entrada_pct / 100, 2)
+    else:
+        entrada_amount = float(quote_row["entrada_amount"] or 0.0)
 
     if inst_count > 1:
         # Com juros: mostrar "Total à vista" antes dos juros

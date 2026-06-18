@@ -1,0 +1,1 @@
+ALTER TABLE quotes ADD COLUMN entrada_percent REAL NOT NULL DEFAULT 0;

@@ -58,6 +58,7 @@ def insert_quote(
     installment_count: int = 1,
     installment_interest_percent: float = 0.0,
     entrada_amount: float = 0.0,
+    entrada_percent: float = 0.0,
 ) -> int:
     cursor = connection.execute(
         """
@@ -65,9 +66,9 @@ def insert_quote(
             quote_number, customer_id, status, valid_until, notes, source_quote_id,
             markup_percent, markup_uses_global,
             quote_discount_percent, quote_discount_amount, quote_discount_reason,
-            installment_count, installment_interest_percent, entrada_amount
+            installment_count, installment_interest_percent, entrada_amount, entrada_percent
         )
-        VALUES (?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             quote_number,
@@ -83,6 +84,7 @@ def insert_quote(
             installment_count,
             installment_interest_percent,
             entrada_amount,
+            entrada_percent,
         ),
     )
     connection.commit()
@@ -106,6 +108,7 @@ _QUOTE_BASE = """
         q.installment_count AS installment_count,
         q.installment_interest_percent AS installment_interest_percent,
         q.entrada_amount AS entrada_amount,
+        q.entrada_percent AS entrada_percent,
         c.id AS customer_id,
         c.name AS customer_name,
         u.id AS created_by_id,
@@ -149,6 +152,7 @@ def update_quote_settings(connection: sqlite3.Connection, quote_id: int, data: d
         "installment_count",
         "installment_interest_percent",
         "entrada_amount",
+        "entrada_percent",
     ]
     cols = [c for c in allowed_cols if c in data]
     if not cols:

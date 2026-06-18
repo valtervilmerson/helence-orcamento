@@ -1021,8 +1021,15 @@ function QuoteSettingsForm({
   const [installmentInterest, setInstallmentInterest] = useState(
     quote.installment_interest_percent > 0 ? quote.installment_interest_percent.toString() : '',
   )
-  const [entradaAmount, setEntradaAmount] = useState(
-    quote.entrada_amount > 0 ? quote.entrada_amount.toString() : '',
+  const [entradaMode, setEntradaMode] = useState<'none' | 'amount' | 'percent'>(
+    quote.entrada_percent > 0 ? 'percent' : quote.entrada_amount > 0 ? 'amount' : 'none',
+  )
+  const [entradaValue, setEntradaValue] = useState(
+    quote.entrada_percent > 0
+      ? quote.entrada_percent.toString()
+      : quote.entrada_amount > 0
+      ? quote.entrada_amount.toString()
+      : '',
   )
   const [error, setError] = useState<string | null>(null)
 
@@ -1051,7 +1058,8 @@ function QuoteSettingsForm({
         quote_discount_reason: discountReason || null,
         installment_count: count,
         installment_interest_percent: interest,
-        entrada_amount: Number(entradaAmount) || 0,
+        entrada_amount: entradaMode === 'amount' ? Number(entradaValue) || 0 : 0,
+        entrada_percent: entradaMode === 'percent' ? Number(entradaValue) || 0 : 0,
       })
       onChanged()
     } catch (err) {
@@ -1157,17 +1165,29 @@ function QuoteSettingsForm({
         </div>
 
         {/* Entrada */}
-        <div className="form-field">
-          <span className="form-field__label">Entrada (R$)</span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="0,00"
-            style={{ width: '10rem' }}
-            value={entradaAmount}
-            onChange={(e) => setEntradaAmount(e.target.value)}
-          />
+        <div className="action-group">
+          <div className="form-field">
+            <span className="form-field__label">Entrada</span>
+            <select
+              value={entradaMode}
+              onChange={(e) => setEntradaMode(e.target.value as 'none' | 'amount' | 'percent')}
+            >
+              <option value="none">Sem entrada</option>
+              <option value="amount">R$</option>
+              <option value="percent">%</option>
+            </select>
+          </div>
+          {entradaMode !== 'none' && (
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder={entradaMode === 'percent' ? '0' : '0,00'}
+              style={{ width: '8rem' }}
+              value={entradaValue}
+              onChange={(e) => setEntradaValue(e.target.value)}
+            />
+          )}
         </div>
 
         <div>

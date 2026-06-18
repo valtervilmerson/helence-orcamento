@@ -60,6 +60,7 @@ class QuoteOut(BaseModel):
     installment_count: int = 1
     installment_interest_percent: float = 0.0
     entrada_amount: float = 0.0
+    entrada_percent: float = 0.0
 
 
 class QuoteSettingsPatchIn(BaseModel):
@@ -71,6 +72,7 @@ class QuoteSettingsPatchIn(BaseModel):
     installment_count: int | None = None
     installment_interest_percent: float | None = None
     entrada_amount: float | None = None
+    entrada_percent: float | None = None
 
 
 # ---------------------------------------------------------------------------
