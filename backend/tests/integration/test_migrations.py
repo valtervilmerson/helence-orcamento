@@ -51,6 +51,7 @@ def test_migrations_are_idempotent(connection) -> None:
         "0012_quote_markup_and_discount",
         "0013_app_settings",
         "0014_installments",
+        "0015_entrada_amount",
     ]
     assert second == []
 
@@ -70,6 +71,7 @@ def test_migrations_are_idempotent(connection) -> None:
         "0012_quote_markup_and_discount",
         "0013_app_settings",
         "0014_installments",
+        "0015_entrada_amount",
     ]
 
 

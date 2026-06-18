@@ -92,6 +92,7 @@ def _row_to_quote_out(row: sqlite3.Row) -> QuoteOut:
         quote_discount_reason=row["quote_discount_reason"],
         installment_count=row["installment_count"] or 1,
         installment_interest_percent=row["installment_interest_percent"] or 0.0,
+        entrada_amount=row["entrada_amount"] or 0.0,
     )
 
 
@@ -142,6 +143,7 @@ def create_quote(
     quote_discount_reason: str | None = None,
     installment_count: int = 1,
     installment_interest_percent: float = 0.0,
+    entrada_amount: float = 0.0,
 ) -> QuoteOut:
     customer = repository.get_customer(connection, customer_id)
     if customer is None:
@@ -160,6 +162,7 @@ def create_quote(
         quote_discount_reason=quote_discount_reason,
         installment_count=installment_count,
         installment_interest_percent=installment_interest_percent,
+        entrada_amount=entrada_amount,
     )
     return get_quote(connection, quote_id)
 
@@ -178,6 +181,10 @@ def update_quote_settings(
     # Se estiver definindo override específico, desativa herança global automaticamente
     if "markup_percent" in data and data.get("markup_uses_global") is None:
         data["markup_uses_global"] = False
+
+    entrada = data.get("entrada_amount")
+    if entrada is not None and entrada < 0:
+        raise DescontoInvalidoError(details={"entrada_amount": entrada, "message": "entrada_amount não pode ser negativo."})
 
     has_pct = "quote_discount_percent" in data and data["quote_discount_percent"] is not None
     has_amt = "quote_discount_amount" in data and data["quote_discount_amount"] is not None
@@ -227,6 +234,7 @@ def duplicate_quote(connection: sqlite3.Connection, quote_id: int) -> QuoteOut:
         quote_discount_reason=source_row["quote_discount_reason"],
         installment_count=source_row["installment_count"] or 1,
         installment_interest_percent=source_row["installment_interest_percent"] or 0.0,
+        entrada_amount=source_row["entrada_amount"] or 0.0,
     )
 
     for item_row in repository.list_items_with_components(connection, quote_id):
@@ -880,11 +888,16 @@ def get_totals(connection: sqlite3.Connection, quote_id: int) -> QuoteTotalsOut:
     )
 
     inst = _compute_installments(totals["total"], quote_row)
+    entrada_amount = round(float(quote_row["entrada_amount"] or 0.0), 2)
+    base_total = inst["installment_total"] if inst["installment_count"] > 1 else totals["total"]
+    valor_restante = round(base_total - entrada_amount, 2)
     return QuoteTotalsOut(
         quote_id=quote_id,
         is_snapshot=False,
         calculated_at=_now(),
         warnings=[QuoteTotalWarning(**w) for w in totals["warnings"]],
+        entrada_amount=entrada_amount,
+        valor_restante=valor_restante,
         **{k: v for k, v in totals.items() if k != "warnings"},
         **inst,
     )
@@ -914,6 +927,9 @@ def freeze_totals(connection: sqlite3.Connection, quote_id: int) -> QuoteTotalsO
     )
 
     inst = _compute_installments(totals["total"], quote_row)
+    entrada_amount = round(float(quote_row["entrada_amount"] or 0.0), 2)
+    base_total = inst["installment_total"] if inst["installment_count"] > 1 else totals["total"]
+    valor_restante = round(base_total - entrada_amount, 2)
     row = repository.upsert_quote_totals(
         connection,
         quote_id=quote_id,
@@ -954,6 +970,8 @@ def freeze_totals(connection: sqlite3.Connection, quote_id: int) -> QuoteTotalsO
         installment_interest_amount=row["installment_interest_amount"] or 0.0,
         installment_total=row["installment_total"] or 0.0,
         installment_value=row["installment_value"] or 0.0,
+        entrada_amount=entrada_amount,
+        valor_restante=valor_restante,
         currency=row["currency"],
         is_snapshot=True,
         calculated_at=row["calculated_at"],

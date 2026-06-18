@@ -1021,6 +1021,9 @@ function QuoteSettingsForm({
   const [installmentInterest, setInstallmentInterest] = useState(
     quote.installment_interest_percent > 0 ? quote.installment_interest_percent.toString() : '',
   )
+  const [entradaAmount, setEntradaAmount] = useState(
+    quote.entrada_amount > 0 ? quote.entrada_amount.toString() : '',
+  )
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -1048,6 +1051,7 @@ function QuoteSettingsForm({
         quote_discount_reason: discountReason || null,
         installment_count: count,
         installment_interest_percent: interest,
+        entrada_amount: Number(entradaAmount) || 0,
       })
       onChanged()
     } catch (err) {
@@ -1150,6 +1154,20 @@ function QuoteSettingsForm({
               />
             </div>
           )}
+        </div>
+
+        {/* Entrada */}
+        <div className="form-field">
+          <span className="form-field__label">Entrada (R$)</span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="0,00"
+            style={{ width: '10rem' }}
+            value={entradaAmount}
+            onChange={(e) => setEntradaAmount(e.target.value)}
+          />
         </div>
 
         <div>
@@ -1396,7 +1414,7 @@ function QuoteDetail({
                   <span className="totals-card__label">Juros ({totals.installment_interest_percent}%)</span>
                   <span className="totals-card__value">+ {totals.currency} {totals.installment_interest_amount.toFixed(2)}</span>
                 </div>
-                <div className="totals-card__item totals-card__item--total">
+                <div className={`totals-card__item${totals.entrada_amount === 0 ? ' totals-card__item--total' : ''}`}>
                   <span className="totals-card__label">Total c/ juros</span>
                   <span className="totals-card__value">{totals.currency} {totals.installment_total.toFixed(2)}</span>
                 </div>
@@ -1407,7 +1425,7 @@ function QuoteDetail({
               </>
             ) : totals.installment_count > 1 ? (
               <>
-                <div className="totals-card__item totals-card__item--total">
+                <div className={`totals-card__item${totals.entrada_amount === 0 ? ' totals-card__item--total' : ''}`}>
                   <span className="totals-card__label">Total</span>
                   <span className="totals-card__value">{totals.currency} {totals.total.toFixed(2)}</span>
                 </div>
@@ -1417,12 +1435,28 @@ function QuoteDetail({
                 </div>
               </>
             ) : (
-              <div className="totals-card__item totals-card__item--total">
+              <div className={`totals-card__item${totals.entrada_amount === 0 ? ' totals-card__item--total' : ''}`}>
                 <span className="totals-card__label">Total</span>
                 <span className="totals-card__value">
                   {totals.currency} {totals.total.toFixed(2)}
                 </span>
               </div>
+            )}
+            {totals.entrada_amount > 0 && (
+              <>
+                <div className="totals-card__item">
+                  <span className="totals-card__label">Entrada</span>
+                  <span className="totals-card__value">
+                    − {totals.currency} {totals.entrada_amount.toFixed(2)}
+                  </span>
+                </div>
+                <div className="totals-card__item totals-card__item--total">
+                  <span className="totals-card__label">Saldo restante</span>
+                  <span className="totals-card__value">
+                    {totals.currency} {totals.valor_restante.toFixed(2)}
+                  </span>
+                </div>
+              </>
             )}
           </div>
           {totals.warnings.map((warning) => (

@@ -1,0 +1,1 @@
+ALTER TABLE quotes ADD COLUMN entrada_amount REAL NOT NULL DEFAULT 0;

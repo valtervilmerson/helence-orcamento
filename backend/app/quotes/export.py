@@ -441,19 +441,27 @@ def generate_pdf(connection: sqlite3.Connection, quote_id: int) -> bytes:
         totals_rows.append(("Frete", totals_dict["freight_amount"], currency, False))
 
     # Parcelamento — exibir só se houver parcelas
+    entrada_amount = float(quote_row["entrada_amount"] or 0.0)
+
     if inst_count > 1:
         # Com juros: mostrar "Total à vista" antes dos juros
         if inst_interest_amt > 0:
             totals_rows.append(("Total à vista", totals_dict["total"], currency, False))
             pct_label = f"{inst_interest_pct:g}%".replace(".", ",")
             totals_rows.append((f"Juros ({pct_label})", inst_interest_amt, currency, False))
-            totals_rows.append(("Total c/ juros", inst_total, currency, True))
+            totals_rows.append(("Total c/ juros", inst_total, currency, entrada_amount == 0))
         else:
-            totals_rows.append(("Total", totals_dict["total"], currency, True))
+            totals_rows.append(("Total", totals_dict["total"], currency, entrada_amount == 0))
         n_label = f"{inst_count}× de"
         totals_rows.append((n_label, inst_value, currency, False))
     else:
-        totals_rows.append(("Total", totals_dict["total"], currency, True))
+        totals_rows.append(("Total", totals_dict["total"], currency, entrada_amount == 0))
+
+    if entrada_amount > 0:
+        base_total = inst_total if inst_count > 1 else totals_dict["total"]
+        valor_restante = base_total - entrada_amount
+        totals_rows.append(("Entrada", -entrada_amount, currency, False))
+        totals_rows.append(("Saldo restante", valor_restante, currency, True))
 
     writer.totals_box(totals_rows)
 
