@@ -40,6 +40,7 @@ const REVIEW_STATUS_OPTIONS: ReviewStatus[] = [
 const CONFIDENCE_LEVEL_OPTIONS: ConfidenceLevel[] = ['alta', 'media', 'baixa']
 
 const CORRECTABLE_FIELDS: { field: keyof ExtractedItem; label: string }[] = [
+  { field: 'description_raw', label: 'Descricao' },
   { field: 'sku_raw', label: 'SKU' },
   { field: 'price_raw', label: 'Preco' },
   { field: 'finish_raw', label: 'Acabamento' },
@@ -475,10 +476,6 @@ function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
           <tr>
             <td>Contexto</td>
             <td>{item.product_context_raw ?? '-'}</td>
-          </tr>
-          <tr>
-            <td>Descricao</td>
-            <td>{item.description_raw ?? '-'}</td>
           </tr>
           {CORRECTABLE_FIELDS.map(({ field: fieldName, label }) => (
             <tr key={fieldName}>

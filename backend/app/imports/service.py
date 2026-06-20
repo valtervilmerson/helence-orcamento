@@ -74,14 +74,15 @@ ALLOWED_REVIEW_STATUSES = {"pendente", "revisado", "aprovado", "rejeitado", "cor
 ALLOWED_CONFIDENCE_LEVELS = {"alta", "media", "baixa"}
 
 # Campos do item extraído que o revisor pode corrigir manualmente
-# (docs/04, seção 4 — capacidades 3-6: SKU, preço, acabamento, dimensão e
-# tipo de componente; descrição é somente leitura).
+# (docs/04, seção 4 — capacidades 3-6: SKU, preço, acabamento, dimensão,
+# tipo de componente e descrição).
 CORRECTABLE_FIELDS = {
     "sku_raw",
     "price_raw",
     "finish_raw",
     "dimension_raw",
     "component_type_raw",
+    "description_raw",
 }
 
 FINAL_REVIEW_STATUSES = {"aprovado", "rejeitado"}

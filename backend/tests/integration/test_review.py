@@ -281,6 +281,33 @@ def test_correct_item_field(client) -> None:
     assert any(i["id"] == item_id and i["price_raw"] == "412.90" for i in items["items"])
 
 
+def test_correct_description_is_accepted(client) -> None:
+    import_id, item_id = _create_import_with_item(file_marker=b"correct-description-marker")
+
+    response = client.post(
+        f"/api/v1/extracted-items/{item_id}/review",
+        json={
+            "decision": "corrigido",
+            "field": "description_raw",
+            "previous_value": "Tampo Inteiro Simples",
+            "corrected_value": "Tampo Inteiro Simples com Borda Reta",
+            "notes": "Descrição estava incompleta na extração.",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["review_status"] == "corrigido"
+    assert body["decision"]["field_corrected"] == "description_raw"
+    assert body["decision"]["corrected_value"] == "Tampo Inteiro Simples com Borda Reta"
+
+    items = client.get(f"/api/v1/imports/{import_id}/items").json()
+    assert any(
+        i["id"] == item_id and i["description_raw"] == "Tampo Inteiro Simples com Borda Reta"
+        for i in items["items"]
+    )
+
+
 def test_correct_finish_with_new_finish_suggestion_creates_warning(client) -> None:
     import_id, item_id = _create_import_with_item(
         file_marker=b"correct-new-finish-marker", finish_raw="Nogueira Cadiz"
