@@ -151,10 +151,12 @@ function NewCustomerForm({ onCreated }: { onCreated: (customer: Customer) => voi
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    setSubmitting(true)
     try {
       const customer = await createCustomer({
         name,
@@ -169,6 +171,8 @@ function NewCustomerForm({ onCreated }: { onCreated: (customer: Customer) => voi
       onCreated(customer)
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -180,7 +184,9 @@ function NewCustomerForm({ onCreated }: { onCreated: (customer: Customer) => voi
         <input placeholder="CNPJ/CPF (opcional)" value={document} onChange={(e) => setDocument(e.target.value)} />
         <input placeholder="E-mail (opcional)" value={email} onChange={(e) => setEmail(e.target.value)} />
         <input placeholder="Telefone (opcional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        <button type="submit">Criar cliente</button>
+        <button type="submit" disabled={submitting}>
+          {submitting ? 'Criando…' : 'Criar cliente'}
+        </button>
       </form>
       <ErrorMessage error={error} />
     </section>
@@ -192,10 +198,12 @@ function NewQuoteForm({ customers, onCreated }: { customers: Customer[]; onCreat
   const [validUntil, setValidUntil] = useState('')
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    setSubmitting(true)
     try {
       const quote = await createQuote({
         customer_id: Number(customerId),
@@ -207,6 +215,8 @@ function NewQuoteForm({ customers, onCreated }: { customers: Customer[]; onCreat
       onCreated(quote)
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -229,7 +239,9 @@ function NewQuoteForm({ customers, onCreated }: { customers: Customer[]; onCreat
           onChange={(e) => setValidUntil(e.target.value)}
         />
         <input placeholder="Observações" value={notes} onChange={(e) => setNotes(e.target.value)} />
-        <button type="submit">Criar orçamento</button>
+        <button type="submit" disabled={submitting}>
+          {submitting ? 'Criando…' : 'Criar orçamento'}
+        </button>
       </form>
       <ErrorMessage error={error} />
     </section>
@@ -249,6 +261,7 @@ function ComponentPicker({
   pickLabel = 'Adicionar',
   dimensionFilter,
   finishGroupFilter,
+  pending = false,
 }: {
   families: ProductFamily[]
   finishes?: Finish[]
@@ -260,6 +273,8 @@ function ComponentPicker({
   // RN-05 (camada 1): restringe os resultados ao finish_group compatível
   // com o tipo de componente sendo selecionado.
   finishGroupFilter?: FinishGroup | null
+  // Indica que a ação disparada por onPick ainda está em andamento.
+  pending?: boolean
 }) {
   const [familyFilter, setFamilyFilter] = useState('')
   const [finishFilter, setFinishFilter] = useState('')
@@ -340,8 +355,8 @@ function ComponentPicker({
       </div>
       <div className="form-row form-row--actions">
         <VariantCombobox results={results} variantId={variantId} onSelect={setVariantId} />
-        <button type="button" className="secondary" onClick={handlePick} disabled={!variantId}>
-          {pickLabel}
+        <button type="button" className="secondary" onClick={handlePick} disabled={!variantId || pending}>
+          {pending ? `${pickLabel}…` : pickLabel}
         </button>
       </div>
       <ErrorMessage error={error} />
@@ -364,6 +379,7 @@ function ProductCompositionLoader({
   const [products, setProducts] = useState<Product[]>([])
   const [productId, setProductId] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     async function loadProducts() {
@@ -382,6 +398,7 @@ function ProductCompositionLoader({
   async function handleLoad() {
     if (!productId) return
     setError(null)
+    setLoading(true)
     try {
       const compositionItems = await getProductComposition(Number(productId))
       if (compositionItems.length === 0) {
@@ -399,6 +416,8 @@ function ProductCompositionLoader({
       setProductId('')
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -432,8 +451,8 @@ function ProductCompositionLoader({
           ))}
         </select>
       </div>
-      <button type="button" className="secondary" onClick={() => void handleLoad()} disabled={!productId}>
-        carregar produto completo
+      <button type="button" className="secondary" onClick={() => void handleLoad()} disabled={!productId || loading}>
+        {loading ? 'carregando…' : 'carregar produto completo'}
       </button>
       <ErrorMessage error={error} />
     </div>
@@ -465,6 +484,7 @@ function NewItemForm({
   // components[0] é sempre o componente base (quando presente)
   const [components, setComponents] = useState<ComponentVariant[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const baseComponent = components[0] ?? null
   // RN-03: depois do componente base escolhido, restringe os adicionais à mesma dimensão.
@@ -518,6 +538,7 @@ function NewItemForm({
       setError('Adicione ao menos um componente além do base para criar um item composto.')
       return
     }
+    setSubmitting(true)
     try {
       await addItem(quoteId, {
         label,
@@ -528,6 +549,8 @@ function NewItemForm({
       onAdded()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -595,7 +618,9 @@ function NewItemForm({
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
                 />
-                <button type="submit">Adicionar avulso</button>
+                <button type="submit" disabled={submitting}>
+                  {submitting ? 'Adicionando…' : 'Adicionar avulso'}
+                </button>
               </form>
             </div>
           )}
@@ -676,8 +701,8 @@ function NewItemForm({
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
                   />
-                  <button type="submit" disabled={components.length < 2}>
-                    Adicionar composto ({totalPrice.toFixed(2)})
+                  <button type="submit" disabled={components.length < 2 || submitting}>
+                    {submitting ? 'Adicionando…' : `Adicionar composto (${totalPrice.toFixed(2)})`}
                   </button>
                 </form>
                 {components.length < 2 && (
@@ -718,20 +743,28 @@ function EditItemPanel({
   const [error, setError] = useState<string | null>(null)
   const [swapResults, setSwapResults] = useState<Record<number, QuoteItemComponentSwap>>({})
   const [justification, setJustification] = useState(item.composition_justification ?? '')
+  const [savingJustification, setSavingJustification] = useState(false)
+  const [swappingComponentId, setSwappingComponentId] = useState<number | null>(null)
+  const [removingComponentId, setRemovingComponentId] = useState<number | null>(null)
+  const [addingComponent, setAddingComponent] = useState(false)
 
   async function handleSaveJustification(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    setSavingJustification(true)
     try {
       await updateItem(quoteId, item.id, { composition_justification: justification || null })
       onChanged()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setSavingJustification(false)
     }
   }
 
   async function handleSwap(componentId: number, variant: ComponentVariant) {
     setError(null)
+    setSwappingComponentId(componentId)
     try {
       const result = await swapComponent(quoteId, item.id, componentId, {
         component_variant_id: variant.component_variant_id,
@@ -740,11 +773,14 @@ function EditItemPanel({
       onChanged()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setSwappingComponentId(null)
     }
   }
 
   async function handleRemoveComponent(componentId: number) {
     setError(null)
+    setRemovingComponentId(componentId)
     try {
       await removeComponent(quoteId, item.id, componentId)
       onChanged()
@@ -757,16 +793,21 @@ function EditItemPanel({
         return
       }
       setError(describeError(err))
+    } finally {
+      setRemovingComponentId(null)
     }
   }
 
   async function handleAddComponent(variant: ComponentVariant) {
     setError(null)
+    setAddingComponent(true)
     try {
       await addComponent(quoteId, item.id, { component_variant_id: variant.component_variant_id })
       onChanged()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setAddingComponent(false)
     }
   }
 
@@ -790,7 +831,9 @@ function EditItemPanel({
                 rows={2}
                 style={{ flex: 1 }}
               />
-              <button type="submit">salvar justificativa</button>
+              <button type="submit" disabled={savingJustification}>
+                {savingJustification ? 'salvando…' : 'salvar justificativa'}
+              </button>
             </form>
           </div>
         )}
@@ -801,8 +844,13 @@ function EditItemPanel({
               <li key={component.id} className="field-group">
                 <div className="action-group">
                   {component.sku ?? 'sem SKU'} — {component.frozen_currency} {component.frozen_unit_price.toFixed(2)}
-                  <button type="button" className="secondary" onClick={() => handleRemoveComponent(component.id)}>
-                    remover componente
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={removingComponentId === component.id}
+                    onClick={() => void handleRemoveComponent(component.id)}
+                  >
+                    {removingComponentId === component.id ? 'removendo…' : 'remover componente'}
                   </button>
                 </div>
                 {swap && swap.price_changed && (
@@ -816,6 +864,7 @@ function EditItemPanel({
                   finishes={finishes}
                   dimensions={dimensions}
                   pickLabel="Trocar variação"
+                  pending={swappingComponentId === component.id}
                   onPick={(variant) => handleSwap(component.id, variant)}
                 />
               </li>
@@ -829,6 +878,7 @@ function EditItemPanel({
             finishes={finishes}
             dimensions={dimensions}
             pickLabel="Adicionar componente"
+            pending={addingComponent}
             onPick={handleAddComponent}
           />
         </div>
@@ -863,6 +913,8 @@ function ItemRow({
   const [discountReason, setDiscountReason] = useState(item.discount_reason ?? '')
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [removing, setRemoving] = useState(false)
 
   function handleDiscountModeChange(mode: 'none' | 'percent' | 'amount') {
     setDiscountMode(mode)
@@ -872,6 +924,7 @@ function ItemRow({
   async function handleSave(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    setSaving(true)
     try {
       await updateItem(quoteId, item.id, {
         quantity: Number(quantity) || 1,
@@ -882,17 +935,22 @@ function ItemRow({
       onChanged()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setSaving(false)
     }
   }
 
   async function handleRemoveItem() {
     if (!window.confirm(`Remover a linha "${item.label}"?`)) return
     setError(null)
+    setRemoving(true)
     try {
       await removeItem(quoteId, item.id)
       onChanged()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setRemoving(false)
     }
   }
 
@@ -970,14 +1028,16 @@ function ItemRow({
               value={discountReason}
               onChange={(e) => setDiscountReason(e.target.value)}
             />
-            <button type="submit">salvar</button>
+            <button type="submit" disabled={saving}>
+              {saving ? 'salvando…' : 'salvar'}
+            </button>
           </form>
           <div className="action-group" style={{ marginTop: 'var(--space-2)' }}>
             <button type="button" className="secondary" onClick={() => setEditing((prev) => !prev)}>
               {editing ? 'fechar composição' : 'editar composição'}
             </button>
-            <button type="button" className="danger" onClick={() => void handleRemoveItem()}>
-              remover linha
+            <button type="button" className="danger" disabled={removing} onClick={() => void handleRemoveItem()}>
+              {removing ? 'removendo…' : 'remover linha'}
             </button>
           </div>
           <ErrorMessage error={error} />
@@ -1032,6 +1092,7 @@ function QuoteSettingsForm({
       : '',
   )
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     getSettings()
@@ -1047,6 +1108,7 @@ function QuoteSettingsForm({
   async function handleSave(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    setSubmitting(true)
     const count = Number(installmentCount) || 1
     const interest = count > 1 ? Number(installmentInterest) || 0 : 0
     try {
@@ -1064,6 +1126,8 @@ function QuoteSettingsForm({
       onChanged()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -1191,7 +1255,9 @@ function QuoteSettingsForm({
         </div>
 
         <div>
-          <button type="submit">Salvar configurações</button>
+          <button type="submit" disabled={submitting}>
+            {submitting ? 'Salvando…' : 'Salvar configurações'}
+          </button>
         </div>
       </form>
       <ErrorMessage error={error} />
@@ -1215,6 +1281,10 @@ function QuoteDetail({
   const [totals, setTotals] = useState<QuoteTotals | null>(null)
   const [checklist, setChecklist] = useState<QuoteReviewChecklist | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [freezing, setFreezing] = useState(false)
+  const [changingStatus, setChangingStatus] = useState<QuoteStatus | null>(null)
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const [duplicating, setDuplicating] = useState(false)
 
   async function reload() {
     try {
@@ -1246,21 +1316,27 @@ function QuoteDetail({
 
   async function handleFreeze() {
     setError(null)
+    setFreezing(true)
     try {
       const frozen = await freezeTotals(quote.id)
       setTotals(frozen)
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setFreezing(false)
     }
   }
 
   async function handleStatusChange(status: QuoteStatus) {
     setError(null)
+    setChangingStatus(status)
     try {
       await updateQuoteStatus(quote.id, status)
       onChanged()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setChangingStatus(null)
     }
   }
 
@@ -1270,6 +1346,7 @@ function QuoteDetail({
 
   async function handleExportPdf() {
     setError(null)
+    setExportingPdf(true)
     try {
       const blob = await exportQuotePdf(quote.id)
       const url = URL.createObjectURL(blob)
@@ -1280,6 +1357,8 @@ function QuoteDetail({
       URL.revokeObjectURL(url)
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setExportingPdf(false)
     }
   }
 
@@ -1291,11 +1370,14 @@ function QuoteDetail({
     )
     if (!confirmed) return
 
+    setDuplicating(true)
     try {
       const duplicated = await duplicateQuote(quote.id)
       onDuplicated(duplicated)
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setDuplicating(false)
     }
   }
 
@@ -1312,15 +1394,20 @@ function QuoteDetail({
           {quote.source_quote_id !== null && <p>Duplicado do orçamento #{quote.source_quote_id}.</p>}
         </div>
         <div className="action-group">
-          <button type="button" className="secondary" onClick={() => void handleDuplicate()}>
-            Duplicar orçamento
+          <button type="button" className="secondary" disabled={duplicating} onClick={() => void handleDuplicate()}>
+            {duplicating ? 'Duplicando…' : 'Duplicar orçamento'}
           </button>
           {transitions.length > 0 && (
             <>
               <span style={{ color: 'var(--color-text-muted)' }}>Mudar status para:</span>
               {transitions.map((status) => (
-                <button key={status} className="secondary" onClick={() => handleStatusChange(status)}>
-                  {status}
+                <button
+                  key={status}
+                  className="secondary"
+                  disabled={changingStatus !== null}
+                  onClick={() => void handleStatusChange(status)}
+                >
+                  {changingStatus === status ? `${status}…` : status}
                 </button>
               ))}
             </>
@@ -1485,11 +1572,15 @@ function QuoteDetail({
             </p>
           ))}
           <div className="action-group">
-            <button onClick={handleFreeze} disabled={!checklist?.ready}>
-              Congelar total
+            <button onClick={() => void handleFreeze()} disabled={!checklist?.ready || freezing}>
+              {freezing ? 'Congelando…' : 'Congelar total'}
             </button>
-            <button className="secondary" onClick={() => void handleExportPdf()} disabled={!totals.is_snapshot}>
-              Exportar PDF
+            <button
+              className="secondary"
+              onClick={() => void handleExportPdf()}
+              disabled={!totals.is_snapshot || exportingPdf}
+            >
+              {exportingPdf ? 'Exportando…' : 'Exportar PDF'}
             </button>
           </div>
         </section>
@@ -1506,6 +1597,7 @@ export function QuotesPage() {
   const [selectedQuoteId, setSelectedQuoteId] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   async function reload() {
     try {
@@ -1548,12 +1640,15 @@ export function QuotesPage() {
       return
     }
     setError(null)
+    setDeletingId(quote.id)
     try {
       await deleteQuote(quote.id)
       setQuotes((prev) => prev.filter((q) => q.id !== quote.id))
       setSelectedQuoteId((current) => (current === quote.id ? null : current))
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -1588,8 +1683,13 @@ export function QuotesPage() {
           <button type="button" className="secondary" onClick={() => setSelectedQuoteId(quote.id)}>
             {quote.id === selectedQuoteId ? 'Selecionado' : 'Abrir'}
           </button>
-          <button type="button" className="danger" onClick={() => void handleDelete(quote)}>
-            excluir
+          <button
+            type="button"
+            className="danger"
+            disabled={deletingId === quote.id}
+            onClick={() => void handleDelete(quote)}
+          >
+            {deletingId === quote.id ? 'excluindo…' : 'excluir'}
           </button>
         </div>
       </li>

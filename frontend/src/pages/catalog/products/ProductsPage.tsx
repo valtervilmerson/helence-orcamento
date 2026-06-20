@@ -32,6 +32,8 @@ export function ProductsPage() {
   const [familyId, setFamilyId] = useState('')
   const [dimensionId, setDimensionId] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   function updateSearch(value: string) {
     setSearch(value)
@@ -60,6 +62,7 @@ export function ProductsPage() {
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    setSubmitting(true)
     try {
       await createProduct({
         family_id: Number(familyId),
@@ -70,16 +73,21 @@ export function ProductsPage() {
       await reload()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setSubmitting(false)
     }
   }
 
   async function handleDelete(id: number) {
     setError(null)
+    setDeletingId(id)
     try {
       await deleteProduct(id)
       await reload()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -136,7 +144,9 @@ export function ProductsPage() {
               </option>
             ))}
           </select>
-          <button type="submit">Adicionar produto</button>
+          <button type="submit" disabled={submitting}>
+            {submitting ? 'Adicionando…' : 'Adicionar produto'}
+          </button>
         </form>
       )}
 
@@ -160,8 +170,12 @@ export function ProductsPage() {
                 >
                   {compositionProductId === product.id ? 'Fechar composição' : 'Gerenciar composição'}
                 </button>
-                <button className="danger" onClick={() => void handleDelete(product.id)}>
-                  excluir
+                <button
+                  className="danger"
+                  disabled={deletingId === product.id}
+                  onClick={() => void handleDelete(product.id)}
+                >
+                  {deletingId === product.id ? 'excluindo…' : 'excluir'}
                 </button>
               </div>
             </div>
@@ -188,6 +202,8 @@ function CompositionPanel({ productId, familyName }: { productId: number; family
   const [variantId, setVariantId] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [error, setError] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [removingId, setRemovingId] = useState<number | null>(null)
 
   async function reload() {
     try {
@@ -223,6 +239,7 @@ function CompositionPanel({ productId, familyName }: { productId: number; family
   async function handleAdd() {
     if (!variantId) return
     setError(null)
+    setAdding(true)
     try {
       await addCompositionItem(productId, {
         component_variant_id: Number(variantId),
@@ -233,16 +250,21 @@ function CompositionPanel({ productId, familyName }: { productId: number; family
       await reload()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setAdding(false)
     }
   }
 
   async function handleRemove(componentVariantId: number) {
     setError(null)
+    setRemovingId(componentVariantId)
     try {
       await removeCompositionItem(productId, componentVariantId)
       await reload()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setRemovingId(null)
     }
   }
 
@@ -262,9 +284,10 @@ function CompositionPanel({ productId, familyName }: { productId: number; family
               <button
                 type="button"
                 className="danger"
+                disabled={removingId === item.variant.component_variant_id}
                 onClick={() => void handleRemove(item.variant.component_variant_id)}
               >
-                remover
+                {removingId === item.variant.component_variant_id ? 'removendo…' : 'remover'}
               </button>
             </li>
           ))}
@@ -287,8 +310,8 @@ function CompositionPanel({ productId, familyName }: { productId: number; family
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
         />
-        <button type="button" className="secondary" onClick={() => void handleAdd()} disabled={!variantId}>
-          + adicionar à composição
+        <button type="button" className="secondary" onClick={() => void handleAdd()} disabled={!variantId || adding}>
+          {adding ? 'adicionando…' : '+ adicionar à composição'}
         </button>
       </div>
       <ErrorMessage error={error} />

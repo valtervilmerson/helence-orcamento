@@ -14,6 +14,8 @@ export function ComponentTypesPage() {
 
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   function updateSearch(value: string) {
     setSearch(value)
@@ -31,22 +33,28 @@ export function ComponentTypesPage() {
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    setSubmitting(true)
     try {
       await createComponentType({ name })
       setName('')
       await reload()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setSubmitting(false)
     }
   }
 
   async function handleDelete(id: number) {
     setError(null)
+    setDeletingId(id)
     try {
       await deleteComponentType(id)
       await reload()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -77,7 +85,9 @@ export function ComponentTypesPage() {
       {showForm && (
         <form onSubmit={handleCreate} className="catalog-add-form">
           <input placeholder="Nome (ex.: Tampo)" value={name} onChange={(e) => setName(e.target.value)} required />
-          <button type="submit">Adicionar tipo de componente</button>
+          <button type="submit" disabled={submitting}>
+            {submitting ? 'Adicionando…' : 'Adicionar tipo de componente'}
+          </button>
         </form>
       )}
 
@@ -92,8 +102,12 @@ export function ComponentTypesPage() {
             <span>
               #{type.id} — {type.name}
             </span>
-            <button className="danger" onClick={() => void handleDelete(type.id)}>
-              excluir
+            <button
+              className="danger"
+              disabled={deletingId === type.id}
+              onClick={() => void handleDelete(type.id)}
+            >
+              {deletingId === type.id ? 'excluindo…' : 'excluir'}
             </button>
           </li>
         ))}

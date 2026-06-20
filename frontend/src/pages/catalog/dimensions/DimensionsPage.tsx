@@ -18,6 +18,8 @@ export function DimensionsPage() {
   const [height, setHeight] = useState('')
   const [rawLabel, setRawLabel] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   function updateSearch(value: string) {
     setSearch(value)
@@ -35,6 +37,7 @@ export function DimensionsPage() {
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    setSubmitting(true)
     try {
       await createDimension({
         width_mm: width ? Number(width) : null,
@@ -51,16 +54,21 @@ export function DimensionsPage() {
       await reload()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setSubmitting(false)
     }
   }
 
   async function handleDelete(id: number) {
     setError(null)
+    setDeletingId(id)
     try {
       await deleteDimension(id)
       await reload()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -95,7 +103,9 @@ export function DimensionsPage() {
           <input placeholder="Profundidade (mm)" value={depth} onChange={(e) => setDepth(e.target.value)} />
           <input placeholder="Diâmetro (mm)" value={diameter} onChange={(e) => setDiameter(e.target.value)} />
           <input placeholder="Altura (mm)" value={height} onChange={(e) => setHeight(e.target.value)} />
-          <button type="submit">Adicionar dimensão</button>
+          <button type="submit" disabled={submitting}>
+            {submitting ? 'Adicionando…' : 'Adicionar dimensão'}
+          </button>
         </form>
       )}
 
@@ -110,8 +120,12 @@ export function DimensionsPage() {
               {dimension.depth_mm ?? '-'} ⌀:{dimension.diameter_mm ?? '-'} A:
               {dimension.height_mm ?? '-'})
             </span>
-            <button className="danger" onClick={() => void handleDelete(dimension.id)}>
-              excluir
+            <button
+              className="danger"
+              disabled={deletingId === dimension.id}
+              onClick={() => void handleDelete(dimension.id)}
+            >
+              {deletingId === dimension.id ? 'excluindo…' : 'excluir'}
             </button>
           </li>
         ))}

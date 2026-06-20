@@ -192,6 +192,8 @@ export function VariantsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   const [productId, setProductId] = useState('')
   const [componentId, setComponentId] = useState('')
@@ -239,6 +241,7 @@ export function VariantsPage() {
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    setSubmitting(true)
     try {
       await createComponent({
         product_id: productId ? Number(productId) : null,
@@ -258,16 +261,21 @@ export function VariantsPage() {
       await runSearch(page)
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setSubmitting(false)
     }
   }
 
   async function handleDelete(id: number) {
     setError(null)
+    setDeletingId(id)
     try {
       await deleteComponent(id)
       await runSearch(page)
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -328,7 +336,9 @@ export function VariantsPage() {
           <input placeholder="Descrição" value={description} onChange={(e) => setDescription(e.target.value)} />
           <input placeholder="Código SKU" value={skuCode} onChange={(e) => setSkuCode(e.target.value)} />
           <input placeholder="Preço (R$)" value={priceAmount} onChange={(e) => setPriceAmount(e.target.value)} />
-          <button type="submit">Adicionar variação</button>
+          <button type="submit" disabled={submitting}>
+            {submitting ? 'Adicionando…' : 'Adicionar variação'}
+          </button>
         </form>
       )}
 
@@ -409,12 +419,13 @@ export function VariantsPage() {
                     </button>
                     <button
                       className="danger"
+                      disabled={deletingId === item.component_variant_id}
                       onClick={() => {
                         if (editingId === item.component_variant_id) setEditingId(null)
                         void handleDelete(item.component_variant_id)
                       }}
                     >
-                      excluir
+                      {deletingId === item.component_variant_id ? 'excluindo…' : 'excluir'}
                     </button>
                   </div>
                 </td>

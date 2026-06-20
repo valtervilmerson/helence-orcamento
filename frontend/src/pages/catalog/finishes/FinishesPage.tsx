@@ -15,6 +15,8 @@ export function FinishesPage() {
   const [name, setName] = useState('')
   const [group, setGroup] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   function updateSearch(value: string) {
     setSearch(value)
@@ -34,6 +36,7 @@ export function FinishesPage() {
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    setSubmitting(true)
     try {
       await createFinish({
         name,
@@ -44,16 +47,21 @@ export function FinishesPage() {
       await reload()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setSubmitting(false)
     }
   }
 
   async function handleDelete(id: number) {
     setError(null)
+    setDeletingId(id)
     try {
       await deleteFinish(id)
       await reload()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -92,7 +100,9 @@ export function FinishesPage() {
             <option value="pe_estrutura">pé/estrutura</option>
             <option value="outro">outro</option>
           </select>
-          <button type="submit">Adicionar acabamento</button>
+          <button type="submit" disabled={submitting}>
+            {submitting ? 'Adicionando…' : 'Adicionar acabamento'}
+          </button>
         </form>
       )}
 
@@ -105,8 +115,12 @@ export function FinishesPage() {
             <span>
               #{finish.id} — {finish.name} {finish.finish_group ? `(${finish.finish_group})` : ''}
             </span>
-            <button className="danger" onClick={() => void handleDelete(finish.id)}>
-              excluir
+            <button
+              className="danger"
+              disabled={deletingId === finish.id}
+              onClick={() => void handleDelete(finish.id)}
+            >
+              {deletingId === finish.id ? 'excluindo…' : 'excluir'}
             </button>
           </li>
         ))}

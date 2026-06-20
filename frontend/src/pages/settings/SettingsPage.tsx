@@ -12,6 +12,7 @@ export function SettingsPage() {
   const [markupInput, setMarkupInput] = useState('')
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     getSettings()
@@ -26,6 +27,7 @@ export function SettingsPage() {
     event.preventDefault()
     setError(null)
     setSaved(false)
+    setSubmitting(true)
     try {
       const updated = await updateSettings({
         global_markup_percent: Number(markupInput) || 0,
@@ -34,6 +36,8 @@ export function SettingsPage() {
       setSaved(true)
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -60,7 +64,9 @@ export function SettingsPage() {
                 onChange={(e) => { setMarkupInput(e.target.value); setSaved(false) }}
               />
             </div>
-            <button type="submit">Salvar</button>
+            <button type="submit" disabled={submitting}>
+              {submitting ? 'Salvando…' : 'Salvar'}
+            </button>
           </form>
         )}
         {saved && (

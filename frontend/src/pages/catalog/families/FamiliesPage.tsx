@@ -15,6 +15,8 @@ export function FamiliesPage() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   function updateSearch(value: string) {
     setSearch(value)
@@ -34,6 +36,7 @@ export function FamiliesPage() {
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    setSubmitting(true)
     try {
       await createFamily({ name, description: description || null })
       setName('')
@@ -41,16 +44,21 @@ export function FamiliesPage() {
       await reload()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setSubmitting(false)
     }
   }
 
   async function handleDelete(id: number) {
     setError(null)
+    setDeletingId(id)
     try {
       await deleteFamily(id)
       await reload()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -86,7 +94,9 @@ export function FamiliesPage() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
-          <button type="submit">Adicionar família</button>
+          <button type="submit" disabled={submitting}>
+            {submitting ? 'Adicionando…' : 'Adicionar família'}
+          </button>
         </form>
       )}
 
@@ -100,8 +110,12 @@ export function FamiliesPage() {
               #{family.id} — {family.name}
               {family.description ? ` (${family.description})` : ''}
             </span>
-            <button className="danger" onClick={() => void handleDelete(family.id)}>
-              excluir
+            <button
+              className="danger"
+              disabled={deletingId === family.id}
+              onClick={() => void handleDelete(family.id)}
+            >
+              {deletingId === family.id ? 'excluindo…' : 'excluir'}
             </button>
           </li>
         ))}
