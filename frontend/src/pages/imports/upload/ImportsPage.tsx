@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CatalogApiError } from '../../../api/catalog'
 import {
+  deleteImport,
   type ImportJsonIn,
   ImportsApiError,
   listImports,
@@ -131,6 +132,8 @@ export function ImportsPage() {
   const [publishSuccess, setPublishSuccess] = useState<string | null>(null)
   const [publishingImportId, setPublishingImportId] = useState<number | null>(null)
   const [reviewingImportId, setReviewingImportId] = useState<number | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deletingImportId, setDeletingImportId] = useState<number | null>(null)
 
   async function reload() {
     try {
@@ -180,6 +183,22 @@ export function ImportsPage() {
     }
   }
 
+  async function handleDelete(item: ImportListItem) {
+    if (!window.confirm(`Excluir a importacao "${item.original_filename ?? item.id}"?`)) {
+      return
+    }
+    setDeleteError(null)
+    setDeletingImportId(item.id)
+    try {
+      await deleteImport(item.id)
+      await reload()
+    } catch (err) {
+      setDeleteError(describeError(err))
+    } finally {
+      setDeletingImportId(null)
+    }
+  }
+
   if (reviewingImportId !== null) {
     return (
       <ReviewPage
@@ -198,6 +217,7 @@ export function ImportsPage() {
       <ErrorMessage error={error} />
       <ErrorMessage error={processingError} />
       <ErrorMessage error={publishError} />
+      <ErrorMessage error={deleteError} />
       {publishSuccess && <p className="feedback-success">{publishSuccess}</p>}
 
       {canManageImports && <UploadForm onUploaded={() => void reload()} />}
@@ -251,6 +271,15 @@ export function ImportsPage() {
                         }
                       >
                         {publishingImportId === item.id ? 'Publicando...' : 'Publicar importacao'}
+                      </button>
+                    )}
+                    {item.status !== 'processando' && canManageImports && (
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(item)}
+                        disabled={deletingImportId === item.id}
+                      >
+                        {deletingImportId === item.id ? 'Excluindo...' : 'Excluir'}
                       </button>
                     )}
                   </td>

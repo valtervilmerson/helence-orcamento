@@ -173,3 +173,61 @@ def test_process_already_processing_is_rejected(client) -> None:
 
     assert second.status_code == 409
     assert second.json()["error"]["code"] == "STATUS_INVALIDO"
+
+
+# ---------------------------------------------------------------------------
+# Exclusão de importação não publicada
+# ---------------------------------------------------------------------------
+
+
+def test_delete_unpublished_import_succeeds(client) -> None:
+    upload = client.post(
+        "/api/v1/imports",
+        files={"file": ("excluir.pdf", _real_pdf_bytes(), "application/pdf")},
+    )
+    import_id = upload.json()["id"]
+
+    response = client.delete(f"/api/v1/imports/{import_id}")
+
+    assert response.status_code == 204
+
+    follow_up = client.get(f"/api/v1/imports/{import_id}")
+    assert follow_up.status_code == 404
+
+
+def test_delete_unknown_import_returns_404(client) -> None:
+    response = client.delete("/api/v1/imports/999999")
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "IMPORTACAO_NAO_ENCONTRADA"
+
+
+def test_delete_published_import_is_rejected(client) -> None:
+    payload = {
+        "contract_version": "1.0",
+        "source": {"description": "teste exclusao", "generated_by": "pytest"},
+        "items": [
+            {
+                "ref": "EXCLUIR!L1",
+                "family": "Mesas de Reunião",
+                "product_context": "Reunião 1200x900",
+                "component_type": "Tampo",
+                "description": "Tampo de teste",
+                "dimension": "1200x900",
+                "finish": "Argila",
+                "sku": "DELTEST0001",
+                "price": 100.0,
+                "currency": "BRL",
+                "confidence": 0.97,
+                "notes": None,
+            }
+        ],
+    }
+    upload = client.post("/api/v1/imports/json", json=payload)
+    assert upload.status_code == 201
+    import_id = upload.json()["imported_file_id"]
+
+    response = client.delete(f"/api/v1/imports/{import_id}")
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "IMPORTACAO_PUBLICADA"

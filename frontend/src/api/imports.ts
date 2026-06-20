@@ -194,6 +194,9 @@ export const publishImport = (importId: number) =>
     body: JSON.stringify({ confirm: true }),
   })
 
+export const deleteImport = (importId: number) =>
+  request<void>(`/imports/${importId}`, { method: 'DELETE' })
+
 // ---------------------------------------------------------------------------
 // Processamento — 14.3/14.4 (Fase 5: extração em segundo plano)
 // ---------------------------------------------------------------------------

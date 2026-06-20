@@ -110,6 +110,19 @@ def get_import_summary(
     return service.get_import_summary(connection, import_id)
 
 
+@router.delete(
+    "/{import_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_role("importador", "admin"))],
+)
+def delete_import(
+    import_id: int,
+    connection: sqlite3.Connection = Depends(get_db),
+    storage: FileStorage = Depends(get_storage),
+) -> None:
+    service.delete_import(connection, storage, import_id)
+
+
 @router.post(
     "/{import_id}/publish",
     response_model=PublishOut,

@@ -372,6 +372,21 @@ class ItemPublicacaoInvalidoError(DomainError):
     message = "Item aprovado está incompleto e não pode ser publicado no catálogo."
 
 
+class ImportacaoPublicadaError(DomainError):
+    code = "IMPORTACAO_PUBLICADA"
+    status_code = status.HTTP_409_CONFLICT
+    message = (
+        "Esta importação já foi publicada no catálogo — itens publicados não "
+        "podem ser excluídos."
+    )
+
+
+class ImportacaoEmProcessamentoError(DomainError):
+    code = "IMPORTACAO_EM_PROCESSAMENTO"
+    status_code = status.HTTP_409_CONFLICT
+    message = "Esta importação está em processamento — aguarde a finalização antes de excluir."
+
+
 async def domain_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, DomainError)
     request_id = getattr(request.state, "request_id", None)

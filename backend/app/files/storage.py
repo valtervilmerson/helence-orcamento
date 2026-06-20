@@ -28,3 +28,6 @@ class FileStorage:
 
     def read(self, filename: str) -> bytes:
         return self.path_for(filename).read_bytes()
+
+    def delete(self, filename: str) -> None:
+        self.path_for(filename).unlink(missing_ok=True)

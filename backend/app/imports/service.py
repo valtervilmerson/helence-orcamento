@@ -11,6 +11,7 @@ import json
 import logging
 import sqlite3
 from datetime import datetime
+from pathlib import Path
 
 import fitz
 
@@ -50,7 +51,9 @@ from app.shared.errors import (
     CorrecaoOrigemNaoEncontradaError,
     DomainError,
     EstrategiaIndisponivelError,
+    ImportacaoEmProcessamentoError,
     ImportacaoNaoEncontradaError,
+    ImportacaoPublicadaError,
     ImportacaoStatusInvalidoError,
     ItemNaoEncontradoError,
     ItemRevisaoStatusInvalidoError,
@@ -166,6 +169,24 @@ def get_import_summary(connection: sqlite3.Connection, import_id: int) -> Import
     if row is None:
         raise ImportacaoNaoEncontradaError()
     return _build_import_list_item(connection, row)
+
+
+def delete_import(connection: sqlite3.Connection, storage: FileStorage, import_id: int) -> None:
+    row = repository.get_imported_file(connection, import_id)
+    if row is None:
+        raise ImportacaoNaoEncontradaError()
+
+    if row["status"] == "processando":
+        raise ImportacaoEmProcessamentoError()
+
+    if repository.has_published_items(connection, import_id):
+        raise ImportacaoPublicadaError()
+
+    repository.delete_imported_file(connection, import_id)
+
+    file_path = row["file_path"]
+    if file_path:
+        storage.delete(Path(file_path).name)
 
 
 def _build_import_list_item(connection: sqlite3.Connection, row: sqlite3.Row) -> ImportListItem:

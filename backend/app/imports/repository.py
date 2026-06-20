@@ -61,6 +61,26 @@ def get_imported_file(connection: sqlite3.Connection, import_id: int) -> sqlite3
     return connection.execute(_IMPORT_BASE + " WHERE f.id = ?", (import_id,)).fetchone()
 
 
+def has_published_items(connection: sqlite3.Connection, import_id: int) -> bool:
+    row = connection.execute(
+        """
+        SELECT 1
+        FROM prices pr
+        JOIN extracted_items ei ON ei.id = pr.source_extracted_item_id
+        JOIN imported_pages p ON p.id = ei.imported_page_id
+        WHERE p.imported_file_id = ?
+        LIMIT 1
+        """,
+        (import_id,),
+    ).fetchone()
+    return row is not None
+
+
+def delete_imported_file(connection: sqlite3.Connection, import_id: int) -> None:
+    connection.execute("DELETE FROM imported_files WHERE id = ?", (import_id,))
+    connection.commit()
+
+
 def list_imported_files(
     connection: sqlite3.Connection,
     *,
