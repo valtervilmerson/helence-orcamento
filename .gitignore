@@ -23,3 +23,7 @@ npm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# --- Logs e artefatos locais ---
+*.log
+nul

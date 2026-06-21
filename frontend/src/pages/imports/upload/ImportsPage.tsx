@@ -7,7 +7,6 @@ import {
   listImports,
   processImport,
   publishImport,
-  uploadImport,
   uploadImportJson,
   type ImportListItem,
 } from '../../../api/imports'
@@ -54,7 +53,6 @@ function ImportStatusBadge({ status }: { status: string }) {
 
 function UploadForm({ onUploaded }: { onUploaded: () => void }) {
   const [file, setFile] = useState<File | null>(null)
-  const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
@@ -64,34 +62,35 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
     setSuccess(null)
 
     if (!file) {
-      setError('Selecione um arquivo PDF ou JSON.')
+      setError('Selecione um arquivo JSON.')
+      return
+    }
+
+    if (isPdfFile(file)) {
+      setError('Importacao via PDF foi descontinuada. Envie o JSON gerado a partir da planilha.')
+      return
+    }
+
+    if (!isJsonFile(file)) {
+      setError('Formato nao suportado. Envie um arquivo JSON.')
       return
     }
 
     try {
-      if (isJsonFile(file)) {
-        let payload: ImportJsonIn
-        try {
-          payload = JSON.parse(await file.text()) as ImportJsonIn
-        } catch {
-          setError('O arquivo JSON esta invalido.')
-          return
-        }
-
-        const result = await uploadImportJson(payload, file.name)
-        setSuccess(
-          `JSON "${file.name}" importado (id ${result.imported_file_id}, ${result.items_total} item(ns), ${result.items_pending_review} pendente(s) para revisao).`,
-        )
-      } else if (isPdfFile(file)) {
-        const result = await uploadImport(file, notes || undefined)
-        setSuccess(`Arquivo "${result.original_filename}" recebido (id ${result.id}).`)
-      } else {
-        setError('Formato nao suportado. Envie um PDF ou JSON.')
+      let payload: ImportJsonIn
+      try {
+        payload = JSON.parse(await file.text()) as ImportJsonIn
+      } catch {
+        setError('O arquivo JSON esta invalido.')
         return
       }
 
+      const result = await uploadImportJson(payload, file.name)
+      setSuccess(
+        `JSON "${file.name}" importado (id ${result.imported_file_id}, ${result.items_total} item(ns), ${result.items_pending_review} pendente(s) para revisao).`,
+      )
+
       setFile(null)
-      setNotes('')
       onUploaded()
     } catch (err) {
       setError(describeError(err))
@@ -104,17 +103,12 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
       <form onSubmit={handleSubmit}>
         <input
           type="file"
-          accept=".pdf,application/pdf,.json,application/json"
+          accept=".json,application/json"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-        />
-        <input
-          placeholder="Observacoes (opcional, usado apenas para PDF)"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
         />
         <button type="submit">Enviar</button>
       </form>
-      <p>Arquivos aceitos: PDF para extracao legada e JSON no contrato v1.0.</p>
+      <p>Arquivos aceitos: JSON no contrato v1.0. Importacao via PDF foi descontinuada.</p>
       <ErrorMessage error={error} />
       {success && <p className="feedback-success">{success}</p>}
     </section>
