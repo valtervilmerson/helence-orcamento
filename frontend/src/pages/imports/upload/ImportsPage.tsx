@@ -11,6 +11,7 @@ import {
   type ImportListItem,
 } from '../../../api/imports'
 import { useAuth } from '../../../context/useAuth'
+import { usePageHeader } from '../../../layout/usePageHeader'
 import { ReviewPage } from '../review/ReviewPage'
 
 function ErrorMessage({ error }: { error: string | null }) {
@@ -67,12 +68,12 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
     }
 
     if (isPdfFile(file)) {
-      setError('Importacao via PDF foi descontinuada. Envie o JSON gerado a partir da planilha.')
+      setError('Importação via PDF foi descontinuada. Envie o JSON gerado a partir da planilha.')
       return
     }
 
     if (!isJsonFile(file)) {
-      setError('Formato nao suportado. Envie um arquivo JSON.')
+      setError('Formato não suportado. Envie um arquivo JSON.')
       return
     }
 
@@ -81,13 +82,13 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
       try {
         payload = JSON.parse(await file.text()) as ImportJsonIn
       } catch {
-        setError('O arquivo JSON esta invalido.')
+        setError('O arquivo JSON está inválido.')
         return
       }
 
       const result = await uploadImportJson(payload, file.name)
       setSuccess(
-        `JSON "${file.name}" importado (id ${result.imported_file_id}, ${result.items_total} item(ns), ${result.items_pending_review} pendente(s) para revisao).`,
+        `JSON "${file.name}" importado (id ${result.imported_file_id}, ${result.items_total} item(ns), ${result.items_pending_review} pendente(s) para revisão).`,
       )
 
       setFile(null)
@@ -99,16 +100,24 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
 
   return (
     <section>
-      <h2>Enviar Arquivo</h2>
-      <form onSubmit={handleSubmit}>
+      <h2>Enviar tabela de preço</h2>
+      <p className="section-subtitle">
+        JSON no contrato v1.0, gerado pelo agente de extração a partir da planilha. A
+        importação por PDF foi descontinuada.
+      </p>
+      <div className="dropzone">
+        <strong>{file ? file.name : 'Selecione o arquivo .json'}</strong>
+        <span>O conteúdo é validado contra o contrato antes de gravar qualquer item</span>
         <input
           type="file"
           accept=".json,application/json"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          style={{ marginTop: 'var(--space-2)' }}
         />
+      </div>
+      <form onSubmit={handleSubmit} className="action-group" style={{ marginTop: 'var(--space-3)' }}>
         <button type="submit">Enviar</button>
       </form>
-      <p>Arquivos aceitos: JSON no contrato v1.0. Importacao via PDF foi descontinuada.</p>
       <ErrorMessage error={error} />
       {success && <p className="feedback-success">{success}</p>}
     </section>
@@ -168,7 +177,7 @@ export function ImportsPage() {
     setPublishingImportId(item.id)
     try {
       const result = await publishImport(item.id)
-      setPublishSuccess(`Importacao publicada com ${result.items_published} item(ns).`)
+      setPublishSuccess(`Importação publicada com ${result.items_published} item(ns).`)
       await reload()
     } catch (err) {
       setPublishError(describeError(err))
@@ -178,7 +187,7 @@ export function ImportsPage() {
   }
 
   async function handleDelete(item: ImportListItem) {
-    if (!window.confirm(`Excluir a importacao "${item.original_filename ?? item.id}"?`)) {
+    if (!window.confirm(`Excluir a importação "${item.original_filename ?? item.id}"?`)) {
       return
     }
     setDeleteError(null)
@@ -193,6 +202,20 @@ export function ImportsPage() {
     }
   }
 
+  usePageHeader(
+    reviewingImportId !== null
+      ? {
+          title: `Revisão da importação #${reviewingImportId}`,
+          breadcrumb: [
+            { label: 'Importações', to: '/importacoes' },
+            { label: `#${reviewingImportId}` },
+            { label: 'Revisão' },
+          ],
+          narrow: true,
+        }
+      : { title: 'Importações', narrow: true },
+  )
+
   if (reviewingImportId !== null) {
     return (
       <ReviewPage
@@ -205,14 +228,36 @@ export function ImportsPage() {
     )
   }
 
+  const lastImport = imports.reduce<ImportListItem | null>(
+    (latest, item) => (latest === null || item.id > latest.id ? item : latest),
+    null,
+  )
+  const totalBlocking = imports.reduce((sum, item) => sum + item.items_blocking_publication, 0)
+
   return (
     <div>
-      <h1>Importacoes</h1>
       <ErrorMessage error={error} />
       <ErrorMessage error={processingError} />
       <ErrorMessage error={publishError} />
       <ErrorMessage error={deleteError} />
       {publishSuccess && <p className="feedback-success">{publishSuccess}</p>}
+
+      {imports.length > 0 && (
+        <div className="metric-row" style={{ marginBottom: 'var(--space-5)' }}>
+          <div className="metric">
+            <div className="metric__value">{lastImport?.items_extracted ?? 0}</div>
+            <div className="metric__label">Itens na última importação</div>
+          </div>
+          <div className={`metric${totalBlocking > 0 ? ' metric--warning' : ''}`}>
+            <div className="metric__value">{totalBlocking}</div>
+            <div className="metric__label">Itens bloqueando publicação</div>
+          </div>
+          <div className="metric">
+            <div className="metric__value">{imports.length}</div>
+            <div className="metric__label">Importações enviadas</div>
+          </div>
+        </div>
+      )}
 
       {canManageImports && <UploadForm onUploaded={() => void reload()} />}
 
@@ -227,10 +272,10 @@ export function ImportsPage() {
                 <th>Arquivo</th>
                 <th>Status</th>
                 <th>Itens</th>
-                <th>Bloqueando publicacao</th>
-                <th>Paginas</th>
+                <th>Bloqueando publicação</th>
+                <th>Páginas</th>
                 <th>Enviado em</th>
-                <th>Acoes</th>
+                <th>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -264,7 +309,7 @@ export function ImportsPage() {
                           publishingImportId === item.id || item.items_blocking_publication > 0
                         }
                       >
-                        {publishingImportId === item.id ? 'Publicando...' : 'Publicar importacao'}
+                        {publishingImportId === item.id ? 'Publicando...' : 'Publicar importação'}
                       </button>
                     )}
                     {item.status !== 'processando' && canManageImports && (

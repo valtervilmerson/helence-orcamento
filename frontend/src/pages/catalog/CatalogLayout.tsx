@@ -14,6 +14,7 @@ import {
 } from '../../api/catalog'
 import { ErrorMessage } from './shared'
 import { describeError, type CatalogContextValue } from './catalogContext'
+import { usePageHeader } from '../../layout/usePageHeader'
 import './CatalogLayout.css'
 
 const TABS: { to: string; label: string; end?: boolean }[] = [
@@ -27,6 +28,8 @@ const TABS: { to: string; label: string; end?: boolean }[] = [
 ]
 
 export function CatalogLayout() {
+  usePageHeader({ title: 'Catálogo' })
+
   const [families, setFamilies] = useState<ProductFamily[]>([])
   const [dimensions, setDimensions] = useState<Dimension[]>([])
   const [finishes, setFinishes] = useState<Finish[]>([])
@@ -74,7 +77,6 @@ export function CatalogLayout() {
 
   return (
     <div>
-      <h1>Catálogo</h1>
       <p className="catalog-layout__intro">
         Cadastro e organização dos itens do catálogo: famílias, produtos-base, tipos de
         componente, dimensões, acabamentos e as variações vendáveis (com SKU e preço).

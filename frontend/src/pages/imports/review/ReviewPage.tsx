@@ -40,11 +40,11 @@ const REVIEW_STATUS_OPTIONS: ReviewStatus[] = [
 const CONFIDENCE_LEVEL_OPTIONS: ConfidenceLevel[] = ['alta', 'media', 'baixa']
 
 const CORRECTABLE_FIELDS: { field: keyof ExtractedItem; label: string }[] = [
-  { field: 'description_raw', label: 'Descricao' },
+  { field: 'description_raw', label: 'Descrição' },
   { field: 'sku_raw', label: 'SKU' },
-  { field: 'price_raw', label: 'Preco' },
+  { field: 'price_raw', label: 'Preço' },
   { field: 'finish_raw', label: 'Acabamento' },
-  { field: 'dimension_raw', label: 'Dimensao' },
+  { field: 'dimension_raw', label: 'Dimensão' },
   { field: 'component_type_raw', label: 'Tipo de componente' },
 ]
 
@@ -66,8 +66,8 @@ const CONFIDENCE_BADGE_CLASS: Record<ConfidenceLevel, string> = {
 
 const BATCH_SCOPE_OPTIONS: { value: BatchCorrectionScope; label: string }[] = [
   { value: 'page', label: 'Mesma pagina' },
-  { value: 'page_profile', label: 'Mesmo perfil de pagina em toda a importacao' },
-  { value: 'import', label: 'Toda a importacao' },
+  { value: 'page_profile', label: 'Mesmo perfil de página em toda a importação' },
+  { value: 'import', label: 'Toda a importação' },
 ]
 
 const NEW_FINISH_OPTION = '__new__'
@@ -160,12 +160,12 @@ function BatchCorrectionModal({
       }}
     >
       <div style={{ background: 'white', padding: '1.5rem', maxWidth: '32rem', width: '90%' }}>
-        <h3>Aplicar correcao em lote - {fieldLabel}</h3>
+        <h3>Aplicar correção em lote - {fieldLabel}</h3>
 
         {preview && (
           <p>
-            Voce corrigiu de <strong>{preview.previous_value ?? '-'}</strong> para{' '}
-            <strong>{preview.corrected_value}</strong>. Deseja aplicar a mesma correcao a outros
+            Você corrigiu de <strong>{preview.previous_value ?? '-'}</strong> para{' '}
+            <strong>{preview.corrected_value}</strong>. Deseja aplicar a mesma correção a outros
             itens com o valor original <strong>{preview.previous_value ?? '-'}</strong>?
           </p>
         )}
@@ -187,16 +187,16 @@ function BatchCorrectionModal({
           </label>
         </p>
 
-        {loading && <p>Carregando pre-visualizacao...</p>}
+        {loading && <p>Carregando pré-visualização...</p>}
 
         {preview && !loading && (
           <>
             <p>
-              {preview.eligible_count} item(ns) elegivel(eis) para correcao
+              {preview.eligible_count} item(ns) elegível(eis) para correção
               {preview.already_decided_count > 0 && (
                 <>
                   {' '}
-                  - {preview.already_decided_count} item(ns) ja com decisao propria nao serao
+                  - {preview.already_decided_count} item(ns) já com decisão própria não serão
                   alterados.
                 </>
               )}
@@ -231,7 +231,7 @@ function BatchCorrectionModal({
 
         <p>
           <label>
-            Observacoes (opcional):{' '}
+            Observações (opcional):{' '}
             <input
               style={{ width: '60%' }}
               value={notes}
@@ -311,7 +311,7 @@ function FinishField({
             {name}
           </option>
         ))}
-        <option value={NEW_FINISH_OPTION}>Nao esta na lista - cadastrar novo acabamento</option>
+        <option value={NEW_FINISH_OPTION}>Não está na lista - cadastrar novo acabamento</option>
       </select>
 
       {mode === 'new' && (
@@ -337,7 +337,7 @@ function FinishField({
             </select>
           </label>
           <p className="feedback-warning">
-            Este acabamento precisara ser aprovado e cadastrado antes da publicacao.
+            Este acabamento precisará ser aprovado e cadastrado antes da publicação.
           </p>
         </div>
       )}
@@ -437,7 +437,7 @@ function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
   async function handleReject() {
     setError(null)
     if (!notes) {
-      setError('Justificativa e obrigatoria para rejeitar um item.')
+      setError('Justificativa é obrigatória para rejeitar um item.')
       return
     }
     setSubmitting(true)
@@ -454,7 +454,7 @@ function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
   return (
     <section style={{ margin: 0 }}>
       <h3>
-        Item #{item.id} - pag. {item.page_number} <ConfidenceBadge level={item.confidence_level} />
+        Item #{item.id} - pág. {item.page_number} <ConfidenceBadge level={item.confidence_level} />
       </h3>
 
       <p>
@@ -463,7 +463,7 @@ function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
 
       {item.review_status === 'corrigido' && !field && (
         <p className="feedback-warning">
-          Correcao salva. Este item ainda precisa ser aprovado antes da publicacao.
+          Correção salva. Este item ainda precisa ser aprovado antes da publicação.
         </p>
       )}
 
@@ -527,7 +527,7 @@ function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
 
       <p>
         <label>
-          Observacoes (obrigatorias ao rejeitar):{' '}
+          Observações (obrigatórias ao rejeitar):{' '}
           <input
             style={{ width: '60%' }}
             value={notes}
@@ -541,7 +541,7 @@ function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
 
       {isFinal ? (
         <p>
-          <em>Decisao final registrada: {item.review_status}.</em>
+          <em>Decisão final registrada: {item.review_status}.</em>
         </p>
       ) : !canReview ? (
         <p>
@@ -559,7 +559,7 @@ function ItemDetail({ item, finishes, onDecided }: ItemDetailProps) {
           </button>
           {field ? (
             <button type="button" onClick={() => void handleSaveCorrection()} disabled={submitting}>
-              Salvar correcao
+              Salvar correção
             </button>
           ) : (
             <button type="button" onClick={() => void handleApprove()} disabled={submitting}>
@@ -607,10 +607,26 @@ function ImportSummaryPanel({
   if (!summary) return null
 
   const canPublishNow = canPublishImports && summary.items_blocking_publication === 0
+  const decidedCount = Math.max(0, summary.items_extracted - summary.items_blocking_publication)
+  const progressPercent =
+    summary.items_extracted > 0 ? Math.round((decidedCount / summary.items_extracted) * 100) : 100
 
   return (
     <section style={{ marginTop: 'var(--space-3)' }}>
-      <h2>Status da importacao</h2>
+      <h2>Progresso da revisão</h2>
+      <p className="helper-text" style={{ marginTop: 0 }}>
+        {decidedCount} de {summary.items_extracted} itens decididos
+      </p>
+      <div className="progress">
+        <div className="progress__fill" style={{ width: `${progressPercent}%` }} />
+      </div>
+      <p className="helper-text">
+        {summary.items_blocking_publication > 0
+          ? `Faltam ${summary.items_blocking_publication} item(ns) pendente(s) para liberar a publicação. Nenhum preço entra no catálogo sem revisão.`
+          : 'Todos os itens foram decididos — pronto para publicação.'}
+      </p>
+
+      <h2>Status da importação</h2>
       <table>
         <tbody>
           <tr>
@@ -618,7 +634,7 @@ function ImportSummaryPanel({
             <td>{summary.original_filename ?? '-'}</td>
           </tr>
           <tr>
-            <td>Itens extraidos</td>
+            <td>Itens extraídos</td>
             <td>{summary.items_extracted}</td>
           </tr>
           <tr>
@@ -626,7 +642,7 @@ function ImportSummaryPanel({
             <td>{summary.items_pending_review}</td>
           </tr>
           <tr>
-            <td>Bloqueando publicacao</td>
+            <td>Bloqueando publicação</td>
             <td>{summary.items_blocking_publication}</td>
           </tr>
         </tbody>
@@ -634,8 +650,8 @@ function ImportSummaryPanel({
 
       {summary.items_blocking_publication > 0 && (
         <p className="feedback-warning">
-          Ainda ha {summary.items_blocking_publication} item(ns) sem decisao final. Itens
-          corrigidos precisam ser aprovados antes da publicacao.
+          Ainda há {summary.items_blocking_publication} item(ns) sem decisão final. Itens
+          corrigidos precisam ser aprovados antes da publicação.
         </p>
       )}
 
@@ -645,7 +661,7 @@ function ImportSummaryPanel({
       {canPublishImports && (
         <p className="action-group">
           <button type="button" onClick={onPublish} disabled={!canPublishNow || publishing}>
-            {publishing ? 'Publicando...' : 'Publicar importacao'}
+            {publishing ? 'Publicando...' : 'Publicar importação'}
           </button>
         </p>
       )}
@@ -780,7 +796,7 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
       if (out.failed_count > 0) {
         const failures = out.results.filter((result) => !result.success)
         setBulkError(
-          `${out.failed_count} de ${out.requested_count} itens nao puderam ser atualizados: ` +
+          `${out.failed_count} de ${out.requested_count} itens não puderam ser atualizados: ` +
             failures.map((failure) => `#${failure.item_id} (${failure.error_code})`).join(', '),
         )
       } else {
@@ -802,7 +818,7 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
     setPublishing(true)
     try {
       const result = await publishImport(importId)
-      setPublishSuccess(`Importacao publicada com ${result.items_published} item(ns).`)
+      setPublishSuccess(`Importação publicada com ${result.items_published} item(ns).`)
       await reloadSummary()
     } catch (err) {
       setPublishError(describeError(err))
@@ -813,10 +829,9 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
 
   return (
     <div>
-      <h1>Revisao - importacao {importId}</h1>
       <section>
         <button type="button" className="secondary" onClick={onBack}>
-          Voltar para importacoes
+          Voltar para importações
         </button>
         <ErrorMessageBlock error={error} />
 
@@ -845,7 +860,7 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
             </select>
           </label>
           <label>
-            Confianca:{' '}
+            Confiança:{' '}
             <select
               value={confidenceLevel}
               onChange={(e) => setConfidenceLevel(e.target.value as ConfidenceLevel | '')}
@@ -871,7 +886,7 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
           >
             <strong>{selectedIds.size} selecionado(s)</strong>
             <label>
-              Observacoes (obrigatorias ao rejeitar):{' '}
+              Observações (obrigatórias ao rejeitar):{' '}
               <input
                 value={bulkNotes}
                 onChange={(e) => setBulkNotes(e.target.value)}
@@ -930,12 +945,12 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
                   />
                 </th>
                 <th>Conf.</th>
-                <th>Pag.</th>
+                <th>Pág.</th>
                 <th>Componente</th>
-                <th>Dimensao</th>
+                <th>Dimensão</th>
                 <th>Acabamento</th>
                 <th>SKU</th>
-                <th>Preco</th>
+                <th>Preço</th>
                 <th>Status</th>
                 <th></th>
               </tr>

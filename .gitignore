@@ -27,3 +27,6 @@ Thumbs.db
 # --- Logs e artefatos locais ---
 *.log
 nul
+
+# --- Arquivos temporários de trabalho (ex.: exports do Claude Design) ---
+temp/

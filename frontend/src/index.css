@@ -698,3 +698,377 @@ li {
     padding: var(--space-4);
   }
 }
+
+/* =====================================================================
+   Componentes trazidos do design system (Claude Design): seletor
+   segmentado, selo/aviso de preço congelado, indicador de compatibilidade,
+   resumo de totais em cascata, barra de status, zona de upload, barra de
+   progresso, métricas de resumo e textos auxiliares.
+   ===================================================================== */
+
+/* Seletor segmentado — alternativa ao par de botões avulso/composto. */
+.segmented {
+  display: inline-flex;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 3px;
+}
+
+.segmented__option {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.segmented__option small {
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.segmented__option:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.segmented__option.is-active {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Selo "congelado" inline, ao lado de um preço gravado no orçamento. */
+.frozen-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.frozen-tag::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--color-primary);
+}
+
+/* Aviso explicativo do congelamento de preço ao adicionar um item. */
+.frozen-callout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+}
+
+.frozen-callout__price {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+
+.frozen-callout__hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-primary-dark);
+  max-width: 30rem;
+}
+
+/* Linha de componente adicional com indicador de compatibilidade (RN-04). */
+.compat-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  font-size: var(--font-size-sm);
+}
+
+.compat-row__ok {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-success);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.compat-row__ok::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+
+/* Faixa de status com etapas e ação de transição do orçamento. */
+.status-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.status-bar__step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.status-bar__sep {
+  color: var(--color-border);
+}
+
+.status-bar__current {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.status-bar__spacer {
+  flex: 1;
+}
+
+/* Painel guiado de adição de item — se destaca das demais seções. */
+.add-item-panel {
+  border: 1px solid var(--color-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.add-item-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: calc(var(--space-5) * -1) calc(var(--space-5) * -1) var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.add-item-panel__head h3 {
+  margin: 0;
+}
+
+/* Resumo de totais em cascata — subtotal, descontos, total, parcelas. */
+.quote-totals {
+  width: 100%;
+  max-width: 26rem;
+  margin-left: auto;
+}
+
+.quote-totals__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  font-size: var(--font-size-base);
+}
+
+.quote-totals__row span:first-child {
+  color: var(--color-text-muted);
+}
+
+.quote-totals__row--discount span,
+.quote-totals__row--discount .quote-totals__value {
+  color: var(--color-success);
+}
+
+.quote-totals__sub {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.quote-totals__divider {
+  border-top: 1px solid var(--color-border);
+  margin: var(--space-2) 0;
+}
+
+.quote-totals__row--total {
+  padding-top: var(--space-2);
+}
+
+.quote-totals__row--total span:first-child {
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+}
+
+.quote-totals__row--total .quote-totals__value {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+
+.quote-totals__installments {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--color-border);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.quote-totals__installments strong {
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+}
+
+/* Zona de upload de arquivo, mais clara que um input solto. */
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  text-align: center;
+  padding: var(--space-6);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.dropzone strong {
+  font-size: var(--font-size-base);
+}
+
+.dropzone span {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Barra de progresso simples (ex.: itens revisados na importação). */
+.progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.progress__fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 999px;
+}
+
+/* Métrica destacada (cards de resumo no topo de uma tela). */
+.metric-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.metric {
+  flex: 1;
+  min-width: 9rem;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.metric__value {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.metric__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.metric--warning .metric__value {
+  color: var(--color-warning);
+}
+
+.metric--danger .metric__value {
+  color: var(--color-danger);
+}
+
+/* Pequeno texto auxiliar abaixo de um campo/elemento, e subtítulo de seção. */
+.helper-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin: var(--space-1) 0 0;
+}
+
+.section-subtitle {
+  margin: -8px 0 var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* Linha do tempo vertical (ex.: auditoria de origem de um preço). */
+.timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.timeline li {
+  position: relative;
+  padding: 0 0 var(--space-5) var(--space-5);
+  border-left: 2px solid var(--color-border);
+}
+
+.timeline li:last-child {
+  border-color: transparent;
+  padding-bottom: 0;
+}
+
+.timeline li::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 2px solid var(--color-surface);
+}
+
+.timeline__when {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.timeline__title {
+  font-weight: 600;
+  margin: 2px 0;
+}

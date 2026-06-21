@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { QuotesApiError } from '../../api/quotes'
 import { getSettings, updateSettings, type AppSettings } from '../../api/settings'
+import { usePageHeader } from '../../layout/usePageHeader'
 
 function describeError(err: unknown): string {
   if (err instanceof QuotesApiError) return `${err.code}: ${err.message}`
@@ -8,6 +9,8 @@ function describeError(err: unknown): string {
 }
 
 export function SettingsPage() {
+  usePageHeader({ title: 'Configurações', narrow: true })
+
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [markupInput, setMarkupInput] = useState('')
   const [saved, setSaved] = useState(false)
@@ -43,8 +46,6 @@ export function SettingsPage() {
 
   return (
     <div>
-      <h1>Configurações</h1>
-
       <section>
         <h2>Markup de venda global</h2>
         <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-3)' }}>

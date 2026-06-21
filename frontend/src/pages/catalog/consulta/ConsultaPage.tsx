@@ -11,6 +11,7 @@ import {
   listFamilies,
   searchComponents,
 } from '../../../api/catalog'
+import { usePageHeader } from '../../../layout/usePageHeader'
 
 function describeError(err: unknown): string {
   if (err instanceof CatalogApiError) {
@@ -24,7 +25,14 @@ function formatPrice(price: ComponentVariant['price']): string {
   return `${price.currency} ${price.amount.toFixed(2)}`
 }
 
+function PriceCell({ price }: { price: ComponentVariant['price'] }) {
+  if (!price) return <span className="badge badge-danger">sem preço</span>
+  return <>{formatPrice(price)}</>
+}
+
 export function ConsultaPage() {
+  usePageHeader({ title: 'Consulta do catálogo' })
+
   const [families, setFamilies] = useState<ProductFamily[]>([])
   const [componentTypes, setComponentTypes] = useState<ProductComponentType[]>([])
   const [finishes, setFinishes] = useState<Finish[]>([])
@@ -98,7 +106,6 @@ export function ConsultaPage() {
 
   return (
     <div>
-      <h1>Consulta do catálogo</h1>
       <section>
         <input
           placeholder="Buscar por produto, SKU, descrição..."
@@ -198,7 +205,7 @@ export function ConsultaPage() {
                     </td>
                     <td>{item.component}</td>
                     <td>{item.finish ?? '—'}</td>
-                    <td>{formatPrice(item.price)}</td>
+                    <td><PriceCell price={item.price} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -206,19 +213,29 @@ export function ConsultaPage() {
           </div>
 
           <div className="split-layout__detail">
-            {!selected && <p>Selecione um item para ver os detalhes.</p>}
+            {!selected && <p className="helper-text">Selecione um item para ver os detalhes.</p>}
             {selected && (
               <div>
-                <h3>
+                <h3 style={{ marginBottom: '2px' }}>
                   {selected.product ?? '—'} — {selected.component}
                   {selected.descriptor ? ` ${selected.descriptor}` : ''}
-                  {selected.finish ? ` — ${selected.finish}` : ''}
                 </h3>
-                <p>SKU: {selected.sku ?? '—'}</p>
-                <p>Preço: {formatPrice(selected.price)}</p>
-                <p>Dimensão: {selected.dimension?.raw_label ?? '—'}</p>
+                <p className="helper-text" style={{ margin: 0 }}>
+                  {selected.finish ?? '—'} · SKU {selected.sku ?? '—'}
+                </p>
+                {selected.price ? (
+                  <div className="frozen-callout" style={{ marginTop: 'var(--space-3)' }}>
+                    <span className="frozen-callout__price">{formatPrice(selected.price)}</span>
+                    <span className="frozen-callout__hint">Preço vigente no catálogo.</span>
+                  </div>
+                ) : (
+                  <p className="feedback-error" style={{ marginTop: 'var(--space-3)' }}>
+                    Sem preço cadastrado — este item não pode ser adicionado a um orçamento.
+                  </p>
+                )}
+                <p style={{ marginTop: 'var(--space-3)' }}>Dimensão: {selected.dimension?.raw_label ?? '—'}</p>
                 <p>Descrição: {selected.description ?? '—'}</p>
-                {detailLoading && <p>Carregando…</p>}
+                {detailLoading && <p className="helper-text">Carregando…</p>}
                 {detailError && <p className="feedback-error">{detailError}</p>}
               </div>
             )}

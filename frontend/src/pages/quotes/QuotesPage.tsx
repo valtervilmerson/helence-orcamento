@@ -43,6 +43,7 @@ import {
   type QuoteTotals,
 } from '../../api/quotes'
 import { getSettings } from '../../api/settings'
+import { usePageHeader } from '../../layout/usePageHeader'
 
 const STATUS_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
   rascunho: ['enviado', 'rejeitado', 'expirado'],
@@ -471,12 +472,14 @@ function NewItemForm({
   finishes,
   dimensions,
   onAdded,
+  onClose,
 }: {
   quoteId: number
   families: ProductFamily[]
   finishes: Finish[]
   dimensions: Dimension[]
   onAdded: () => void
+  onClose: () => void
 }) {
   const [mode, setMode] = useState<ItemMode>('avulso')
   const [label, setLabel] = useState('')
@@ -547,6 +550,7 @@ function NewItemForm({
       })
       reset()
       onAdded()
+      onClose()
     } catch (err) {
       setError(describeError(err))
     } finally {
@@ -555,25 +559,31 @@ function NewItemForm({
   }
 
   return (
-    <section>
-      <h3>Adicionar item</h3>
+    <section className="add-item-panel">
+      <div className="add-item-panel__head">
+        <h3>Adicionar item</h3>
+        <button type="button" className="secondary" onClick={onClose}>
+          Fechar
+        </button>
+      </div>
 
       {/* Seletor de modo */}
-      <div className="mode-toggle">
-        <span className="mode-toggle__label">Tipo</span>
+      <div className="segmented" style={{ marginBottom: 'var(--space-4)' }}>
         <button
           type="button"
-          className={mode !== 'avulso' ? 'secondary' : ''}
+          className={`segmented__option${mode === 'avulso' ? ' is-active' : ''}`}
           onClick={() => handleModeChange('avulso')}
         >
-          Avulso
+          Item avulso
+          <small>Um único componente</small>
         </button>
         <button
           type="button"
-          className={mode !== 'composto' ? 'secondary' : ''}
+          className={`segmented__option${mode === 'composto' ? ' is-active' : ''}`}
           onClick={() => handleModeChange('composto')}
         >
-          Composto
+          Produto montado
+          <small>Base + componentes adicionais</small>
         </button>
       </div>
 
@@ -583,12 +593,25 @@ function NewItemForm({
           <div className="form-block">
             <h4 className="form-block__title">Componente</h4>
             {baseComponent ? (
-              <div className="list-item-card">
-                <span style={{ flex: 1 }}>{describeVariant(baseComponent)}</span>
-                <button type="button" className="secondary" onClick={() => setComponents([])}>
-                  trocar
-                </button>
-              </div>
+              <>
+                <div className="list-item-card">
+                  <span style={{ flex: 1 }}>{describeVariant(baseComponent)}</span>
+                  <button type="button" className="secondary" onClick={() => setComponents([])}>
+                    trocar
+                  </button>
+                </div>
+                <div className="frozen-callout" style={{ marginTop: 'var(--space-3)' }}>
+                  <span className="frozen-callout__price">
+                    {baseComponent.price
+                      ? `${baseComponent.price.currency} ${baseComponent.price.amount.toFixed(2)}`
+                      : 'sem preço'}
+                  </span>
+                  <span className="frozen-callout__hint">
+                    Preço da tabela vigente. Ao adicionar, este valor é <strong>congelado</strong> no
+                    orçamento e não muda se o catálogo for atualizado depois.
+                  </span>
+                </div>
+              </>
             ) : (
               <ComponentPicker
                 families={families}
@@ -633,13 +656,26 @@ function NewItemForm({
           <div className="form-block">
             <h4 className="form-block__title">1. Componente base</h4>
             {baseComponent ? (
-              <div className="list-item-card">
-                <span className="badge badge-composite badge--sm">base</span>
-                <span style={{ flex: 1 }}>{describeVariant(baseComponent)}</span>
-                <button type="button" className="secondary" onClick={() => handleRemoveAt(0)}>
-                  trocar
-                </button>
-              </div>
+              <>
+                <div className="list-item-card">
+                  <span className="badge badge-composite badge--sm">base</span>
+                  <span style={{ flex: 1 }}>{describeVariant(baseComponent)}</span>
+                  <button type="button" className="secondary" onClick={() => handleRemoveAt(0)}>
+                    trocar
+                  </button>
+                </div>
+                <div className="frozen-callout" style={{ marginTop: 'var(--space-3)' }}>
+                  <span className="frozen-callout__price">
+                    {baseComponent.price
+                      ? `${baseComponent.price.currency} ${baseComponent.price.amount.toFixed(2)}`
+                      : 'sem preço'}
+                  </span>
+                  <span className="frozen-callout__hint">
+                    Define a dimensão da linha. Preço da tabela vigente, <strong>congelado</strong> ao
+                    adicionar o item ao orçamento.
+                  </span>
+                </div>
+              </>
             ) : (
               <ComponentPicker
                 families={families}
@@ -658,9 +694,11 @@ function NewItemForm({
                 {components.slice(1).length > 0 && (
                   <ul className="list-plain form-block__pending">
                     {components.slice(1).map((variant, i) => (
-                      <li key={`extra-${variant.component_variant_id}-${i}`} className="list-item-card">
+                      <li key={`extra-${variant.component_variant_id}-${i}`} className="compat-row">
+                        <span className="badge badge--sm">+</span>
                         <span style={{ flex: 1 }}>{describeVariant(variant)}</span>
-                        <button type="button" className="secondary" onClick={() => handleRemoveAt(i + 1)}>
+                        <span className="compat-row__ok">Compatível</span>
+                        <button type="button" className="danger" style={{ padding: '2px 8px' }} onClick={() => handleRemoveAt(i + 1)}>
                           remover
                         </button>
                       </li>
@@ -812,79 +850,77 @@ function EditItemPanel({
   }
 
   return (
-    <tr>
-      <td colSpan={5} style={{ background: 'var(--color-bg)' }}>
-        <p>
-          <strong>Editar composição — {item.label}</strong>
-        </p>
-        {item.missing_required_components.length > 0 && (
-          <div className="feedback-error field-group">
-            <p>
-              Pendências: faltam componente(s) obrigatório(s) —{' '}
-              {item.missing_required_components.join(', ')}.
-            </p>
-            <form onSubmit={handleSaveJustification} className="action-group">
-              <textarea
-                placeholder="Justificativa para linha incompleta"
-                value={justification}
-                onChange={(e) => setJustification(e.target.value)}
-                rows={2}
-                style={{ flex: 1 }}
-              />
-              <button type="submit" disabled={savingJustification}>
-                {savingJustification ? 'salvando…' : 'salvar justificativa'}
-              </button>
-            </form>
-          </div>
-        )}
-        <ul className="list-plain">
-          {item.components.map((component) => {
-            const swap = swapResults[component.id]
-            return (
-              <li key={component.id} className="field-group">
-                <div className="action-group">
-                  {component.sku ?? 'sem SKU'} — {component.frozen_currency} {component.frozen_unit_price.toFixed(2)}
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={removingComponentId === component.id}
-                    onClick={() => void handleRemoveComponent(component.id)}
-                  >
-                    {removingComponentId === component.id ? 'removendo…' : 'remover componente'}
-                  </button>
-                </div>
-                {swap && swap.price_changed && (
-                  <p className="feedback-warning">
-                    Preço atualizado de {swap.frozen_currency} {swap.previous_frozen_unit_price.toFixed(2)} para{' '}
-                    {swap.frozen_currency} {swap.frozen_unit_price.toFixed(2)}.
-                  </p>
-                )}
-                <ComponentPicker
-                  families={families}
-                  finishes={finishes}
-                  dimensions={dimensions}
-                  pickLabel="Trocar variação"
-                  pending={swappingComponentId === component.id}
-                  onPick={(variant) => handleSwap(component.id, variant)}
-                />
-              </li>
-            )
-          })}
-        </ul>
-        <div className="form-block" style={{ marginTop: 'var(--space-3)' }}>
-          <h4 className="form-block__title">+ componente</h4>
-          <ComponentPicker
-            families={families}
-            finishes={finishes}
-            dimensions={dimensions}
-            pickLabel="Adicionar componente"
-            pending={addingComponent}
-            onPick={handleAddComponent}
-          />
+    <div style={{ marginTop: 'var(--space-3)' }}>
+      <p>
+        <strong>Editar composição — {item.label}</strong>
+      </p>
+      {item.missing_required_components.length > 0 && (
+        <div className="feedback-error field-group">
+          <p>
+            Pendências: faltam componente(s) obrigatório(s) —{' '}
+            {item.missing_required_components.join(', ')}.
+          </p>
+          <form onSubmit={handleSaveJustification} className="action-group">
+            <textarea
+              placeholder="Justificativa para linha incompleta"
+              value={justification}
+              onChange={(e) => setJustification(e.target.value)}
+              rows={2}
+              style={{ flex: 1 }}
+            />
+            <button type="submit" disabled={savingJustification}>
+              {savingJustification ? 'salvando…' : 'salvar justificativa'}
+            </button>
+          </form>
         </div>
-        <ErrorMessage error={error} />
-      </td>
-    </tr>
+      )}
+      <ul className="list-plain">
+        {item.components.map((component) => {
+          const swap = swapResults[component.id]
+          return (
+            <li key={component.id} className="field-group">
+              <div className="action-group">
+                {component.sku ?? 'sem SKU'} — {component.frozen_currency} {component.frozen_unit_price.toFixed(2)}
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={removingComponentId === component.id}
+                  onClick={() => void handleRemoveComponent(component.id)}
+                >
+                  {removingComponentId === component.id ? 'removendo…' : 'remover componente'}
+                </button>
+              </div>
+              {swap && swap.price_changed && (
+                <p className="feedback-warning">
+                  Preço atualizado de {swap.frozen_currency} {swap.previous_frozen_unit_price.toFixed(2)} para{' '}
+                  {swap.frozen_currency} {swap.frozen_unit_price.toFixed(2)}.
+                </p>
+              )}
+              <ComponentPicker
+                families={families}
+                finishes={finishes}
+                dimensions={dimensions}
+                pickLabel="Trocar variação"
+                pending={swappingComponentId === component.id}
+                onPick={(variant) => handleSwap(component.id, variant)}
+              />
+            </li>
+          )
+        })}
+      </ul>
+      <div className="form-block" style={{ marginTop: 'var(--space-3)' }}>
+        <h4 className="form-block__title">+ componente</h4>
+        <ComponentPicker
+          families={families}
+          finishes={finishes}
+          dimensions={dimensions}
+          pickLabel="Adicionar componente"
+          pending={addingComponent}
+          onPick={handleAddComponent}
+        />
+      </div>
+      <ErrorMessage error={error} />
+    </div>
   )
 }
 
@@ -955,104 +991,113 @@ function ItemRow({
   }
 
   const isComposite = item.components.length > 1
+  const unitPrice = item.components.reduce((sum, c) => sum + c.frozen_unit_price, 0)
+  const currency = item.components[0]?.frozen_currency ?? 'BRL'
+  const hasDiscount = item.discount_percent != null || item.discount_amount != null
 
   return (
     <>
       <tr>
-        <td>{item.id}</td>
         <td>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-            <span className={`badge ${isComposite ? 'badge-composite' : 'badge-neutral'}`}>
-              {isComposite ? 'Composto' : 'Avulso'}
+          <div style={{ fontWeight: 600, marginBottom: item.components.length > 0 ? '4px' : 0 }}>
+            {item.label}{' '}
+            <span className={`badge badge--sm ${isComposite ? 'badge-composite' : 'badge-neutral'}`}>
+              {isComposite ? 'Produto montado' : 'Item avulso'}
             </span>
-            {item.label}
           </div>
-        </td>
-        <td>
           {isComposite ? (
             <ul className="component-list">
               {item.components.map((c, idx) => (
                 <li key={c.id} className="component-list__item">
-                  {idx === 0 && (
-                    <span className="badge badge-composite badge--sm">base</span>
-                  )}
-                  <span>
-                    {c.sku ?? 'sem SKU'} — {c.frozen_currency} {c.frozen_unit_price.toFixed(2)}
+                  <span className={`badge badge--sm ${idx === 0 ? 'badge-composite' : ''}`}>
+                    {idx === 0 ? 'base' : '+'}
                   </span>
+                  <span>{c.sku ?? 'sem SKU'}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            item.components.map((c) => (
-              <div key={c.id}>
-                {c.sku ?? 'sem SKU'} — {c.frozen_currency} {c.frozen_unit_price.toFixed(2)}
-              </div>
-            ))
+            item.components.map((c) => <p key={c.id} className="helper-text" style={{ margin: 0 }}>{c.sku ?? 'sem SKU'}</p>)
+          )}
+          {hasDiscount && (
+            <p className="helper-text" style={{ margin: 0 }}>
+              Desconto do item:{' '}
+              {item.discount_percent != null
+                ? `${item.discount_percent}%`
+                : `−${currency} ${(item.discount_amount ?? 0).toFixed(2)}`}
+              {item.discount_reason ? ` — ${item.discount_reason}` : ''}
+            </p>
           )}
           {item.pricing_pendencias.length > 0 && (
             <p className="feedback-error">{item.pricing_pendencias.join('; ')}</p>
           )}
         </td>
+        <td>{item.quantity}</td>
         <td>
-          <form onSubmit={handleSave} className="action-group">
-            <input
-              type="number"
-              min="1"
-              style={{ width: '4rem' }}
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-            />
-            <select
-              style={{ width: '6rem' }}
-              value={discountMode}
-              onChange={(e) => handleDiscountModeChange(e.target.value as 'none' | 'percent' | 'amount')}
-            >
-              <option value="none">sem desc.</option>
-              <option value="percent">% desc.</option>
-              <option value="amount">R$ desc.</option>
-            </select>
-            {discountMode !== 'none' && (
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder={discountMode === 'percent' ? '0' : '0,00'}
-                style={{ width: '6rem' }}
-                value={discountValue}
-                onChange={(e) => setDiscountValue(e.target.value)}
-              />
-            )}
-            <input
-              placeholder="Justificativa"
-              style={{ width: '8rem' }}
-              value={discountReason}
-              onChange={(e) => setDiscountReason(e.target.value)}
-            />
-            <button type="submit" disabled={saving}>
-              {saving ? 'salvando…' : 'salvar'}
-            </button>
-          </form>
-          <div className="action-group" style={{ marginTop: 'var(--space-2)' }}>
-            <button type="button" className="secondary" onClick={() => setEditing((prev) => !prev)}>
-              {editing ? 'fechar composição' : 'editar composição'}
-            </button>
-            <button type="button" className="danger" disabled={removing} onClick={() => void handleRemoveItem()}>
-              {removing ? 'removendo…' : 'remover linha'}
-            </button>
-          </div>
-          <ErrorMessage error={error} />
+          {currency} {unitPrice.toFixed(2)} <span className="frozen-tag">congelado</span>
         </td>
-        <td>{item.line_subtotal.toFixed(2)}</td>
+        <td>{currency} {item.line_subtotal.toFixed(2)}</td>
+        <td className="action-group">
+          <button type="button" className="secondary" onClick={() => setEditing((prev) => !prev)}>
+            {editing ? 'Fechar' : 'Editar'}
+          </button>
+          <button type="button" className="danger" disabled={removing} onClick={() => void handleRemoveItem()}>
+            {removing ? 'removendo…' : 'Remover'}
+          </button>
+        </td>
       </tr>
       {editing && (
-        <EditItemPanel
-          item={item}
-          quoteId={quoteId}
-          families={families}
-          finishes={finishes}
-          dimensions={dimensions}
-          onChanged={onChanged}
-        />
+        <tr>
+          <td colSpan={5} style={{ background: 'var(--color-bg)' }}>
+            <form onSubmit={handleSave} className="action-group">
+              <input
+                type="number"
+                min="1"
+                style={{ width: '4rem' }}
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
+              <select
+                style={{ width: '6rem' }}
+                value={discountMode}
+                onChange={(e) => handleDiscountModeChange(e.target.value as 'none' | 'percent' | 'amount')}
+              >
+                <option value="none">sem desc.</option>
+                <option value="percent">% desc.</option>
+                <option value="amount">R$ desc.</option>
+              </select>
+              {discountMode !== 'none' && (
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder={discountMode === 'percent' ? '0' : '0,00'}
+                  style={{ width: '6rem' }}
+                  value={discountValue}
+                  onChange={(e) => setDiscountValue(e.target.value)}
+                />
+              )}
+              <input
+                placeholder="Justificativa"
+                style={{ width: '8rem' }}
+                value={discountReason}
+                onChange={(e) => setDiscountReason(e.target.value)}
+              />
+              <button type="submit" disabled={saving}>
+                {saving ? 'salvando…' : 'salvar quantidade/desconto'}
+              </button>
+            </form>
+            <ErrorMessage error={error} />
+            <EditItemPanel
+              item={item}
+              quoteId={quoteId}
+              families={families}
+              finishes={finishes}
+              dimensions={dimensions}
+              onChanged={onChanged}
+            />
+          </td>
+        </tr>
       )}
     </>
   )
@@ -1285,6 +1330,8 @@ function QuoteDetail({
   const [changingStatus, setChangingStatus] = useState<QuoteStatus | null>(null)
   const [exportingPdf, setExportingPdf] = useState(false)
   const [duplicating, setDuplicating] = useState(false)
+  const [addingItem, setAddingItem] = useState(false)
+  const [adjustingSettings, setAdjustingSettings] = useState(false)
 
   async function reload() {
     try {
@@ -1384,78 +1431,90 @@ function QuoteDetail({
   const transitions = STATUS_TRANSITIONS[quote.status] ?? []
 
   return (
-    <section>
-      <div className="quote-header">
-        <div className="quote-header__title">
-          <span className="quote-header__number">{quote.quote_number}</span>
-          <h2>
-            {quote.customer.name} <StatusBadge status={quote.status} />
-          </h2>
-          {quote.source_quote_id !== null && <p>Duplicado do orçamento #{quote.source_quote_id}.</p>}
+    <div>
+      <section>
+        <div className="quote-header">
+          <div className="quote-header__title">
+            <StatusBadge status={quote.status} />
+            {quote.source_quote_id !== null && (
+              <p className="helper-text" style={{ margin: 0 }}>
+                Duplicado do orçamento #{quote.source_quote_id}.
+              </p>
+            )}
+          </div>
+          <div className="action-group">
+            <button type="button" className="secondary" disabled={duplicating} onClick={() => void handleDuplicate()}>
+              {duplicating ? 'Duplicando…' : 'Duplicar orçamento'}
+            </button>
+          </div>
         </div>
-        <div className="action-group">
-          <button type="button" className="secondary" disabled={duplicating} onClick={() => void handleDuplicate()}>
-            {duplicating ? 'Duplicando…' : 'Duplicar orçamento'}
-          </button>
-          {transitions.length > 0 && (
-            <>
-              <span style={{ color: 'var(--color-text-muted)' }}>Mudar status para:</span>
-              {transitions.map((status) => (
+
+        {transitions.length > 0 && (
+          <div className="status-bar" style={{ marginTop: 'var(--space-4)' }}>
+            <span className="status-bar__step status-bar__current">{quote.status}</span>
+            {transitions.map((status) => (
+              <span key={status} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <span className="status-bar__sep">→</span>
                 <button
-                  key={status}
+                  type="button"
                   className="secondary"
                   disabled={changingStatus !== null}
                   onClick={() => void handleStatusChange(status)}
                 >
                   {changingStatus === status ? `${status}…` : status}
                 </button>
-              ))}
-            </>
+              </span>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section>
+        <div className="quote-header" style={{ marginBottom: 'var(--space-4)' }}>
+          <h2 style={{ margin: 0 }}>Itens do orçamento</h2>
+          {quote.status === 'rascunho' && !addingItem && (
+            <button type="button" className="secondary" onClick={() => setAddingItem(true)}>
+              + Adicionar item
+            </button>
           )}
         </div>
-      </div>
+        <div className="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Qtd.</th>
+                <th>Preço unit.</th>
+                <th>Total</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  quoteId={quote.id}
+                  families={families}
+                  finishes={finishes}
+                  dimensions={dimensions}
+                  onChanged={handleItemChanged}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-      <div className="table-responsive">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Item</th>
-              <th>Componentes</th>
-              <th>Quantidade / desconto / ações</th>
-              <th>Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                quoteId={quote.id}
-                families={families}
-                finishes={finishes}
-                dimensions={dimensions}
-                onChanged={handleItemChanged}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {quote.status === 'rascunho' && (
-        <>
-          <NewItemForm
-            quoteId={quote.id}
-            families={families}
-            finishes={finishes}
-            dimensions={dimensions}
-            onAdded={() => void reload()}
-          />
-          <QuoteSettingsForm
-            quote={quote}
-            onChanged={() => { void reload(); onChanged() }}
-          />
-        </>
+      {quote.status === 'rascunho' && addingItem && (
+        <NewItemForm
+          quoteId={quote.id}
+          families={families}
+          finishes={finishes}
+          dimensions={dimensions}
+          onAdded={() => void reload()}
+          onClose={() => setAddingItem(false)}
+        />
       )}
 
       {checklist && (
@@ -1479,89 +1538,71 @@ function QuoteDetail({
 
       {totals && (
         <section>
-          <h3>Totais{totals.is_snapshot ? ' (congelado)' : ' (ao vivo)'}</h3>
-          <div className="totals-card__grid">
-            <div className="totals-card__item">
-              <span className="totals-card__label">Subtotal</span>
-              <span className="totals-card__value">
-                {totals.currency} {totals.subtotal.toFixed(2)}
-              </span>
+          <h3>Resumo{totals.is_snapshot ? ' (congelado)' : ' (ao vivo)'}</h3>
+          <div className="quote-totals">
+            <div className="quote-totals__row">
+              <span>Subtotal <span className="quote-totals__sub">(preços congelados)</span></span>
+              <span className="quote-totals__value">{totals.currency} {totals.subtotal.toFixed(2)}</span>
             </div>
             {totals.item_discount_amount > 0 && (
-              <div className="totals-card__item">
-                <span className="totals-card__label">Desc. itens</span>
-                <span className="totals-card__value">
-                  − {totals.currency} {totals.item_discount_amount.toFixed(2)}
-                </span>
+              <div className="quote-totals__row quote-totals__row--discount">
+                <span>Desconto dos itens</span>
+                <span className="quote-totals__value">−{totals.currency} {totals.item_discount_amount.toFixed(2)}</span>
               </div>
             )}
             {totals.quote_discount_amount > 0 && (
-              <div className="totals-card__item">
-                <span className="totals-card__label">Desc. orçamento</span>
-                <span className="totals-card__value">
-                  − {totals.currency} {totals.quote_discount_amount.toFixed(2)}
-                </span>
+              <div className="quote-totals__row quote-totals__row--discount">
+                <span>Desconto do orçamento</span>
+                <span className="quote-totals__value">−{totals.currency} {totals.quote_discount_amount.toFixed(2)}</span>
               </div>
             )}
             {totals.item_discount_amount === 0 && totals.quote_discount_amount === 0 && totals.discount_amount > 0 && (
-              <div className="totals-card__item">
-                <span className="totals-card__label">Desconto</span>
-                <span className="totals-card__value">
-                  − {totals.currency} {totals.discount_amount.toFixed(2)} ({totals.discount_percent.toFixed(2)}%)
-                </span>
+              <div className="quote-totals__row quote-totals__row--discount">
+                <span>Desconto <span className="quote-totals__sub">({totals.discount_percent.toFixed(2)}%)</span></span>
+                <span className="quote-totals__value">−{totals.currency} {totals.discount_amount.toFixed(2)}</span>
               </div>
             )}
-            {totals.installment_count > 1 && totals.installment_interest_amount > 0 ? (
-              <>
-                <div className="totals-card__item">
-                  <span className="totals-card__label">Total à vista</span>
-                  <span className="totals-card__value">{totals.currency} {totals.total.toFixed(2)}</span>
-                </div>
-                <div className="totals-card__item">
-                  <span className="totals-card__label">Juros ({totals.installment_interest_percent}%)</span>
-                  <span className="totals-card__value">+ {totals.currency} {totals.installment_interest_amount.toFixed(2)}</span>
-                </div>
-                <div className={`totals-card__item${totals.entrada_amount === 0 ? ' totals-card__item--total' : ''}`}>
-                  <span className="totals-card__label">Total c/ juros</span>
-                  <span className="totals-card__value">{totals.currency} {totals.installment_total.toFixed(2)}</span>
-                </div>
-                <div className="totals-card__item">
-                  <span className="totals-card__label">{totals.installment_count}× de</span>
-                  <span className="totals-card__value">{totals.currency} {totals.installment_value.toFixed(2)}</span>
-                </div>
-              </>
-            ) : totals.installment_count > 1 ? (
-              <>
-                <div className={`totals-card__item${totals.entrada_amount === 0 ? ' totals-card__item--total' : ''}`}>
-                  <span className="totals-card__label">Total</span>
-                  <span className="totals-card__value">{totals.currency} {totals.total.toFixed(2)}</span>
-                </div>
-                <div className="totals-card__item">
-                  <span className="totals-card__label">{totals.installment_count}× de</span>
-                  <span className="totals-card__value">{totals.currency} {totals.installment_value.toFixed(2)}</span>
-                </div>
-              </>
-            ) : (
-              <div className={`totals-card__item${totals.entrada_amount === 0 ? ' totals-card__item--total' : ''}`}>
-                <span className="totals-card__label">Total</span>
-                <span className="totals-card__value">
-                  {totals.currency} {totals.total.toFixed(2)}
+            {totals.installment_count > 1 && totals.installment_interest_amount > 0 && (
+              <div className="quote-totals__row">
+                <span>Total à vista</span>
+                <span className="quote-totals__value">{totals.currency} {totals.total.toFixed(2)}</span>
+              </div>
+            )}
+            {totals.installment_count > 1 && totals.installment_interest_amount > 0 && (
+              <div className="quote-totals__row">
+                <span>Juros <span className="quote-totals__sub">({totals.installment_interest_percent}%)</span></span>
+                <span className="quote-totals__value">+{totals.currency} {totals.installment_interest_amount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="quote-totals__divider" />
+            <div className="quote-totals__row quote-totals__row--total">
+              <span>{totals.installment_count > 1 && totals.installment_interest_amount > 0 ? 'Total c/ juros' : 'Total'}</span>
+              <span className="quote-totals__value">
+                {totals.currency}{' '}
+                {(totals.installment_count > 1 && totals.installment_interest_amount > 0
+                  ? totals.installment_total
+                  : totals.total
+                ).toFixed(2)}
+              </span>
+            </div>
+            {totals.installment_count > 1 && (
+              <div className="quote-totals__installments">
+                <span>Parcelamento</span>
+                <span>
+                  <strong>{totals.installment_count}× de {totals.currency} {totals.installment_value.toFixed(2)}</strong>
+                  {totals.installment_interest_percent > 0 ? '' : ' sem juros'}
                 </span>
               </div>
             )}
             {totals.entrada_amount > 0 && (
               <>
-                <div className="totals-card__item">
-                  <span className="totals-card__label">Entrada</span>
-                  <span className="totals-card__value">
-                    − {totals.currency} {totals.entrada_amount.toFixed(2)}
-                  </span>
+                <div className="quote-totals__row quote-totals__row--discount">
+                  <span>Entrada</span>
+                  <span className="quote-totals__value">−{totals.currency} {totals.entrada_amount.toFixed(2)}</span>
                 </div>
-                <div className="totals-card__item totals-card__item--total">
-                  <span className="totals-card__label">Saldo restante</span>
-                  <span className="totals-card__value">
-                    {totals.currency} {totals.valor_restante.toFixed(2)}
-                  </span>
+                <div className="quote-totals__row quote-totals__row--total">
+                  <span>Saldo restante</span>
+                  <span className="quote-totals__value">{totals.currency} {totals.valor_restante.toFixed(2)}</span>
                 </div>
               </>
             )}
@@ -1571,7 +1612,7 @@ function QuoteDetail({
               {warning.message}
             </p>
           ))}
-          <div className="action-group">
+          <div className="action-group" style={{ marginTop: 'var(--space-4)' }}>
             <button onClick={() => void handleFreeze()} disabled={!checklist?.ready || freezing}>
               {freezing ? 'Congelando…' : 'Congelar total'}
             </button>
@@ -1583,11 +1624,25 @@ function QuoteDetail({
               {exportingPdf ? 'Exportando…' : 'Exportar PDF'}
             </button>
           </div>
+          {quote.status === 'rascunho' && (
+            <div className="action-group" style={{ justifyContent: 'flex-end', marginTop: 'var(--space-4)' }}>
+              <button type="button" className="secondary" onClick={() => setAdjustingSettings((prev) => !prev)}>
+                {adjustingSettings ? 'Fechar ajustes' : 'Ajustar markup, descontos e parcelas'}
+              </button>
+            </div>
+          )}
         </section>
       )}
 
+      {quote.status === 'rascunho' && adjustingSettings && (
+        <QuoteSettingsForm
+          quote={quote}
+          onChanged={() => { void reload(); onChanged() }}
+        />
+      )}
+
       <ErrorMessage error={error} />
-    </section>
+    </div>
   )
 }
 
@@ -1598,6 +1653,7 @@ export function QuotesPage() {
   const [search, setSearch] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [creatingQuote, setCreatingQuote] = useState(false)
 
   async function reload() {
     try {
@@ -1618,6 +1674,7 @@ export function QuotesPage() {
   function handleCreated(quote: Quote) {
     setQuotes((prev) => [...prev, quote])
     setSelectedQuoteId(quote.id)
+    setCreatingQuote(false)
   }
 
   function handleCustomerCreated(customer: Customer) {
@@ -1630,6 +1687,18 @@ export function QuotesPage() {
   }
 
   const selectedQuote = quotes.find((q) => q.id === selectedQuoteId) ?? null
+
+  usePageHeader(
+    selectedQuote
+      ? {
+          title: selectedQuote.customer.name,
+          breadcrumb: [
+            { label: 'Orçamentos', to: '/orcamentos' },
+            { label: selectedQuote.quote_number },
+          ],
+        }
+      : { title: 'Orçamentos' },
+  )
 
   async function handleSelectionChanged() {
     await reload()
@@ -1698,7 +1767,6 @@ export function QuotesPage() {
 
   return (
     <div>
-      <h1>Orçamentos — montagem</h1>
       <ErrorMessage error={error} />
 
       <div className="quotes-layout">
@@ -1711,15 +1779,23 @@ export function QuotesPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
 
-          <section>
-            <h2>Em andamento</h2>
+          <button type="button" style={{ width: '100%' }} onClick={() => setCreatingQuote((prev) => !prev)}>
+            {creatingQuote ? 'Cancelar novo orçamento' : '+ Novo orçamento'}
+          </button>
+
+          {creatingQuote && <NewQuoteForm customers={customers} onCreated={handleCreated} />}
+
+          <div>
+            <h2 style={{ fontSize: 'var(--font-size-sm)', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>
+              Em andamento
+            </h2>
             {inProgressQuotes.length === 0 && (
               <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
                 Nenhum orçamento em andamento.
               </p>
             )}
             <ul className="list-plain">{inProgressQuotes.map(renderQuoteItem)}</ul>
-          </section>
+          </div>
 
           <details>
             <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
@@ -1740,16 +1816,12 @@ export function QuotesPage() {
             <summary>Novo cliente</summary>
             <NewCustomerForm onCreated={handleCustomerCreated} />
           </details>
-
-          <details>
-            <summary>Novo orçamento</summary>
-            <NewQuoteForm customers={customers} onCreated={handleCreated} />
-          </details>
         </aside>
 
         <main className="quotes-main">
           {selectedQuote ? (
             <QuoteDetail
+              key={selectedQuote.id}
               quote={selectedQuote}
               onChanged={() => void handleSelectionChanged()}
               onDuplicated={handleDuplicated}

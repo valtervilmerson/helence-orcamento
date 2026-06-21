@@ -405,7 +405,11 @@ export function VariantsPage() {
                 <td>{item.finish ?? '—'}</td>
                 <td>{item.sku ?? '—'}</td>
                 <td>
-                  {item.price ? `${item.price.currency} ${item.price.amount.toFixed(2)}` : '—'}
+                  {item.price ? (
+                    `${item.price.currency} ${item.price.amount.toFixed(2)}`
+                  ) : (
+                    <span className="badge badge-danger">sem preço</span>
+                  )}
                 </td>
                 <td>
                   <div className="action-group">
