@@ -262,18 +262,16 @@ export function ImportsPage() {
       {canManageImports && <UploadForm onUploaded={() => void reload()} />}
 
       <section>
-        <h2>Arquivos enviados</h2>
+        <h2>Importações recentes</h2>
         {imports.length === 0 && <p>Nenhum arquivo enviado ainda.</p>}
         {imports.length > 0 && (
           <table>
             <thead>
               <tr>
-                <th>ID</th>
                 <th>Arquivo</th>
                 <th>Status</th>
                 <th>Itens</th>
-                <th>Bloqueando publicação</th>
-                <th>Páginas</th>
+                <th>Pendentes</th>
                 <th>Enviado em</th>
                 <th>Ações</th>
               </tr>
@@ -281,14 +279,22 @@ export function ImportsPage() {
             <tbody>
               {imports.map((item) => (
                 <tr key={item.id}>
-                  <td>{item.id}</td>
-                  <td>{item.original_filename ?? '-'}</td>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{item.original_filename ?? '-'}</div>
+                    <div className="helper-text">
+                      #{item.id}
+                      {item.page_count != null ? ` · ${item.page_count} página(s)` : ''}
+                    </div>
+                  </td>
                   <td>
                     <ImportStatusBadge status={item.status} />
                   </td>
                   <td>{item.items_extracted}</td>
-                  <td>{item.items_blocking_publication}</td>
-                  <td>{item.page_count ?? '-'}</td>
+                  <td>
+                    <span className={`badge ${item.items_blocking_publication > 0 ? 'badge-warning' : 'badge-success'}`}>
+                      {item.items_blocking_publication} {item.items_blocking_publication === 1 ? 'pendente' : 'pendentes'}
+                    </span>
+                  </td>
                   <td>{item.imported_at}</td>
                   <td className="action-group">
                     {item.status === 'recebido' && canManageImports && (
@@ -298,23 +304,32 @@ export function ImportsPage() {
                     )}
                     {item.status === 'concluido' && (
                       <button type="button" onClick={() => setReviewingImportId(item.id)}>
-                        Revisar
+                        {item.items_blocking_publication > 0
+                          ? `Revisar ${item.items_blocking_publication} itens`
+                          : 'Revisar'}
                       </button>
                     )}
                     {item.status === 'concluido' && canPublishImports && (
                       <button
                         type="button"
+                        className="secondary"
                         onClick={() => void handlePublish(item)}
                         disabled={
                           publishingImportId === item.id || item.items_blocking_publication > 0
                         }
+                        title={
+                          item.items_blocking_publication > 0
+                            ? 'Habilita quando não há itens pendentes'
+                            : undefined
+                        }
                       >
-                        {publishingImportId === item.id ? 'Publicando...' : 'Publicar importação'}
+                        {publishingImportId === item.id ? 'Publicando...' : 'Publicar'}
                       </button>
                     )}
                     {item.status !== 'processando' && canManageImports && (
                       <button
                         type="button"
+                        className="danger"
                         onClick={() => void handleDelete(item)}
                         disabled={deletingImportId === item.id}
                       >

@@ -89,16 +89,39 @@ def find_finish_by_name(connection: sqlite3.Connection, name: str) -> sqlite3.Ro
     return connection.execute("SELECT id FROM finishes WHERE name = ?", (name,)).fetchone()
 
 
+def list_finish_groups(connection: sqlite3.Connection, finish_id: int) -> list[str]:
+    rows = connection.execute(
+        "SELECT finish_group FROM finish_groups WHERE finish_id = ? ORDER BY finish_group",
+        (finish_id,),
+    ).fetchall()
+    return [row["finish_group"] for row in rows]
+
+
+def add_finish_group(connection: sqlite3.Connection, finish_id: int, finish_group: str) -> None:
+    connection.execute(
+        "INSERT OR IGNORE INTO finish_groups (finish_id, finish_group) VALUES (?, ?)",
+        (finish_id, finish_group),
+    )
+
+
+def set_finish_groups(connection: sqlite3.Connection, finish_id: int, finish_groups: list[str]) -> None:
+    connection.execute("DELETE FROM finish_groups WHERE finish_id = ?", (finish_id,))
+    for group in finish_groups:
+        add_finish_group(connection, finish_id, group)
+
+
 def get_or_create_finish(
     connection: sqlite3.Connection, name: str, finish_group: str | None
 ) -> int:
     row = connection.execute("SELECT id FROM finishes WHERE name = ?", (name,)).fetchone()
     if row is not None:
-        return int(row["id"])
-    cursor = connection.execute(
-        "INSERT INTO finishes (name, finish_group) VALUES (?, ?)", (name, finish_group)
-    )
-    return int(cursor.lastrowid)
+        finish_id = int(row["id"])
+    else:
+        cursor = connection.execute("INSERT INTO finishes (name) VALUES (?)", (name,))
+        finish_id = int(cursor.lastrowid)
+    if finish_group is not None:
+        add_finish_group(connection, finish_id, finish_group)
+    return finish_id
 
 
 def get_or_create_dimension(
@@ -153,7 +176,7 @@ product_families = SimpleRepository("product_families", ["name", "description"])
 dimensions = SimpleRepository(
     "dimensions", ["width_mm", "depth_mm", "diameter_mm", "height_mm", "raw_label"]
 )
-finishes = SimpleRepository("finishes", ["name", "finish_group", "description"])
+finishes = SimpleRepository("finishes", ["name", "description"])
 product_components = SimpleRepository("product_components", ["name", "description", "finish_group"])
 products = SimpleRepository("products", ["family_id", "name", "dimension_id"])
 compatibility_rules = SimpleRepository(
@@ -185,7 +208,11 @@ _VARIANT_SEARCH_BASE = """
         d.height_mm AS dim_height_mm,
         d.raw_label AS dim_raw_label,
         f.name AS finish,
-        f.finish_group AS finish_group,
+        (
+            SELECT GROUP_CONCAT(fg.finish_group)
+            FROM finish_groups fg
+            WHERE fg.finish_id = f.id
+        ) AS finish_groups_csv,
         s.code AS sku,
         pr.amount AS price_amount,
         pr.currency AS price_currency
@@ -232,7 +259,9 @@ def search_variants(
         conditions.append("f.name = ?")
         params.append(finish)
     if finish_group:
-        conditions.append("f.finish_group = ?")
+        conditions.append(
+            "cv.finish_id IN (SELECT finish_id FROM finish_groups WHERE finish_group = ?)"
+        )
         params.append(finish_group)
     if q:
         conditions.append("(cv.description LIKE ? OR cv.descriptor LIKE ? OR s.code LIKE ?)")

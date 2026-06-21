@@ -85,7 +85,7 @@ def test_search_filters_by_finish_group(client) -> None:
     assert matching.status_code == 200
     body = matching.json()
     assert body["total"] == 1
-    assert body["items"][0]["finish_group"] == "madeirado"
+    assert body["items"][0]["finish_groups"] == ["madeirado"]
 
     mismatched = client.get(
         "/api/v1/components",

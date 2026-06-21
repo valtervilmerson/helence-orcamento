@@ -60,13 +60,13 @@ class DimensionOut(DimensionIn):
 
 class FinishIn(BaseModel):
     name: str
-    finish_group: FinishGroup | None = None
+    finish_groups: list[FinishGroup] = Field(default_factory=list)
     description: str | None = None
 
 
 class FinishPatch(BaseModel):
     name: str | None = None
-    finish_group: FinishGroup | None = None
+    finish_groups: list[FinishGroup] | None = None
     description: str | None = None
 
 
@@ -225,7 +225,7 @@ class ComponentVariantOut(BaseModel):
     description: str | None = None
     dimension: DimensionSummary | None = None
     finish: str | None = None
-    finish_group: FinishGroup | None = None
+    finish_groups: list[FinishGroup] = Field(default_factory=list)
     sku: str | None = None
     price: PriceSummary | None = None
     source: str = "cadastro_manual"

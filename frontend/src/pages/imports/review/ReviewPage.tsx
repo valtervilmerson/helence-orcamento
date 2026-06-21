@@ -829,21 +829,22 @@ export function ReviewPage({ importId, onBack }: { importId: number; onBack: () 
 
   return (
     <div>
+      <button type="button" className="secondary" onClick={onBack} style={{ marginBottom: 'var(--space-4)' }}>
+        Voltar para importações
+      </button>
+      <ErrorMessageBlock error={error} />
+
+      <ImportSummaryPanel
+        summary={importSummary}
+        canPublishImports={canPublishImports}
+        publishing={publishing}
+        publishError={publishError}
+        publishSuccess={publishSuccess}
+        onPublish={() => void handlePublish()}
+      />
+
       <section>
-        <button type="button" className="secondary" onClick={onBack}>
-          Voltar para importações
-        </button>
-        <ErrorMessageBlock error={error} />
-
-        <ImportSummaryPanel
-          summary={importSummary}
-          canPublishImports={canPublishImports}
-          publishing={publishing}
-          publishError={publishError}
-          publishSuccess={publishSuccess}
-          onPublish={() => void handlePublish()}
-        />
-
+        <h2>Fila de itens extraídos</h2>
         <div className="action-group" style={{ marginTop: 'var(--space-3)' }}>
           <label>
             Status:{' '}

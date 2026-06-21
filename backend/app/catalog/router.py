@@ -128,13 +128,55 @@ _register_crud(
     patch_model=DimensionPatch,
     out_model=DimensionOut,
 )
-_register_crud(
-    path="/catalog/finishes",
-    repo=repository.finishes,
-    in_model=FinishIn,
-    patch_model=FinishPatch,
-    out_model=FinishOut,
+@router.get(
+    "/catalog/finishes",
+    response_model=list[FinishOut],
+    dependencies=[Depends(get_current_user)],
 )
+def list_finishes(connection: sqlite3.Connection = Depends(get_db)) -> list[dict]:
+    return service.list_finishes(connection)
+
+
+@router.post(
+    "/catalog/finishes",
+    response_model=FinishOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_role("admin"))],
+)
+def create_finish(payload: FinishIn, connection: sqlite3.Connection = Depends(get_db)) -> dict:
+    return service.create_finish(connection, payload.model_dump())
+
+
+@router.get(
+    "/catalog/finishes/{id}",
+    response_model=FinishOut,
+    dependencies=[Depends(get_current_user)],
+)
+def get_finish(id: int, connection: sqlite3.Connection = Depends(get_db)) -> dict:
+    return service.get_finish(connection, id)
+
+
+@router.patch(
+    "/catalog/finishes/{id}",
+    response_model=FinishOut,
+    dependencies=[Depends(require_role("admin"))],
+)
+def update_finish(
+    id: int, payload: FinishPatch, connection: sqlite3.Connection = Depends(get_db)
+) -> dict:
+    return service.update_finish(connection, id, payload.model_dump(exclude_unset=True))
+
+
+@router.delete(
+    "/catalog/finishes/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+    dependencies=[Depends(require_role("admin"))],
+)
+def delete_finish(id: int, connection: sqlite3.Connection = Depends(get_db)) -> None:
+    service.delete_entity(connection, repository.finishes, id)
+
+
 _register_crud(
     path="/catalog/component-types",
     repo=repository.product_components,

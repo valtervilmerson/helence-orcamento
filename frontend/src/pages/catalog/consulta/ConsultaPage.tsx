@@ -10,7 +10,9 @@ import {
   listFinishes,
   listFamilies,
   searchComponents,
+  updateComponent,
 } from '../../../api/catalog'
+import { useAuth } from '../../../context/useAuth'
 import { usePageHeader } from '../../../layout/usePageHeader'
 
 function describeError(err: unknown): string {
@@ -33,6 +35,9 @@ function PriceCell({ price }: { price: ComponentVariant['price'] }) {
 export function ConsultaPage() {
   usePageHeader({ title: 'Consulta do catálogo' })
 
+  const { user } = useAuth()
+  const canEditPrice = user?.role === 'admin'
+
   const [families, setFamilies] = useState<ProductFamily[]>([])
   const [componentTypes, setComponentTypes] = useState<ProductComponentType[]>([])
   const [finishes, setFinishes] = useState<Finish[]>([])
@@ -52,6 +57,9 @@ export function ConsultaPage() {
   const [selected, setSelected] = useState<ComponentVariant | null>(null)
   const [detailError, setDetailError] = useState<string | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [priceInput, setPriceInput] = useState('')
+  const [savingPrice, setSavingPrice] = useState(false)
+  const [priceError, setPriceError] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([listFamilies(), listComponentTypes(), listFinishes()])
@@ -94,13 +102,38 @@ export function ConsultaPage() {
     setSelected(item)
     setDetailError(null)
     setDetailLoading(true)
+    setPriceError(null)
+    setPriceInput(item.price ? item.price.amount.toFixed(2) : '')
     try {
       const detail = await getComponent(item.component_variant_id)
       setSelected(detail)
+      setPriceInput(detail.price ? detail.price.amount.toFixed(2) : '')
     } catch (err) {
       setDetailError(describeError(err))
     } finally {
       setDetailLoading(false)
+    }
+  }
+
+  async function handleSavePrice() {
+    if (!selected) return
+    setPriceError(null)
+    setSavingPrice(true)
+    try {
+      const amount = Number(priceInput.replace(',', '.'))
+      if (!priceInput || Number.isNaN(amount)) {
+        setPriceError('Informe um preço válido.')
+        return
+      }
+      const updated = await updateComponent(selected.component_variant_id, {
+        price: { amount, currency: selected.price?.currency ?? 'BRL' },
+      })
+      setSelected(updated)
+      await runSearch()
+    } catch (err) {
+      setPriceError(describeError(err))
+    } finally {
+      setSavingPrice(false)
     }
   }
 
@@ -237,6 +270,34 @@ export function ConsultaPage() {
                 <p>Descrição: {selected.description ?? '—'}</p>
                 {detailLoading && <p className="helper-text">Carregando…</p>}
                 {detailError && <p className="feedback-error">{detailError}</p>}
+
+                {canEditPrice && (
+                  <details style={{ marginTop: 'var(--space-4)' }}>
+                    <summary style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+                      Editar variação (uso pontual)
+                    </summary>
+                    <div className="field-group" style={{ marginTop: 'var(--space-3)' }}>
+                      <div className="form-field">
+                        <span className="form-field__label">Preço (R$)</span>
+                        <input
+                          type="text"
+                          value={priceInput}
+                          onChange={(e) => setPriceInput(e.target.value)}
+                        />
+                      </div>
+                      <div className="action-group">
+                        <button type="button" disabled={savingPrice} onClick={() => void handleSavePrice()}>
+                          {savingPrice ? 'Salvando…' : 'Salvar'}
+                        </button>
+                      </div>
+                      {priceError && <p className="feedback-error">{priceError}</p>}
+                      <p className="helper-text">
+                        Correção manual para preencher lacunas (ex.: itens sem preço do PDF legado) —
+                        não substitui o fluxo de importação.
+                      </p>
+                    </div>
+                  </details>
+                )}
               </div>
             )}
           </div>

@@ -64,11 +64,18 @@ def test_dimensions_crud_lifecycle(client) -> None:
 def test_finishes_crud_lifecycle(client) -> None:
     create = client.post(
         "/api/v1/catalog/finishes",
-        json={"name": "Acabamento CRUD Teste", "finish_group": "metalico"},
+        json={"name": "Acabamento CRUD Teste", "finish_groups": ["metalico"]},
     )
     assert create.status_code == 201
     finish = create.json()
-    assert finish["finish_group"] == "metalico"
+    assert finish["finish_groups"] == ["metalico"]
+
+    patched = client.patch(
+        f"/api/v1/catalog/finishes/{finish['id']}",
+        json={"finish_groups": ["metalico", "madeirado"]},
+    )
+    assert patched.status_code == 200
+    assert sorted(patched.json()["finish_groups"]) == ["madeirado", "metalico"]
 
     deleted = client.delete(f"/api/v1/catalog/finishes/{finish['id']}")
     assert deleted.status_code == 204

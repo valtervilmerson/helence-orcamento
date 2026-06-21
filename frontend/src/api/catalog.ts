@@ -80,16 +80,18 @@ export type FinishGroup = 'madeirado' | 'metalico' | 'pe_estrutura' | 'outro'
 export interface Finish {
   id: number
   name: string
-  finish_group: FinishGroup | null
+  finish_groups: FinishGroup[]
   description: string | null
 }
 
 export const listFinishes = () => request<Finish[]>('/catalog/finishes')
 export const createFinish = (data: {
   name: string
-  finish_group?: FinishGroup | null
+  finish_groups?: FinishGroup[]
   description?: string | null
 }) => request<Finish>('/catalog/finishes', { method: 'POST', body: JSON.stringify(data) })
+export const updateFinish = (id: number, data: { finish_groups?: FinishGroup[] }) =>
+  request<Finish>(`/catalog/finishes/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const deleteFinish = (id: number) =>
   request<void>(`/catalog/finishes/${id}`, { method: 'DELETE' })
 
@@ -163,7 +165,7 @@ export interface ComponentVariant {
   description: string | null
   dimension: ComponentVariantDimension | null
   finish: string | null
-  finish_group: FinishGroup | null
+  finish_groups: FinishGroup[]
   sku: string | null
   price: ComponentVariantPrice | null
   source: string

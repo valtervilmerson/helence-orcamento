@@ -115,13 +115,14 @@ def seed_catalog(connection: sqlite3.Connection) -> None:
     ).fetchone()["id"]
 
     for finish_name, sku_code, price in SEED_VARIANTS:
-        connection.execute(
-            "INSERT OR IGNORE INTO finishes (name, finish_group) VALUES (?, 'madeirado')",
-            (finish_name,),
-        )
+        connection.execute("INSERT OR IGNORE INTO finishes (name) VALUES (?)", (finish_name,))
         finish_id = connection.execute(
             "SELECT id FROM finishes WHERE name = ?", (finish_name,)
         ).fetchone()["id"]
+        connection.execute(
+            "INSERT OR IGNORE INTO finish_groups (finish_id, finish_group) VALUES (?, 'madeirado')",
+            (finish_id,),
+        )
 
         description = (
             f"Tampo Inteiro Simples Para Estrutura Reunião 1200x900 Caixa de Tomada {finish_name}"

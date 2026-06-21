@@ -184,7 +184,16 @@ def parse_sheet(rows: list[list[object]], sheet_name: str) -> list[dict[str, obj
                     continue
 
                 tampo_label = norm_text(row[label_col])
-                caixa_label = norm_text(price_row[label_col])
+                # O rótulo da "caixa" (linha de preço) tem coluna própria —
+                # o desvio de layout do rótulo "Tampo ..." (linha de
+                # cabeçalho) não implica que a linha de preço também
+                # desviou. Detectar de forma independente em vez de
+                # reaproveitar `label_col`, ou a descrição sai incompleta
+                # quando só uma das duas linhas está deslocada (caso real:
+                # aba P1400, largura 1400x1400).
+                price_col3 = norm_text(price_row[3]) if len(price_row) > 3 else ""
+                price_col2 = norm_text(price_row[2]) if len(price_row) > 2 else ""
+                caixa_label = price_col3 or price_col2
                 product_context = f"Reunião {current_width}"
                 is_known_product = product_context == KNOWN_PRODUCT_CONTEXT
                 layout_note = (

@@ -96,6 +96,56 @@ def _map_integrity_error(exc: sqlite3.IntegrityError) -> Exception:
 
 
 # ---------------------------------------------------------------------------
+# Acabamentos — CRUD próprio (não usa SimpleRepository genérico porque um
+# acabamento pode pertencer a vários grupos de compatibilidade, RN-05).
+# ---------------------------------------------------------------------------
+
+
+def _finish_row_to_dict(connection: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["finish_groups"] = repository.list_finish_groups(connection, row["id"])
+    return data
+
+
+def list_finishes(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    return [_finish_row_to_dict(connection, row) for row in repository.finishes.list(connection)]
+
+
+def get_finish(connection: sqlite3.Connection, id_: int) -> dict[str, Any]:
+    row = repository.finishes.get(connection, id_)
+    if row is None:
+        raise RegistroNaoEncontradoError(details={"id": id_})
+    return _finish_row_to_dict(connection, row)
+
+
+def create_finish(connection: sqlite3.Connection, data: dict[str, Any]) -> dict[str, Any]:
+    data = dict(data)
+    finish_groups = data.pop("finish_groups", [])
+    try:
+        new_id = repository.finishes.create(connection, data)
+    except sqlite3.IntegrityError as exc:
+        raise _map_integrity_error(exc) from exc
+    repository.set_finish_groups(connection, new_id, finish_groups)
+    connection.commit()
+    return get_finish(connection, new_id)
+
+
+def update_finish(connection: sqlite3.Connection, id_: int, data: dict[str, Any]) -> dict[str, Any]:
+    get_finish(connection, id_)
+    data = dict(data)
+    finish_groups = data.pop("finish_groups", None)
+    try:
+        if data:
+            repository.finishes.update(connection, id_, data)
+        if finish_groups is not None:
+            repository.set_finish_groups(connection, id_, finish_groups)
+            connection.commit()
+    except sqlite3.IntegrityError as exc:
+        raise _map_integrity_error(exc) from exc
+    return get_finish(connection, id_)
+
+
+# ---------------------------------------------------------------------------
 # Variações vendáveis (component_variants + sku + price) — 14.9
 # ---------------------------------------------------------------------------
 
@@ -150,7 +200,7 @@ def _row_to_variant_out(row: sqlite3.Row) -> ComponentVariantOut:
         description=row["description"],
         dimension=dimension,
         finish=row["finish"],
-        finish_group=row["finish_group"],
+        finish_groups=row["finish_groups_csv"].split(",") if row["finish_groups_csv"] else [],
         sku=row["sku"],
         price=price,
     )
