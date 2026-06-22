@@ -505,7 +505,15 @@ def publish_item(connection: sqlite3.Connection, item: sqlite3.Row) -> None:
         finish_row = repository.find_finish_by_name(connection, item["finish_raw"])
         if finish_row is None:
             raise AcabamentoNaoCadastradoError(
-                details={"extracted_item_id": item_id, "finish": item["finish_raw"]}
+                details={
+                    "extracted_item_id": item_id,
+                    "finish": item["finish_raw"],
+                    "family": item["family_raw"],
+                    "product": item["product_context_raw"],
+                    "component_type": item["component_type_raw"],
+                    "dimension": item["dimension_raw"],
+                    "sku": item["sku_raw"],
+                }
             )
         finish_id = int(finish_row["id"])
 
