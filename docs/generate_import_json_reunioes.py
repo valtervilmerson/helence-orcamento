@@ -229,7 +229,7 @@ def parse_sheet(rows: list[list[object]], sheet_name: str) -> list[dict[str, obj
                             ),
                             dimension=current_width,
                             finish=FINISH_BY_COL[col],
-                            finish_group=None,
+                            finish_group="madeirado",
                             sku=sku_str(row[col]) or "",
                             price=float(price_row[col]),
                             confidence=base_confidence,
@@ -321,12 +321,11 @@ def parse_sheet(rows: list[list[object]], sheet_name: str) -> list[dict[str, obj
             )
 
         for col, finish in zip(sku_cols, finish_names, strict=True):
-            finish_group = "metalico" if finish == "Prata" else None
-            finish_note = (
-                "Acabamento 'Prata' não consta no catálogo; sugerido grupo 'metalico'."
-                if finish == "Prata"
-                else None
-            )
+            # Confirmado com o time: Estrutura pé aço/Apoio Credenza (3 cores)
+            # é metálica; Estrutura pé painel/alumínio/direto (9 cores) usa os
+            # mesmos acabamentos madeira do tampo.
+            finish_group = "metalico" if len(sku_cols) == 3 else "madeirado"
+            finish_note = None
 
             items.append(
                 build_item(
