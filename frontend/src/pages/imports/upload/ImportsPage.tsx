@@ -56,6 +56,7 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -77,6 +78,7 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
       return
     }
 
+    setSubmitting(true)
     try {
       let payload: ImportJsonIn
       try {
@@ -95,6 +97,8 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
       onUploaded()
     } catch (err) {
       setError(describeError(err))
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -116,7 +120,9 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
         />
       </div>
       <form onSubmit={handleSubmit} className="action-group" style={{ marginTop: 'var(--space-3)' }}>
-        <button type="submit">Enviar</button>
+        <button type="submit" disabled={submitting}>
+          {submitting ? 'Enviando...' : 'Enviar'}
+        </button>
       </form>
       <ErrorMessage error={error} />
       {success && <p className="feedback-success">{success}</p>}
