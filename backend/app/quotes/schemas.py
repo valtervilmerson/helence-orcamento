@@ -126,6 +126,9 @@ class QuoteItemPatchIn(BaseModel):
 class QuoteItemComponentOut(BaseModel):
     id: int
     component_variant_id: int
+    component: str | None = None
+    descriptor: str | None = None
+    description: str | None = None
     sku: str | None = None
     frozen_unit_price: float
     frozen_currency: str

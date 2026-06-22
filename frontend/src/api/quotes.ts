@@ -122,6 +122,9 @@ export const deleteQuote = (id: number) =>
 export interface QuoteItemComponent {
   id: number
   component_variant_id: number
+  component: string | null
+  descriptor: string | null
+  description: string | null
   sku: string | null
   frozen_unit_price: number
   frozen_currency: string

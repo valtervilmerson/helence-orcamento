@@ -143,7 +143,8 @@ function VariantCombobox({
 
 function describeVariant(variant: ComponentVariant): string {
   const price = variant.price ? `${variant.price.currency} ${variant.price.amount.toFixed(2)}` : 'sem preço'
-  return `${variant.product ?? variant.component} — ${variant.component} — ${variant.descriptor ?? ''} — ${variant.finish ?? '—'} — ${variant.sku ?? 'sem SKU'} — ${price}`
+  const detail = variant.descriptor ?? variant.description ?? ''
+  return `${variant.product ?? variant.component} — ${variant.component} — ${detail} — ${variant.finish ?? '—'} — ${variant.sku ?? 'sem SKU'} — ${price}`
 }
 
 function NewCustomerForm({ onCreated }: { onCreated: (customer: Customer) => void }) {
@@ -508,7 +509,7 @@ function NewItemForm({
 
   function handlePickBase(variant: ComponentVariant) {
     setComponents([variant])
-    setLabel((prev) => prev || variant.descriptor || variant.component || '')
+    setLabel((prev) => prev || variant.descriptor || variant.description || variant.component || '')
   }
 
   function handleAddExtra(variant: ComponentVariant) {
@@ -880,6 +881,8 @@ function EditItemPanel({
           return (
             <li key={component.id} className="field-group">
               <div className="action-group">
+                {component.component ?? 'componente'}
+                {(component.descriptor ?? component.description) ? ` — ${component.descriptor ?? component.description}` : ''} —{' '}
                 {component.sku ?? 'sem SKU'} — {component.frozen_currency} {component.frozen_unit_price.toFixed(2)}
                 <button
                   type="button"

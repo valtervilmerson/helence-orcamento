@@ -361,6 +361,9 @@ def _component_row_to_out(row: sqlite3.Row) -> QuoteItemComponentOut:
     return QuoteItemComponentOut(
         id=row["id"],
         component_variant_id=row["component_variant_id"],
+        component=row["component"],
+        descriptor=row["descriptor"],
+        description=row["description"],
         sku=row["sku"],
         frozen_unit_price=row["frozen_unit_price"],
         frozen_currency=row["frozen_currency"],

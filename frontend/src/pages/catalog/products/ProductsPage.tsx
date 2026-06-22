@@ -17,7 +17,8 @@ const PAGE_SIZE = 10
 
 function describeVariant(variant: ComponentVariant): string {
   const price = variant.price ? `${variant.price.currency} ${variant.price.amount.toFixed(2)}` : 'sem preço'
-  return `${variant.component} — ${variant.descriptor ?? ''} — ${variant.finish ?? '—'} — ${variant.sku ?? 'sem SKU'} — ${price}`
+  const detail = variant.descriptor ?? variant.description ?? ''
+  return `${variant.component} — ${detail} — ${variant.finish ?? '—'} — ${variant.sku ?? 'sem SKU'} — ${price}`
 }
 
 export function ProductsPage() {
