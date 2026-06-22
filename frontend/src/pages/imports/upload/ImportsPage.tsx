@@ -20,11 +20,13 @@ function ErrorMessage({ error }: { error: string | null }) {
 }
 
 function describeError(err: unknown): string {
-  if (err instanceof ImportsApiError) {
-    return `${err.code}: ${err.message}`
-  }
-  if (err instanceof CatalogApiError) {
-    return `${err.code}: ${err.message}`
+  if (err instanceof ImportsApiError || err instanceof CatalogApiError) {
+    const details = err.details
+      ? Object.entries(err.details)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(', ')
+      : ''
+    return details ? `${err.code}: ${err.message} (${details})` : `${err.code}: ${err.message}`
   }
   return String(err)
 }
