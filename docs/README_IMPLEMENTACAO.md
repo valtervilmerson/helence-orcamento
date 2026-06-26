@@ -128,6 +128,10 @@ Listado em `docs/09` (seção 19) e consolidado aqui:
 - **Markup de venda e descontos** — implementados em 2026-06-16 (ver seção 10.2):
   markup global + override por orçamento, desconto por item e por orçamento (% ou R$),
   parcelamento com juros. RN-09/RN-10 considerados resolvidos.
+- **Entrada com abatimento** — implementada em 2026-06-17 (ver seção 10.3):
+  entrada em R$ fixo ou % do total, com exibição do saldo restante no PDF.
+- **Exclusão de importações não publicadas** — implementada em 2026-06-20:
+  `DELETE /api/v1/imports/{id}` com bloqueio se houver preços publicados vinculados.
 - **OCR** — o PDF tem texto nativo; não é necessário processamento de imagem.
 - **Multi-idioma / múltiplas moedas** — sistema fixo em pt-BR / BRL.
 - **SSO, MFA, gestão avançada de usuários** — autenticação por sessão simples
@@ -384,6 +388,13 @@ checklist de deploy (`docs/09`, seção 18).
 
 (`docs/04`, telas 1–2; `docs/06`, seções 6–7; `docs/02`)
 
+> **Caminho ativo (2026-06-25)**: importação via **JSON** (`POST /api/v1/imports/json`,
+> Fase 13 / `docs/10`) é o único fluxo exposto no frontend. O menu de upload de PDF
+> foi removido da interface; o pipeline de extração (`extraction.py`, Fases 4–6)
+> permanece no backend como código legado para fins de referência ou reativação futura.
+> O fluxo abaixo documenta o pipeline de PDF original para fins históricos e de
+> arquitetura.
+
 1. **Upload (tela 1)**: Importador envia um PDF + código da versão (ex.
    `02-2025`) + vigência opcional + observações.
    - Validações: tipo `.pdf`, tamanho máximo, **hash do arquivo** comparado
@@ -433,6 +444,10 @@ checklist de deploy (`docs/09`, seção 18).
 ## 9. Fluxo de revisão
 
 (`docs/04`, telas 3–5; `docs/05` RN sobre revisão)
+
+> **Atualização (commit `9154c97`)**: `description_raw` passou a ser campo
+> **editável** na tela de correção (antes era somente-leitura). O revisor pode
+> corrigir a descrição bruta sem precisar de uma nova importação.
 
 1. **Fila de triagem (tela 3)**: lista todos os `extracted_items` da
    importação, com filtros (busca textual, nível de confiança, status,
@@ -552,6 +567,16 @@ Funcionalidades adicionadas além do congelamento de preço base:
 **Ordem de cálculo**: `raw = frozen_unit_price × markup_factor × qty` → desconto de item → subtotal pós-item → desconto do orçamento → `total` → juros de parcelamento → `installment_total`.
 
 **PDF**: descontos e parcelamento são exibidos condicionalmente — se não há desconto nem parcelamento, a seção não aparece.
+
+### 10.3 Entrada com abatimento no saldo restante (implementado 2026-06-17)
+
+- `quotes.entrada_amount` (migration `0015`) — valor fixo de entrada em R$.
+- `quotes.entrada_percent` (migration `0016`) — entrada como % do total. Mutuamente exclusivos: setar um zera o outro.
+- Ordem de cálculo: `total` → `entrada_efetiva` → `saldo_restante = total − entrada_efetiva`.
+- Frontend (`QuoteSettingsForm`): seletor "Sem entrada / R$ / %".
+- PDF: exibe a entrada e o saldo após o total, somente quando há entrada configurada.
+
+**Ordem de cálculo completa**: `frozen_unit_price × markup_factor × qty` → desconto de item → desconto do orçamento → `total` → juros de parcelamento → `installment_total` → entrada → `saldo_restante`.
 
 ---
 
@@ -794,6 +819,8 @@ antes ou durante as fases correspondentes:
    orçamento (% ou R$, mutuamente exclusivos), parcelamento com juros. Ver seção
    10.2 e migration `0012`–`0014`. Pendente: impostos e frete continuam fora de
    escopo do MVP.
+   **Entrada com abatimento**: **RESOLVIDO em 2026-06-17.** Ver seção 10.3 e
+   migrations `0015`–`0016`.
 6. **Compatibilidade tampo↔estrutura (RN-04)**: confirmar se a heurística por
    dimensão é suficiente ou se há regras adicionais do fabricante.
 7. **Terminologia "Acessórios" vs. "Conexão STAFF"** (`docs/01`, seção 6):

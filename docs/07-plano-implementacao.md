@@ -1012,3 +1012,69 @@ backend, que até então não tinha interface de uso.
 **Arquivos alterados**: `frontend/src/api/catalog.ts` (nova função
 `updateComponent` + tipo `ComponentVariantPatchInput`),
 `frontend/src/pages/catalog/variants/VariantsPage.tsx`.
+
+### Markup de venda, descontos e parcelamento (commits `889a8d0` / `e3ff359` / `21012b8` — 2026-06-16)
+
+**Markup de venda** (invisível ao cliente):
+- `app_settings.global_markup_percent` — markup padrão para todos os orçamentos.
+- `quotes.markup_uses_global` (bool, default `true`) + `quotes.markup_percent` — override por orçamento.
+- Nunca gravado no `frozen_unit_price`; aplicado em runtime em cada cálculo. Mudar o global atualiza imediatamente todos os orçamentos não-sobrescritos.
+- Admin gerencia via `/configuracoes` (`GET/PATCH /api/v1/settings`).
+- Migrations: `0012_quote_markup_and_discount.sql`, `0013_app_settings.sql`.
+
+**Descontos** (% XOR R$, mutuamente exclusivos):
+- Por item: `quote_items.discount_percent` / `quote_items.discount_amount`.
+- Por orçamento: `quotes.quote_discount_percent` / `quotes.quote_discount_amount` + `quote_discount_reason`.
+- Setar um campo zera o outro automaticamente na camada de serviço.
+- Snapshot em `quote_totals`: `item_discount_amount` e `quote_discount_amount` separados.
+
+**Parcelamento** (migration `0014_installments.sql`):
+- `quotes.installment_count` (default 1) + `quotes.installment_interest_percent` (default 0).
+- `interest_amt = total × interest_pct / 100`; snapshot em `quote_totals` com `installment_total` e `installment_value`.
+- PDF exibe parcelamento condicionalmente (nada se `count=1` e `interest=0`).
+
+**Ordem de cálculo**: `frozen_unit_price × markup_factor × qty` → desconto de item → desconto do orçamento → `total` → juros → `installment_total`.
+
+### Composição de produto com expansão recursiva (commit `55227de`)
+
+- Tabela `product_compositions` (renomeada de `product_kit_items`, migration `0011`); endpoints `/composition-items`.
+- `GET .../composition` com expansão recursiva de sub-composições (composição pode referenciar outra composição).
+- `ComponentPicker` no orçamento ganhou filtros de acabamento e dimensão.
+- Orçamentos: lista dividida em "em andamento" (rascunho/enviado) e "finalizados" (aprovado/rejeitado/expirado); `DELETE /quotes/{id}` com limpeza de `source_quote_id` em duplicatas.
+
+### Entrada com abatimento no saldo restante (commits `622d009` / `c9ac10e` — 2026-06-17)
+
+- `quotes.entrada_amount` (migration `0015`) e `quotes.entrada_percent` (migration `0016`) — mutuamente exclusivos (mesmo padrão dos descontos: setar um zera o outro).
+- `_compute_effective_entrada()` em `service.py` calcula a entrada efetiva (valor fixo ou % do total) e a abate do saldo restante.
+- Frontend (`QuoteSettingsForm`): seletor "Sem entrada / R$ / %".
+- PDF: exibe entrada e saldo restante condicionalmente, após o total.
+
+### Exclusão de importação não publicada (commit `e6fd30c` — 2026-06-20)
+
+- `DELETE /api/v1/imports/{id}`: bloqueia se a importação estiver em processamento ou se já houver preços publicados vinculados a ela (`prices → extracted_items`) — erro nomeado dedicado em `shared/errors.py`.
+- Frontend: botão "Excluir" na lista de importações (`/importacoes`).
+- `files/storage.py` ganhou rotina de limpeza do arquivo físico associado.
+
+### `description_raw` como campo corrigível na revisão (commit `9154c97`)
+
+- `description_raw` adicionado a `CORRECTABLE_FIELDS` em `backend/app/imports/service.py`.
+- `ReviewPage.tsx`: campo "Descrição" agora editável na tela de revisão (antes somente-leitura).
+- Novo teste `test_correct_description_is_accepted` em `backend/tests/integration/test_review.py`.
+
+### Remoção de importação por PDF da interface + diretório `importacao/` (commit `af29346`)
+
+- O menu de importação por PDF foi removido do frontend — o caminho ativo de importação é agora exclusivamente via **JSON** (`POST /api/v1/imports/json`, Fase 13). O pipeline de extração de PDF permanece no backend como código legado.
+- Criado diretório `importacao/` na raiz do projeto para os geradores Python e os JSONs que eles produzem; arquivos movidos de `docs/`:
+  - `importacao/generate_import_json_reunioes.py`
+  - `importacao/generate_import_json_reunioes_p900.py` (piloto P900)
+  - `importacao/generate_import_json_solucoes_acusticas.py`
+  - `importacao/importacao_reunioes.json`
+  - `importacao/importacao_reunioes_p900_piloto.json`
+  - `importacao/importacao_solucoes_acusticas.json`
+
+### Acabamento pode pertencer a vários grupos de compatibilidade (commit `14e3e54`)
+
+- Acabamentos como "Preto" e "Branco" aparecem em contextos madeirado (tampo) e metálico (estrutura pé aço) — antes eram registrados com `finish_group` ambíguo, causando falha no auto-cadastro.
+- Nova modelagem: `finish_groups` como lista multi-valor (tabela associativa), permitindo que um acabamento pertença a múltiplos grupos sem duplicação de registro.
+
+**Arquivos alterados**: `backend/app/catalog/` (schema + repository + service), `frontend/src/pages/catalog/` (FinishesPage e demais formulários de acabamento).
