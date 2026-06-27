@@ -198,6 +198,7 @@ def _row_to_variant_out(row: sqlite3.Row) -> ComponentVariantOut:
         component=row["component"],
         descriptor=row["descriptor"],
         description=row["description"],
+        technical_description=row["technical_description"],
         dimension=dimension,
         finish=row["finish"],
         finish_groups=row["finish_groups_csv"].split(",") if row["finish_groups_csv"] else [],
@@ -563,6 +564,7 @@ def publish_item(connection: sqlite3.Connection, item: sqlite3.Row) -> None:
                     "finish_id": finish_id,
                     "descriptor": descriptor,
                     "description": item["description_raw"],
+                    "technical_description": item["technical_description"],
                 },
             )
         except sqlite3.IntegrityError as exc:

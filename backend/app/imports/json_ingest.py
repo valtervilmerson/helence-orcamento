@@ -124,6 +124,7 @@ def ingest_json(
             confidence_level=confidence_level,
             source_text=item.ref,
             extraction_notes="[]",
+            technical_description=item.technical_description,
         )
         repository.set_extracted_item_review_status(connection, extracted_item_id, review_status)
 

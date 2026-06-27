@@ -202,6 +202,7 @@ _VARIANT_SEARCH_BASE = """
         pc.name AS component,
         cv.descriptor AS descriptor,
         cv.description AS description,
+        cv.technical_description AS technical_description,
         d.width_mm AS dim_width_mm,
         d.depth_mm AS dim_depth_mm,
         d.diameter_mm AS dim_diameter_mm,
@@ -306,8 +307,9 @@ def insert_variant(connection: sqlite3.Connection, data: dict[str, Any]) -> int:
     cursor = connection.execute(
         """
         INSERT INTO component_variants
-            (product_id, family_id, component_id, dimension_id, finish_id, descriptor, description)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+            (product_id, family_id, component_id, dimension_id, finish_id, descriptor,
+             description, technical_description)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             data.get("product_id"),
@@ -317,6 +319,7 @@ def insert_variant(connection: sqlite3.Connection, data: dict[str, Any]) -> int:
             data.get("finish_id"),
             data.get("descriptor"),
             data.get("description"),
+            data.get("technical_description"),
         ),
     )
     return int(cursor.lastrowid)
@@ -356,6 +359,7 @@ def update_variant(connection: sqlite3.Connection, variant_id: int, data: dict[s
             "finish_id",
             "descriptor",
             "description",
+            "technical_description",
         )
         if c in data
     ]

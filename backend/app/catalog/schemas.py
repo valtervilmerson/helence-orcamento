@@ -223,6 +223,7 @@ class ComponentVariantOut(BaseModel):
     component: str
     descriptor: str | None = None
     description: str | None = None
+    technical_description: str | None = None
     dimension: DimensionSummary | None = None
     finish: str | None = None
     finish_groups: list[FinishGroup] = Field(default_factory=list)

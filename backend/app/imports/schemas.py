@@ -236,6 +236,7 @@ class ImportJsonItemIn(BaseModel):
     currency: str = "BRL"
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     notes: str | None = None
+    technical_description: str | None = None
 
 
 class ImportJsonIn(BaseModel):

@@ -97,14 +97,15 @@ nível de granularidade de uma linha de `extracted_items`.
   "product_context": "Reunião 1200x900",
   "component_type": "Tampo",
   "description": "Tampo Inteiro Simples Para Estrutura Reunião 1200x900 Caixa de Tomada Fosco",
-  "dimension": "1200x900",
+  "dimension": "1200x900x740",
   "finish": "Argila",
   "finish_group": null,
   "sku": "3981113028",
   "price": 421.03,
   "currency": "BRL",
   "confidence": 0.97,
-  "notes": null
+  "notes": null,
+  "technical_description": "Tampo em MDP 25mm com furo central para passagem de cabos."
 }
 ```
 
@@ -115,7 +116,7 @@ nível de granularidade de uma linha de `extracted_items`.
 | `product_context` | string ou `null` | não | `products.name` (lookup sob a família; cria se ausente) | `extracted_items.product_context_raw`. Ausente/`null` ⇒ item **avulso**, vendável por si só (`component_variants.product_id = NULL`). Presente ⇒ item é um componente de um produto-base (ex.: "Reunião 1200x900"). |
 | `component_type` | string | sim | `product_components.name` (lookup; cria se ausente) | `extracted_items.component_type_raw`. |
 | `description` | string | não | `component_variants.description` | `extracted_items.description_raw`. |
-| `dimension` | string | sim | `dimensions` — parse de `"1200x900"` (W×D), `"900MM"` (diâmetro) ou `"1200x500x1000"` (W×D×H) | `extracted_items.dimension_raw`. Reaproveitar/extrair o parser de dimensão já usado em `extraction.py`, se existir. |
+| `dimension` | string | sim | `dimensions` — parse de `"1200x900"` (L×P), `"900MM"` (diâmetro) ou `"1200x900x740"` (L×P×H) | `extracted_items.dimension_raw`. O backend parseia automaticamente 2 ou 3 valores numéricos separados por "x". Sempre incluir a altura quando disponível na planilha. |
 | `finish` | string | sim | `finishes.name` (lookup) | `extracted_items.finish_raw`. Criar uma `finish` nova **exige** `finish_group` (ver abaixo) — mesma regra já implementada na Fase 6 para "cadastrar novo acabamento". |
 | `finish_group` | enum `madeirado\|metalico\|pe_estrutura\|outro` | só se `finish` for novo | `finishes.finish_group` | Ausente/`null` quando `finish` já existe. |
 | `sku` | string ou `null` | não | `skus.code` (lookup/cria) | `extracted_items.sku_raw`. Ausente/`null` ⇒ `prices.sku_id = NULL` (item sem código de SKU próprio, ex.: produto completo vendido como um todo). |
@@ -123,6 +124,7 @@ nível de granularidade de uma linha de `extracted_items`.
 | `currency` | string | não (default `"BRL"`) | `prices.currency` / `extracted_items.currency` | |
 | `confidence` | number 0-1 ou `null` | não | `extracted_items.confidence` + `confidence_level` derivado (`alta`≥0.9, `media`≥0.7, `baixa`<0.7; `null`→tratado como `baixa`) | Autoavaliação do agente — usada só para decidir fast path vs. revisão. |
 | `notes` | string ou `null` | não | gera `import_warnings` (severity=`atencao`, ligado ao `extracted_item_id`) | Qualquer `notes` não nulo força `review_status='pendente'`, independente da confiança. |
+| `technical_description` | string ou `null` | não | `component_variants.technical_description` | Texto do rodapé de cada aba da planilha (ex.: especificações de materiais, tratamentos superficiais, instruções de montagem). Exibido no catálogo como referência para o vendedor; **não aparece no orçamento/PDF**. O agente deve extrair o bloco de texto após "DESCRIÇÃO TÉCNICA:" no rodapé de cada aba e injetar o mesmo texto em todos os itens dessa aba. |
 
 ### 3.3 Regra de fast path (revisão por exceção)
 

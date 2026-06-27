@@ -122,7 +122,45 @@ artefatos de ponto flutuante (`199.99000000000001`, `89.90000000000001`).
 
 ---
 
-## 5. Não invente SKU, preço ou dimensão
+## 5. Dimensão — inclua sempre as 3 medidas (L×P×H)
+
+Planilhas com produtos 3D (móveis, estações de trabalho, mesas) costumam
+trazer a dimensão como `"1200 x 700 x 740mm"` (largura × profundidade ×
+altura). O backend parseia automaticamente 2 ou 3 valores separados por
+`x`.
+
+**O que fazer**:
+- Extraia **os 3 valores** quando disponíveis e formate como
+  `"LxPxH"` (ex.: `"1200x700x740"`). Não omita a altura mesmo que
+  ela seja sempre a mesma para a linha de produto.
+- Se a planilha só tiver 2 valores (ex.: `"1200x900"`), use assim mesmo
+  — o backend aceita.
+- **Não** coloque unidades no campo `dimension` (não use `"mm"`,
+  `"cm"`, etc.). O sistema interpreta os números como milímetros.
+
+---
+
+## 5b. `technical_description` — texto do rodapé de cada aba
+
+Muitas planilhas têm um bloco de texto técnico no rodapé de cada aba
+(após o rótulo `"DESCRIÇÃO TÉCNICA:"` na coluna A), descrevendo
+materiais, espessuras, tratamentos superficiais e instruções de
+montagem. Esse texto serve de **referência para o vendedor** no
+catálogo; **não aparece no orçamento/PDF**.
+
+**O que fazer**:
+- Para cada aba, localize o texto após `"DESCRIÇÃO TÉCNICA:"` e
+  concatene as linhas em uma única string (separadas por `\n`).
+- Injete o mesmo texto em `technical_description` de **todos** os
+  itens daquela aba.
+- Se a aba não tiver rodapé de descrição técnica, omita o campo ou
+  use `null` — é opcional.
+- **Não invente** o conteúdo; copie o texto exatamente como está na
+  planilha.
+
+---
+
+## 6. Não invente SKU, preço ou dimensão
 
 Se a planilha não tiver um valor para um campo obrigatório, ou se o
 valor for ambíguo (ex.: célula mesclada, texto livre que parece não ser
@@ -175,6 +213,10 @@ tipo `"item-1"`, `"item-2"`, ... sem nenhuma relação com o conteúdo.
       grafia **exata** de `catalogo-atual.json`.
 - [ ] Todo `finish` novo tem `finish_group` válido
       (`madeirado|metalico|pe_estrutura|outro`).
+- [ ] `dimension` usa o formato `"LxPxH"` (3 valores) quando a planilha
+      fornece as 3 medidas — nunca omitir a altura.
+- [ ] `technical_description` foi preenchido para todas as abas que
+      têm rodapé de descrição técnica (texto após `"DESCRIÇÃO TÉCNICA:"`).
 - [ ] Itens com dados ambíguos têm `notes` preenchido e `confidence`
       reduzido — nenhum dado foi "inventado" para preencher lacunas.
 - [ ] Cada item tem `ref` único e rastreável até a origem (aba/linha).

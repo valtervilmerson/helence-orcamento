@@ -192,6 +192,7 @@ export function VariantsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [viewTechDescId, setViewTechDescId] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
@@ -413,6 +414,17 @@ export function VariantsPage() {
                 </td>
                 <td>
                   <div className="action-group">
+                    {item.technical_description && (
+                      <button
+                        className="secondary"
+                        title="Ver descrição técnica"
+                        onClick={() =>
+                          setViewTechDescId(viewTechDescId === item.component_variant_id ? null : item.component_variant_id)
+                        }
+                      >
+                        {viewTechDescId === item.component_variant_id ? 'fechar' : 'desc. técnica'}
+                      </button>
+                    )}
                     <button
                       className="secondary"
                       onClick={() =>
@@ -434,6 +446,18 @@ export function VariantsPage() {
                   </div>
                 </td>
               </tr>
+              {viewTechDescId === item.component_variant_id && item.technical_description && (
+                <tr key={`tech-${item.component_variant_id}`}>
+                  <td colSpan={10} style={{ background: 'var(--color-bg)', padding: 'var(--space-3) var(--space-4)' }}>
+                    <p style={{ margin: '0 0 var(--space-2)', fontWeight: 600, fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                      Descrição Técnica
+                    </p>
+                    <pre style={{ margin: 0, fontFamily: 'inherit', fontSize: '0.85rem', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                      {item.technical_description}
+                    </pre>
+                  </td>
+                </tr>
+              )}
               {editingId === item.component_variant_id && (
                 <tr key={`edit-${item.component_variant_id}`}>
                   <td colSpan={10} style={{ background: 'var(--color-bg)', padding: 'var(--space-4)' }}>

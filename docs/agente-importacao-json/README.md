@@ -25,13 +25,19 @@
 3. Abra `catalogo-atual.json` e anote os nomes **exatos** de
    `product_families`, `product_components` e `finishes` já cadastrados.
 4. Para cada planilha/aba de origem, mapeie: família, contexto de
-   produto, tipo de componente, dimensão, acabamento, SKU, preço.
+   produto, tipo de componente, dimensão, acabamento, SKU, preço e
+   descrição técnica.
    - Sempre que o valor corresponder a algo já cadastrado em
      `catalogo-atual.json`, use o nome **exatamente** como está lá
      (mesma grafia, acentuação, maiúsculas/minúsculas, espaçamento).
    - Sempre que for um valor novo, está tudo bem — mas para `finish`
      novo é **obrigatório** informar `finish_group`
      (`madeirado|metalico|pe_estrutura|outro`).
+   - **Dimensão**: sempre inclua as 3 medidas quando a planilha as
+     fornecer (`"1200x900x740"` = L×P×H). Não omita a altura.
+   - **Descrição técnica**: se a aba tiver um bloco de texto após
+     `"DESCRIÇÃO TÉCNICA:"` (rodapé), extraia-o e informe em
+     `technical_description` para **todos** os itens daquela aba.
 5. Gere o JSON seguindo `CONTRATO.md`. Salve em UTF-8.
 6. Antes de entregar, rode o checklist final de
    `GUIA-QUALIDADE-DADOS.md` (seção "Checklist final").

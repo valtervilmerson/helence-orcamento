@@ -163,6 +163,7 @@ export interface ComponentVariant {
   component: string
   descriptor: string | null
   description: string | null
+  technical_description: string | null
   dimension: ComponentVariantDimension | null
   finish: string | null
   finish_groups: FinishGroup[]

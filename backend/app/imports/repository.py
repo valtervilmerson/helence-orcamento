@@ -288,15 +288,16 @@ def insert_extracted_item(
     confidence_level: str,
     source_text: str | None,
     extraction_notes: str | None,
+    technical_description: str | None = None,
 ) -> int:
     cursor = connection.execute(
         """
         INSERT INTO extracted_items (
             imported_page_id, family_raw, product_context_raw, component_type_raw,
             description_raw, dimension_raw, finish_raw, sku_raw, price_raw, currency,
-            confidence, confidence_level, source_text, extraction_notes
+            confidence, confidence_level, source_text, extraction_notes, technical_description
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             imported_page_id,
@@ -313,6 +314,7 @@ def insert_extracted_item(
             confidence_level,
             source_text,
             extraction_notes,
+            technical_description,
         ),
     )
     return int(cursor.lastrowid)
