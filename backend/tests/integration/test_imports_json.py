@@ -122,6 +122,73 @@ def test_import_json_duplicate_payload_returns_409(client) -> None:
     assert second.json()["error"]["code"] == "ARQUIVO_DUPLICADO"
 
 
+def test_import_json_same_component_different_description_creates_separate_variants(
+    client,
+) -> None:
+    """Itens com mesmo family/component/dimension/finish mas descriptions distintas
+    (ex: Baffle Inclinado vs Baffle Ondas) devem gerar component_variants separadas."""
+    payload = _payload(
+        [
+            _item(
+                ref="BAFFLE!L1",
+                product_context="Baffle 1200X1200",
+                component_type="Tampo",
+                description="Baffle Inclinado",
+                dimension="1200x1200",
+                finish="Argila",
+                sku="BAFFLE0001",
+                price=740.73,
+                notes=None,
+            ),
+            _item(
+                ref="BAFFLE!L2",
+                product_context="Baffle 1200X1200",
+                component_type="Tampo",
+                description="Baffle Ondas",
+                dimension="1200x1200",
+                finish="Argila",
+                sku="BAFFLE0002",
+                price=740.73,
+                notes=None,
+            ),
+            _item(
+                ref="BAFFLE!L3",
+                product_context="Baffle 1200X1200",
+                component_type="Tampo",
+                description="Baffle Retangular",
+                dimension="1200x1200",
+                finish="Argila",
+                sku="BAFFLE0003",
+                price=740.73,
+                notes=None,
+            ),
+        ]
+    )
+
+    response = client.post("/api/v1/imports/json", json=payload)
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["items_published"] == 3
+
+    with get_connection() as connection:
+        variant_ids = [
+            r["component_variant_id"]
+            for r in connection.execute(
+                """
+                SELECT DISTINCT pr.component_variant_id
+                FROM prices pr
+                JOIN skus s ON s.id = pr.sku_id
+                WHERE s.code IN ('BAFFLE0001', 'BAFFLE0002', 'BAFFLE0003')
+                """
+            ).fetchall()
+        ]
+
+    assert len(variant_ids) == 3, (
+        f"Esperado 3 variantes separadas, encontrado {len(variant_ids)}: {variant_ids}"
+    )
+
+
 def test_import_json_reimport_upserts_price(client) -> None:
     first_payload = _payload([_item(ref="TESTE!L1", sku="JSONTEST0006", price=100.0)])
     second_payload = _payload([_item(ref="TESTE!L2", sku="JSONTEST0006", price=150.0)])

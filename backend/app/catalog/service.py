@@ -526,6 +526,29 @@ def publish_item(connection: sqlite3.Connection, item: sqlite3.Row) -> None:
         finish_id=finish_id,
         descriptor=None,
     )
+
+    # Se a variante encontrada tem uma descrição diferente, este item é um
+    # design distinto (ex: "Baffle Inclinado" vs "Baffle Ondas") que compartilha
+    # família/componente/dimensão/acabamento. Usa description_raw como descriptor
+    # para criar uma variante separada.
+    descriptor: str | None = None
+    if existing_variant is not None and item["description_raw"]:
+        row = connection.execute(
+            "SELECT description FROM component_variants WHERE id = ?",
+            (int(existing_variant["id"]),),
+        ).fetchone()
+        if row and row["description"] != item["description_raw"]:
+            descriptor = item["description_raw"]
+            existing_variant = repository.find_variant(
+                connection,
+                family_id=family_id,
+                product_id=product_id,
+                component_id=component_id,
+                dimension_id=dimension_id,
+                finish_id=finish_id,
+                descriptor=descriptor,
+            )
+
     if existing_variant is not None:
         variant_id = int(existing_variant["id"])
     else:
@@ -538,7 +561,7 @@ def publish_item(connection: sqlite3.Connection, item: sqlite3.Row) -> None:
                     "component_id": component_id,
                     "dimension_id": dimension_id,
                     "finish_id": finish_id,
-                    "descriptor": None,
+                    "descriptor": descriptor,
                     "description": item["description_raw"],
                 },
             )
