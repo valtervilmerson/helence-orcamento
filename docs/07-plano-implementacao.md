@@ -1078,3 +1078,38 @@ backend, que até então não tinha interface de uso.
 - Nova modelagem: `finish_groups` como lista multi-valor (tabela associativa), permitindo que um acabamento pertença a múltiplos grupos sem duplicação de registro.
 
 **Arquivos alterados**: `backend/app/catalog/` (schema + repository + service), `frontend/src/pages/catalog/` (FinishesPage e demais formulários de acabamento).
+
+---
+
+### Dimensão LxPxH, `technical_description` e gerador Linha NOAR (commit `6241033` — 2026-06-27)
+
+**Dimensão 3D**: `extract_dimension()` nos geradores passou a retornar três valores (L×P×H) quando disponíveis na planilha. `importacao_linha_noar.json` regenerado com dimensões completas. Contrato `docs/10` e `CONTRATO.md` atualizados com o formato LxPxH.
+
+**Campo `technical_description`**:
+- Migrations `0018_component_variants_tech_desc.sql` e `0019_extracted_items_tech_desc.sql` — coluna `TEXT NULLABLE` em `component_variants` e `extracted_items`.
+- Contrato JSON aceita `technical_description` opcional por item; `json_ingest.py` persiste e repassa ao `publish_item`; `catalog/repository.py`, `catalog/service.py`, `catalog/schemas.py` e `catalog.ts` expõem o campo.
+- `VariantsPage.tsx`: botão "desc. técnica" exibe o texto em row expansível.
+
+**Gerador Linha NOAR** (`importacao/generate_import_json_linha_noar.py`):
+- Novo gerador para `TABELA DE PRECO 01-2026_NOAR.xlsx`; extrai descrição técnica do rodapé de cada aba (`extract_technical_description()`).
+- Produz `importacao/importacao_linha_noar.json` com 594 itens.
+- 591 itens publicados no catálogo (família "Linha Noar"); 3 pendentes — Sofá NEO (1/2/3 lugares) com acabamento `"Linho / Couro Eco"` cujo `finish_group` não está definido (tecido/couro) e a planilha contém erros `#REF!` nas colunas desse acabamento.
+
+**`Agents.md`** (novo, raiz do projeto): guia de orientação para agentes de IA externos que geram o JSON de importação.
+
+---
+
+### Bug: `review_item` não publicava no catálogo ao aprovar manualmente (commit `adb25fb` — 2026-06-28)
+
+**Problema**: `publish_item` só era chamado no fast-path automático de `json_ingest.py`. Itens que iam para a fila de revisão (confidence < alta ou entidades novas) e eram aprovados manualmente na UI tinham `review_status = 'aprovado'` gravado, mas **nunca eram publicados no catálogo**. O bug foi descoberto ao importar a Linha NOAR — todos os 594 itens tinham `confidence=media/baixa`, foram para revisão, aprovados na UI e permaneceram invisíveis no orçamento.
+
+O mesmo padrão havia afetado os 305 itens de Soluções Acústicas (corrigido na produção com script ad-hoc em `3b7e2a0`); a causa raiz no caminho de revisão nunca tinha sido endereçada.
+
+**Correção** (`backend/app/imports/service.py`):
+- Adicionado `from app.catalog import service as catalog_service`.
+- Em `review_item`, após `set_extracted_item_review_status`, quando `new_review_status == "aprovado"` o item é relido do banco e `catalog_service.publish_item` é chamado na mesma transação.
+- `batch_review_items` herda o fix por delegar a `review_item`.
+
+**Remediação local**: script inline publicou os 591 itens NOAR já aprovados. Os 3 Sofá NEO permanecem pendentes até definição de `finish_group` para tecido/couro.
+
+**UI**: formulário "Adicionar item" no orçamento movido para **acima** da tabela de itens (antes aparecia abaixo). Alteração em `frontend/src/pages/quotes/QuotesPage.tsx`.

@@ -448,6 +448,16 @@ checklist de deploy (`docs/09`, seção 18).
 > **Atualização (commit `9154c97`)**: `description_raw` passou a ser campo
 > **editável** na tela de correção (antes era somente-leitura). O revisor pode
 > corrigir a descrição bruta sem precisar de uma nova importação.
+>
+> **Atualização (commit `adb25fb` — 2026-06-28)**: ao aprovar um item
+> manualmente (`decision = "aprovado"`), `review_item` agora chama
+> `catalog_service.publish_item` automaticamente na mesma transação — o item
+> vai direto para o catálogo, sem etapa adicional. Antes disso, **apenas o
+> fast-path do `json_ingest.py` publicava**; itens que passavam pela fila de
+> revisão ficavam com `review_status = 'aprovado'` mas nunca apareciam no
+> catálogo nem no orçamento. `batch_review_items` herda o fix por delegar a
+> `review_item`. Itens com `decision = "corrigido"` continuam exigindo uma
+> aprovação explícita subsequente para publicar.
 
 1. **Fila de triagem (tela 3)**: lista todos os `extracted_items` da
    importação, com filtros (busca textual, nível de confiança, status,
@@ -469,8 +479,9 @@ checklist de deploy (`docs/09`, seção 18).
    - Edição de **SKU**: valida 9–10 dígitos; se já associado a outra
      variação, **avisa mas não bloqueia** (padrão esperado, conforme achado
      dos 9.287 códigos duplicados).
-   - **Aprovar**: grava `review_status = aprovado` (ou `corrigido`, se houve
-     edição) + entrada em `import_review_decisions`.
+   - **Aprovar**: grava `review_status = aprovado` + chama `publish_item`
+     (publica no catálogo na mesma transação) + entrada em
+     `import_review_decisions`.
    - **Rejeitar**: exige justificativa obrigatória; item não segue para o
      catálogo nesta versão.
    - **Correção em lote**: agrupa candidatos pelo **valor bruto original**
