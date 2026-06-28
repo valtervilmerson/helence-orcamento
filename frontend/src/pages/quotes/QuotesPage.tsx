@@ -86,16 +86,20 @@ function VariantCombobox({
   results,
   variantId,
   onSelect,
+  query = '',
+  onQueryChange,
 }: {
   results: ComponentVariant[]
   variantId: string
   onSelect: (id: string) => void
+  query?: string
+  onQueryChange: (q: string) => void
 }) {
-  const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
 
   const selected = results.find((item) => item.component_variant_id === Number(variantId))
 
+  // Filtro client-side complementar ao filtro server-side já aplicado
   const normalized = query.trim().toLowerCase()
   const filtered = normalized
     ? results.filter((item) => describeVariant(item).toLowerCase().includes(normalized))
@@ -103,14 +107,8 @@ function VariantCombobox({
 
   function handleSelect(item: ComponentVariant) {
     onSelect(String(item.component_variant_id))
-    setQuery('')
+    onQueryChange('')
     setOpen(false)
-  }
-
-  function handleChange(value: string) {
-    setQuery(value)
-    setOpen(true)
-    if (variantId) onSelect('')
   }
 
   const inputValue = open || !selected ? query : describeVariant(selected)
@@ -121,14 +119,18 @@ function VariantCombobox({
         type="text"
         placeholder="Digite para buscar por produto, SKU, acabamento..."
         value={inputValue}
-        onChange={(e) => handleChange(e.target.value)}
+        onChange={(e) => {
+          onQueryChange(e.target.value)
+          setOpen(true)
+          if (variantId) onSelect('')
+        }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
       {open && (
         <ul className="combobox-list">
           {filtered.length === 0 && <li className="combobox-empty">Nenhuma variação encontrada.</li>}
-          {filtered.slice(0, 30).map((item) => (
+          {filtered.map((item) => (
             <li key={item.component_variant_id}>
               <button type="button" onMouseDown={() => handleSelect(item)}>
                 {describeVariant(item)}
@@ -281,7 +283,7 @@ function ComponentPicker({
   const [familyFilter, setFamilyFilter] = useState('')
   const [finishFilter, setFinishFilter] = useState('')
   const [dimensionFilterManual, setDimensionFilterManual] = useState('')
-  const [searchQ, setSearchQ] = useState('')
+  const [comboQuery, setComboQuery] = useState('')
   const [results, setResults] = useState<ComponentVariant[]>([])
   const [variantId, setVariantId] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -289,6 +291,11 @@ function ComponentPicker({
   const effectiveDimension = dimensionFilter || dimensionFilterManual
 
   useEffect(() => {
+    // Debounce apenas para busca por texto; filtros de dropdown disparam imediatamente
+    const delay = comboQuery ? 300 : 0
+    const timer = setTimeout(() => { void runSearch() }, delay)
+    return () => clearTimeout(timer)
+
     async function runSearch() {
       try {
         const result = await searchComponents({
@@ -296,8 +303,9 @@ function ComponentPicker({
           dimension: effectiveDimension || undefined,
           finish: finishFilter || undefined,
           finish_group: finishGroupFilter || undefined,
-          q: searchQ || undefined,
-          page_size: 200,
+          q: comboQuery || undefined,
+          // Com texto: 50 já filtrados pelo servidor. Sem texto: 200 para navegar.
+          page_size: comboQuery ? 50 : 200,
         })
         setResults(result.items)
         setError(null)
@@ -305,8 +313,7 @@ function ComponentPicker({
         setError(describeError(err))
       }
     }
-    void runSearch()
-  }, [familyFilter, effectiveDimension, finishFilter, finishGroupFilter, searchQ])
+  }, [familyFilter, effectiveDimension, finishFilter, finishGroupFilter, comboQuery])
 
   function handlePick() {
     const variant = results.find((item) => item.component_variant_id === Number(variantId))
@@ -358,19 +365,14 @@ function ComponentPicker({
           )}
         </div>
       </div>
-      <div className="form-row">
-        <div className="form-field" style={{ flex: 1 }}>
-          <span className="form-field__label">Buscar</span>
-          <input
-            type="search"
-            placeholder="descrição, SKU…"
-            value={searchQ}
-            onChange={(e) => setSearchQ(e.target.value)}
-          />
-        </div>
-      </div>
       <div className="form-row form-row--actions">
-        <VariantCombobox results={results} variantId={variantId} onSelect={setVariantId} />
+        <VariantCombobox
+          results={results}
+          variantId={variantId}
+          onSelect={setVariantId}
+          query={comboQuery}
+          onQueryChange={setComboQuery}
+        />
         <button type="button" className="secondary" onClick={handlePick} disabled={!variantId || pending}>
           {pending ? `${pickLabel}…` : pickLabel}
         </button>
