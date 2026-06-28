@@ -1481,6 +1481,16 @@ function QuoteDetail({
             </button>
           )}
         </div>
+        {quote.status === 'rascunho' && addingItem && (
+          <NewItemForm
+            quoteId={quote.id}
+            families={families}
+            finishes={finishes}
+            dimensions={dimensions}
+            onAdded={() => void reload()}
+            onClose={() => setAddingItem(false)}
+          />
+        )}
         <div className="table-responsive">
           <table>
             <thead>
@@ -1508,17 +1518,6 @@ function QuoteDetail({
           </table>
         </div>
       </section>
-
-      {quote.status === 'rascunho' && addingItem && (
-        <NewItemForm
-          quoteId={quote.id}
-          families={families}
-          finishes={finishes}
-          dimensions={dimensions}
-          onAdded={() => void reload()}
-          onClose={() => setAddingItem(false)}
-        />
-      )}
 
       {checklist && (
         <section>

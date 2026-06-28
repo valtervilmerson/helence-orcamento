@@ -17,6 +17,7 @@ import fitz
 
 from app.db.connection import get_connection
 from app.files.storage import FileStorage
+from app.catalog import service as catalog_service
 from app.imports import repository
 from app.imports.extraction import extract_page
 from app.imports.schemas import (
@@ -451,6 +452,11 @@ def review_item(
 
     repository.set_extracted_item_review_status(connection, item_id, new_review_status)
     logger.info("Item extraído #%s: decisão de revisão -> %s", item_id, new_review_status)
+
+    if new_review_status == "aprovado":
+        item_row = repository.get_extracted_item(connection, item_id)
+        assert item_row is not None
+        catalog_service.publish_item(connection, item_row)
 
     decision_id = repository.insert_review_decision(
         connection,
