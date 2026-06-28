@@ -1113,3 +1113,52 @@ O mesmo padrão havia afetado os 305 itens de Soluções Acústicas (corrigido n
 **Remediação local**: script inline publicou os 591 itens NOAR já aprovados. Os 3 Sofá NEO permanecem pendentes até definição de `finish_group` para tecido/couro.
 
 **UI**: formulário "Adicionar item" no orçamento movido para **acima** da tabela de itens (antes aparecia abaixo). Alteração em `frontend/src/pages/quotes/QuotesPage.tsx`.
+
+---
+
+### Gerador e JSON de importação — Reuniões Bistrô (commit `0764b18` — 2026-06-28)
+
+**Novo gerador** `importacao/generate_import_json_reunioes_bistro.py` para a planilha
+`TABELA DE PRECO 01-2026_REUNIOES BISTRO.xlsx`. Produz
+`importacao/importacao_reunioes_bistro.json` com **3.867 itens** (0 SKUs duplicados).
+
+**Layout da planilha**: 7 abas produtivas (excluindo CUSTOS_SISTEMA, ÍNDICE REVENDA,
+COEF, PERC_VENDA). Todas usam blocos de **4 linhas** a partir da linha 6:
+- Linha 0: descrição (col 1) + SKUs (cols de acabamento)
+- Linha 1: dimensão (col 1, ex.: `1200x500x1000mm` ou `1200x500X25mm`)
+- Linha 2: rótulo do pé (col 1, ex.: `Pé Painel`) — vazio para tampos
+- Linha 3: preços (cols de acabamento)
+
+**Cobertura**: 78 tamanhos (larguras 1200–2400mm × profundidades 500–1000mm) × 49
+variações cada = 3.822 itens + 45 itens Lounge Bistrô (Diam 700mm, 5 tipos de pé × 9
+acabamentos madeirados). Pé Aço 5050 usa 4 metálicos (Prata/Preto/Branco/Grafite).
+
+**Todos os itens têm `notes` não-nula** (linha nova no catálogo) → vão para revisão;
+aprovar em lote via `batch_review` na UI de revisão.
+
+---
+
+### Bug: `ComponentPicker` ocultava itens de importações recentes (commits `ade5ce5` / `c58165f` — 2026-06-28)
+
+**Problema**: `GET /api/v1/components` sem filtros retornava 50 variantes ordenadas por
+`cv.id ASC`. Cada nova importação cria variantes com IDs crescentes; os Reuniões Bistrô
+ficaram nos IDs 11900–15766. Com `page_size=50` padrão e ordenação por ID, qualquer
+importação nova ficava invisível no `ComponentPicker` — independentemente do filtro de
+família/dimensão/acabamento.
+
+**Tentativa inicial (errada)**: adicionar campo "Buscar" separado com `q` ao lado dos
+dropdowns. Resultou em dois campos de busca concorrentes — o `VariantCombobox` já tinha
+input próprio com filtro client-side. UX confuso rejeitado pelo usuário.
+
+**Solução final** (`frontend/src/pages/quotes/QuotesPage.tsx`):
+- `VariantCombobox` virou controlado — recebe `query`/`onQueryChange` como props.
+- `ComponentPicker` levanta `comboQuery`; ao digitar, `useEffect` com debounce 300ms
+  dispara `searchComponents({q: comboQuery, page_size: 50})`.
+- Sem texto: `page_size: 200` para navegação por dropdowns.
+- Campo "Buscar" separado removido — **uma entrada, um fluxo**.
+
+**Erros a evitar**:
+1. Não adicionar campo de busca separado quando já existe um combobox — integrar ao
+   combobox existente.
+2. Mudança de assinatura de props de componente React entre reloads de HMR causa erro
+   de runtime. Após mudar interface de componente, reiniciar o Vite (`npm run dev`).
