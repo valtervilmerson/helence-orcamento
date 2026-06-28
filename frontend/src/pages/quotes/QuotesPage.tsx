@@ -281,6 +281,7 @@ function ComponentPicker({
   const [familyFilter, setFamilyFilter] = useState('')
   const [finishFilter, setFinishFilter] = useState('')
   const [dimensionFilterManual, setDimensionFilterManual] = useState('')
+  const [searchQ, setSearchQ] = useState('')
   const [results, setResults] = useState<ComponentVariant[]>([])
   const [variantId, setVariantId] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -295,6 +296,8 @@ function ComponentPicker({
           dimension: effectiveDimension || undefined,
           finish: finishFilter || undefined,
           finish_group: finishGroupFilter || undefined,
+          q: searchQ || undefined,
+          page_size: 200,
         })
         setResults(result.items)
         setError(null)
@@ -303,7 +306,7 @@ function ComponentPicker({
       }
     }
     void runSearch()
-  }, [familyFilter, effectiveDimension, finishFilter, finishGroupFilter])
+  }, [familyFilter, effectiveDimension, finishFilter, finishGroupFilter, searchQ])
 
   function handlePick() {
     const variant = results.find((item) => item.component_variant_id === Number(variantId))
@@ -353,6 +356,17 @@ function ComponentPicker({
               ))}
             </select>
           )}
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-field" style={{ flex: 1 }}>
+          <span className="form-field__label">Buscar</span>
+          <input
+            type="search"
+            placeholder="descrição, SKU…"
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+          />
         </div>
       </div>
       <div className="form-row form-row--actions">
