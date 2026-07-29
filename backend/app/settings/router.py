@@ -22,7 +22,11 @@ def get_db() -> sqlite3.Connection:
 
 @router.get("", response_model=AppSettingsOut, dependencies=[Depends(get_current_user)])
 def get_settings(connection: sqlite3.Connection = Depends(get_db)) -> AppSettingsOut:
-    return AppSettingsOut(global_markup_percent=repository.get_global_markup(connection))
+    return AppSettingsOut(
+        global_markup_percent=repository.get_global_markup(connection),
+        discount_limit_percent=repository.get_discount_limit_percent(connection),
+        default_validity_days=repository.get_default_validity_days(connection),
+    )
 
 
 @router.patch(
@@ -39,4 +43,12 @@ def update_settings(
                 details={"global_markup_percent": payload.global_markup_percent}
             )
         repository.set_global_markup(connection, payload.global_markup_percent)
-    return AppSettingsOut(global_markup_percent=repository.get_global_markup(connection))
+    if payload.discount_limit_percent is not None:
+        if payload.discount_limit_percent < 0:
+            raise DescontoInvalidoError(details={"discount_limit_percent": payload.discount_limit_percent})
+        repository.set_setting(connection, "discount_limit_percent", str(payload.discount_limit_percent))
+    if payload.default_validity_days is not None:
+        if payload.default_validity_days < 1:
+            raise DescontoInvalidoError(details={"default_validity_days": payload.default_validity_days})
+        repository.set_setting(connection, "default_validity_days", str(payload.default_validity_days))
+    return get_settings(connection)

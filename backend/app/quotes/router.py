@@ -20,6 +20,7 @@ from app.quotes.schemas import (
     QuoteItemPatchIn,
     QuoteOut,
     QuoteReviewChecklistOut,
+    QuoteSummaryOut,
     QuoteSettingsPatchIn,
     QuoteStatusPatchIn,
     QuoteTotalsOut,
@@ -79,6 +80,11 @@ def create_quote(
 @router.get("", response_model=list[QuoteOut], dependencies=[Depends(get_current_user)])
 def list_quotes(connection: sqlite3.Connection = Depends(get_db)) -> list[QuoteOut]:
     return service.list_quotes(connection)
+
+
+@router.get("/summary", response_model=QuoteSummaryOut, dependencies=[Depends(get_current_user)])
+def get_summary(connection: sqlite3.Connection = Depends(get_db)) -> QuoteSummaryOut:
+    return service.get_summary(connection)
 
 
 @router.get("/{quote_id}", response_model=QuoteOut, dependencies=[Depends(get_current_user)])

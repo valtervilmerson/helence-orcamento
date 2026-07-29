@@ -47,7 +47,7 @@ helence-orcamento/
 │   │   │   ├── connection.py
 │   │   │   ├── migrate.py
 │   │   │   ├── seed.py
-│   │   │   └── migrations/   # 0001_initial.sql … 0017_finish_multi_group.sql
+│   │   │   └── migrations/   # 0001_initial.sql … 0020_commercial_policy_settings.sql
 │   │   └── shared/           # errors.py, logging.py, schemas comuns
 │   └── tests/integration/    # pytest, banco SQLite em memória por teste
 ├── frontend/                 # React + TypeScript + Vite
@@ -198,7 +198,7 @@ Tabelas de apoio relevantes:
 - `imported_files` / `imported_pages` / `extracted_items` — rastreabilidade de importação
 
 Schema completo: `docs/schema/schema.sql`. Migrations numeradas em
-`backend/app/db/migrations/` (0001 a 0017 atualmente).
+`backend/app/db/migrations/` (0001 a 0020 atualmente).
 
 ---
 
@@ -289,7 +289,15 @@ sempre preencher `finish_group` para acabamentos novos.
 
 ---
 
-## 13. Documentos de referência
+## 13. Status do redesign em andamento
+
+O pacote `entrega-redesign-helence/` é a fonte de verdade visual do redesign
+em andamento. O estado real, lacunas e próximas etapas estão em
+`docs/11-status-redesign.md`; leia-o antes de alterar frontend, settings ou
+PDF. Não trate as novas rotas como redesign concluído: a migração de telas
+ainda é parcial.
+
+## 14. Documentos de referência
 
 | Documento | Para que serve |
 |---|---|
@@ -300,3 +308,4 @@ sempre preencher `finish_group` para acabamentos novos.
 | `docs/09-implantacao-operacao.md` | Guia de deploy, backup e operação na Railway |
 | `docs/03-modelagem-sqlite.md` | Modelo de dados detalhado (24 tabelas + índices) |
 | `docs/README_IMPLEMENTACAO.md` | Visão consolidada de tudo que foi implementado |
+| `docs/11-status-redesign.md` | Handoff do redesign: estado real, lacunas e próximas etapas |

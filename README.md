@@ -4,9 +4,11 @@ Sistema interno de catálogo de produtos e orçamentos, com importação de
 PDFs de fornecedores. Backend em **FastAPI + SQLite**, frontend em
 **React + TypeScript + Vite**, hospedado em produção na **Railway**.
 
-A documentação completa do domínio, arquitetura e plano de implementação
-está em [`docs/`](docs/) — comece por
-[`docs/README_IMPLEMENTACAO.md`](docs/README_IMPLEMENTACAO.md).
+A documentação completa do domínio e arquitetura está em [`docs/`](docs/).
+Para o estado efetivo da branch e a continuidade do redesign, comece por
+[`docs/11-status-redesign.md`](docs/11-status-redesign.md). O documento
+histórico [`docs/README_IMPLEMENTACAO.md`](docs/README_IMPLEMENTACAO.md)
+não representa sozinho o estado atual.
 
 ## Pré-requisitos
 

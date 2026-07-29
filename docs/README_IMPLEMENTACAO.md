@@ -1,5 +1,10 @@
 # Helence Orçamento — guia de implementação
 
+> **Nota de manutenção (2026-07-28):** este é o plano histórico do MVP e
+> contém trechos que descrevem fases já concluídas ou estruturas antigas.
+> Para o estado atual do código e a continuação do redesign, leia primeiro
+> [`11-status-redesign.md`](11-status-redesign.md) e depois `Agents.md`.
+
 > Documento consolidado para quem vai **começar a codar este projeto agora**,
 > sem ter participado das discussões anteriores. Reúne, em um só lugar, o
 > essencial dos documentos `docs/01` a `docs/09` e do diretório

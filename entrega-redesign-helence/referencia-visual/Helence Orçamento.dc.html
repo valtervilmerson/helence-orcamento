@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #E8E6E0; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #1C211E; -webkit-font-smoothing: antialiased; }
+  a { color: #2F6F4F; text-decoration: none; }
+  a:hover { color: #17372A; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: #CFCDC5; border-radius: 9px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</helmet>
+
+<div style="padding: 28px 28px 56px; display: flex; flex-direction: column; align-items: center; gap: 20px; min-height: 100vh; box-sizing: border-box;">
+
+  <div style="width: 1194px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap;">
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #8A8F88;">Helence · redesign 2026 · iPad 11&quot; paisagem</span>
+      <span style="font-family: 'IBM Plex Serif', serif; font-size: 22px; font-weight: 600; color: #17372A;">Sistema de Orçamento</span>
+    </div>
+    <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 720px;">
+      <button type="button" onClick="{{ goPainel }}" style="{{ tabPainel }}" style-hover="opacity: 0.82;">Painel</button>
+      <button type="button" onClick="{{ goLista }}" style="{{ tabLista }}" style-hover="opacity: 0.82;">Acompanhamento</button>
+      <button type="button" onClick="{{ goItens }}" style="{{ tabItens }}" style-hover="opacity: 0.82;">Editor · Itens</button>
+      <button type="button" onClick="{{ goMontar }}" style="{{ tabMontar }}" style-hover="opacity: 0.82;">Montar item</button>
+      <button type="button" onClick="{{ goCondicoes }}" style="{{ tabCondicoes }}" style-hover="opacity: 0.82;">Condições</button>
+      <button type="button" onClick="{{ goRevisao }}" style="{{ tabRevisao }}" style-hover="opacity: 0.82;">Revisar &amp; enviar</button>
+      <button type="button" onClick="{{ goCatalogo }}" style="{{ tabCatalogo }}" style-hover="opacity: 0.82;">Catálogo</button>
+      <button type="button" onClick="{{ goAdmin }}" style="{{ tabAdmin }}" style-hover="opacity: 0.82;">Catálogo · admin</button>
+      <button type="button" onClick="{{ goImport }}" style="{{ tabImport }}" style-hover="opacity: 0.82;">Importações</button>
+      <button type="button" onClick="{{ goFila }}" style="{{ tabFila }}" style-hover="opacity: 0.82;">Fila de revisão</button>
+      <button type="button" onClick="{{ goDoc }}" style="{{ tabDoc }}" style-hover="opacity: 0.82;">Documento</button>
+      <button type="button" onClick="{{ goLogin }}" style="{{ tabLogin }}" style-hover="opacity: 0.82;">Entrar</button>
+    </div>
+  </div>
+
+  <div style="width: 1194px; height: 834px; background: #F6F5F1; border-radius: 20px; box-shadow: 0 30px 70px -30px rgba(23,55,42,0.45), 0 2px 8px rgba(23,55,42,0.08); overflow: hidden; display: flex; position: relative;">
+
+    <sc-if value="{{ chromeVisible }}" hint-placeholder-val="{{ true }}">
+      <nav style="width: 84px; flex-shrink: 0; background: #17372A; display: flex; flex-direction: column; align-items: stretch; padding: 16px 0 12px;">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 8px 18px;">
+          <div style="width: 34px; height: 34px; border-radius: 10px; background: #E9C97A; display: flex; align-items: center; justify-content: center;">
+            <span style="font-family: 'IBM Plex Serif', serif; font-size: 19px; font-weight: 600; color: #17372A; line-height: 1;">h</span>
+          </div>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.16em; text-transform: uppercase; color: #7E9A8C;">Helence</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 2px; padding: 0 8px;">
+          <button type="button" onClick="{{ goPainel }}" style="{{ navPainel }}" style-hover="background: rgba(255,255,255,0.07);">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="2.5" y="2.5" width="6.5" height="6.5" rx="1.5" stroke="currentColor" stroke-width="1.4"></rect><rect x="11" y="2.5" width="6.5" height="4" rx="1.5" stroke="currentColor" stroke-width="1.4"></rect><rect x="2.5" y="11" width="6.5" height="6.5" rx="1.5" stroke="currentColor" stroke-width="1.4"></rect><rect x="11" y="8.5" width="6.5" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"></rect></svg>
+            <span style="font-size: 10px; font-weight: 500; letter-spacing: 0.01em;">Painel</span>
+          </button>
+          <button type="button" onClick="{{ goLista }}" style="{{ navOrcamentos }}" style-hover="background: rgba(255,255,255,0.07);">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="3.5" y="2.5" width="13" height="15" rx="2" stroke="currentColor" stroke-width="1.4"></rect><line x1="6.5" y1="7" x2="13.5" y2="7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></line><line x1="6.5" y1="10.5" x2="13.5" y2="10.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></line><line x1="6.5" y1="14" x2="10.5" y2="14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></line></svg>
+            <span style="font-size: 10px; font-weight: 500;">Orçamentos</span>
+          </button>
+          <button type="button" onClick="{{ goCatalogo }}" style="{{ navCatalogo }}" style-hover="background: rgba(255,255,255,0.07);">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.4"></circle><line x1="13.2" y1="13.2" x2="17" y2="17" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></line></svg>
+            <span style="font-size: 10px; font-weight: 500;">Catálogo</span>
+          </button>
+          <button type="button" onClick="{{ goImport }}" style="{{ navImport }}" style-hover="background: rgba(255,255,255,0.07);">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 12.5V3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></path><path d="M6.5 7L10 3.5L13.5 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path><path d="M3.5 12.5v3a1.5 1.5 0 001.5 1.5h10a1.5 1.5 0 001.5-1.5v-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></path></svg>
+            <span style="font-size: 10px; font-weight: 500;">Importar</span>
+            <span style="position: absolute; top: 6px; right: 12px; min-width: 17px; height: 17px; border-radius: 9px; background: #E9C97A; color: #17372A; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 4px;">7</span>
+          </button>
+        </div>
+
+        <div style="flex: 1;"></div>
+
+        <div style="display: flex; flex-direction: column; gap: 2px; padding: 0 8px;">
+          <button type="button" onClick="{{ goAjustes }}" style="{{ navAjustes }}" style-hover="background: rgba(255,255,255,0.07);">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="2.6" stroke="currentColor" stroke-width="1.4"></circle><circle cx="10" cy="10" r="6.8" stroke="currentColor" stroke-width="1.4" stroke-dasharray="2.2 3"></circle></svg>
+            <span style="font-size: 10px; font-weight: 500;">Ajustes</span>
+          </button>
+          <div style="height: 1px; background: rgba(255,255,255,0.12); margin: 8px 10px;"></div>
+          <button type="button" onClick="{{ goLogin }}" style="display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 0; border: none; background: transparent; cursor: pointer; border-radius: 12px;" style-hover="background: rgba(255,255,255,0.07);">
+            <span style="width: 30px; height: 30px; border-radius: 50%; background: #2F6F4F; color: #EEF4F0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600;">MR</span>
+            <span style="font-size: 9px; color: #7E9A8C;">Marina</span>
+          </button>
+        </div>
+      </nav>
+    </sc-if>
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; position: relative;">
+
+      <!-- ══ PAINEL ══ -->
+      <sc-if value="{{ isPainel }}" hint-placeholder-val="{{ true }}">
+        <div style="flex: 1; overflow-y: auto;">
+          <div style="padding: 30px 34px 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; color: #8A8F88;">Terça, 28 de julho</span>
+              <h1 style="margin: 0; font-family: 'IBM Plex Serif', serif; font-size: 30px; font-weight: 600; color: #17372A; letter-spacing: -0.01em;">Bom dia, Marina</h1>
+            </div>
+            <button type="button" onClick="{{ goItens }}" style="display: flex; align-items: center; gap: 9px; height: 46px; padding: 0 20px; border-radius: 12px; border: none; background: #2F6F4F; color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: 0 6px 16px -8px rgba(47,111,79,0.9);" style-hover="background: #245840;">
+              <span style="font-size: 19px; line-height: 1; margin-top: -2px;">+</span> Novo orçamento
+            </button>
+          </div>
+
+          <div style="padding: 14px 34px 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;">
+            <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+              <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #8A8F88;">Em rascunho</span>
+              <span style="font-family: 'IBM Plex Serif', serif; font-size: 34px; font-weight: 600; color: #1C211E; line-height: 1;">4</span>
+              <span style="font-size: 12.5px; color: #6E7873;">R$ 186.400 em montagem</span>
+            </div>
+            <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+              <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #8A8F88;">Com o cliente</span>
+              <span style="font-family: 'IBM Plex Serif', serif; font-size: 34px; font-weight: 600; color: #1C211E; line-height: 1;">7</span>
+              <span style="font-size: 12.5px; color: #6E7873;">R$ 412.900 aguardando</span>
+            </div>
+            <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+              <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #8A8F88;">Aprovados · julho</span>
+              <span style="font-family: 'IBM Plex Serif', serif; font-size: 34px; font-weight: 600; color: #2F6F4F; line-height: 1;">3</span>
+              <span style="font-size: 12.5px; color: #6E7873;">R$ 128.750 fechados</span>
+            </div>
+            <div style="background: #fff; border: 1px solid #E9D9B0; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+              <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #A9761B;">Expira em 7 dias</span>
+              <span style="font-family: 'IBM Plex Serif', serif; font-size: 34px; font-weight: 600; color: #A9761B; line-height: 1;">2</span>
+              <span style="font-size: 12.5px; color: #6E7873;">Renove ou reative</span>
+            </div>
+          </div>
+
+          <div style="padding: 22px 34px 0; display: grid; grid-template-columns: 1.35fr 1fr; gap: 18px; align-items: start;">
+            <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 16px; overflow: hidden;">
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px;">
+                <h2 style="margin: 0; font-size: 15px; font-weight: 600; color: #1C211E;">Precisa de você</h2>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8F88;">3 pendências</span>
+              </div>
+              <button type="button" onClick="{{ goRevisao }}" style="display: flex; width: 100%; text-align: left; align-items: center; gap: 14px; padding: 13px 20px; border: none; border-top: 1px solid #EFEEE8; background: transparent; cursor: pointer;" style-hover="background: #FAF9F6;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: #A63A2B; flex-shrink: 0;"></span>
+                <span style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 14px; font-weight: 600; color: #1C211E;">ORC-2026-0184 · Grupo Sanders</span>
+                  <span style="font-size: 12.5px; color: #6E7873;">Uma linha está sem componente obrigatório — falta a estrutura.</span>
+                </span>
+                <span style="font-size: 13px; font-weight: 600; color: #2F6F4F;">Resolver →</span>
+              </button>
+              <button type="button" onClick="{{ goCondicoes }}" style="display: flex; width: 100%; text-align: left; align-items: center; gap: 14px; padding: 13px 20px; border: none; border-top: 1px solid #EFEEE8; background: transparent; cursor: pointer;" style-hover="background: #FAF9F6;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: #A9761B; flex-shrink: 0;"></span>
+                <span style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 14px; font-weight: 600; color: #1C211E;">ORC-2026-0179 · Nexa Advogados</span>
+                  <span style="font-size: 12.5px; color: #6E7873;">Desconto de 18% acima do limite — precisa de justificativa.</span>
+                </span>
+                <span style="font-size: 13px; font-weight: 600; color: #2F6F4F;">Resolver →</span>
+              </button>
+              <button type="button" onClick="{{ goLista }}" style="display: flex; width: 100%; text-align: left; align-items: center; gap: 14px; padding: 13px 20px; border: none; border-top: 1px solid #EFEEE8; background: transparent; cursor: pointer;" style-hover="background: #FAF9F6;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: #A9761B; flex-shrink: 0;"></span>
+                <span style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 14px; font-weight: 600; color: #1C211E;">ORC-2026-0171 · Clínica Ventura</span>
+                  <span style="font-size: 12.5px; color: #6E7873;">Enviado há 12 dias, sem resposta. Validade termina em 3 dias.</span>
+                </span>
+                <span style="font-size: 13px; font-weight: 600; color: #2F6F4F;">Acompanhar →</span>
+              </button>
+            </div>
+
+            <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 16px; padding: 16px 20px 18px; display: flex; flex-direction: column; gap: 14px;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 600; color: #1C211E;">Funil do mês</h2>
+              <div style="display: flex; flex-direction: column; gap: 11px;">
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12.5px;"><span style="color: #6E7873;">Rascunho</span><span style="font-family: 'IBM Plex Mono', monospace; color: #1C211E;">R$ 186.400</span></div>
+                  <div style="height: 7px; border-radius: 4px; background: #EFEEE8; overflow: hidden;"><div style="width: 38%; height: 100%; background: #C9CFC9;"></div></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12.5px;"><span style="color: #6E7873;">Com o cliente</span><span style="font-family: 'IBM Plex Mono', monospace; color: #1C211E;">R$ 412.900</span></div>
+                  <div style="height: 7px; border-radius: 4px; background: #EFEEE8; overflow: hidden;"><div style="width: 84%; height: 100%; background: #7FA891;"></div></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12.5px;"><span style="color: #6E7873;">Aprovado</span><span style="font-family: 'IBM Plex Mono', monospace; color: #1C211E;">R$ 128.750</span></div>
+                  <div style="height: 7px; border-radius: 4px; background: #EFEEE8; overflow: hidden;"><div style="width: 26%; height: 100%; background: #2F6F4F;"></div></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12.5px;"><span style="color: #6E7873;">Perdido / expirado</span><span style="font-family: 'IBM Plex Mono', monospace; color: #1C211E;">R$ 44.100</span></div>
+                  <div style="height: 7px; border-radius: 4px; background: #EFEEE8; overflow: hidden;"><div style="width: 12%; height: 100%; background: #D9B7B0;"></div></div>
+                </div>
+              </div>
+              <div style="border-top: 1px dashed #E3E1DA; padding-top: 12px; display: flex; align-items: baseline; justify-content: space-between;">
+                <span style="font-size: 12.5px; color: #6E7873;">Taxa de aprovação</span>
+                <span style="font-family: 'IBM Plex Serif', serif; font-size: 20px; font-weight: 600; color: #17372A;">42%</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding: 18px 34px 30px;">
+            <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 16px; overflow: hidden;">
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px;">
+                <h2 style="margin: 0; font-size: 15px; font-weight: 600; color: #1C211E;">Atividade recente</h2>
+                <button type="button" onClick="{{ goLista }}" style="border: none; background: transparent; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; color: #2F6F4F; cursor: pointer; padding: 4px;">Ver todos</button>
+              </div>
+              <div style="display: grid; grid-template-columns: 148px 1fr 130px 118px 128px; gap: 0; padding: 0 20px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #8A8F88; border-bottom: 1px solid #EFEEE8;">
+                <span>Número</span><span>Cliente</span><span style="text-align: right;">Total</span><span style="text-align: right;">Atualizado</span><span style="text-align: right;">Situação</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 148px 1fr 130px 118px 128px; align-items: center; padding: 12px 20px; border-bottom: 1px solid #F4F3EE;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #1C211E;">ORC-2026-0184</span>
+                <span style="font-size: 14px; color: #1C211E;">Grupo Sanders</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px; text-align: right;">R$ 74.320,00</span>
+                <span style="font-size: 12.5px; color: #6E7873; text-align: right;">há 12 min</span>
+                <span style="text-align: right;"><span style="display: inline-block; padding: 3px 10px; border-radius: 20px; background: #EFEEE8; color: #5C635E; font-size: 12px; font-weight: 600;">Rascunho</span></span>
+              </div>
+              <div style="display: grid; grid-template-columns: 148px 1fr 130px 118px 128px; align-items: center; padding: 12px 20px; border-bottom: 1px solid #F4F3EE;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #1C211E;">ORC-2026-0182</span>
+                <span style="font-size: 14px; color: #1C211E;">Instituto Alvorada</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px; text-align: right;">R$ 39.980,00</span>
+                <span style="font-size: 12.5px; color: #6E7873; text-align: right;">ontem</span>
+                <span style="text-align: right;"><span style="display: inline-block; padding: 3px 10px; border-radius: 20px; background: #E7F0EA; color: #2F6F4F; font-size: 12px; font-weight: 600;">Com o cliente</span></span>
+              </div>
+              <div style="display: grid; grid-template-columns: 148px 1fr 130px 118px 128px; align-items: center; padding: 12px 20px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #1C211E;">ORC-2026-0180</span>
+                <span style="font-size: 14px; color: #1C211E;">Vértice Coworking</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px; text-align: right;">R$ 51.600,00</span>
+                <span style="font-size: 12.5px; color: #6E7873; text-align: right;">2 dias</span>
+                <span style="text-align: right;"><span style="display: inline-block; padding: 3px 10px; border-radius: 20px; background: #E4EFE7; color: #1F5C3F; font-size: 12px; font-weight: 600;">Aprovado</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ ACOMPANHAMENTO ══ -->
+      <sc-if value="{{ isLista }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; overflow-y: auto;">
+          <div style="padding: 30px 34px 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; color: #8A8F88;">Acompanhamento</span>
+              <h1 style="margin: 0; font-family: 'IBM Plex Serif', serif; font-size: 28px; font-weight: 600; color: #17372A;">Orçamentos</h1>
+            </div>
+            <button type="button" onClick="{{ goItens }}" style="display: flex; align-items: center; gap: 9px; height: 46px; padding: 0 20px; border-radius: 12px; border: none; background: #2F6F4F; color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer;" style-hover="background: #245840;">
+              <span style="font-size: 19px; line-height: 1; margin-top: -2px;">+</span> Novo orçamento
+            </button>
+          </div>
+
+          <div style="padding: 18px 34px 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 9px; height: 44px; padding: 0 14px; background: #fff; border: 1px solid #E3E1DA; border-radius: 12px; flex: 1; min-width: 240px; max-width: 380px;">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="5.5" stroke="#8A8F88" stroke-width="1.6"></circle><line x1="13.2" y1="13.2" x2="17" y2="17" stroke="#8A8F88" stroke-width="1.6" stroke-linecap="round"></line></svg>
+              <span style="font-size: 14px; color: #9A9E97;">Buscar por cliente ou número…</span>
+            </div>
+            <div style="display: flex; gap: 4px; padding: 4px; background: #EDECE6; border-radius: 12px;">
+              <span style="display: flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px; border-radius: 9px; background: #fff; font-size: 13.5px; font-weight: 600; color: #1C211E; box-shadow: 0 1px 2px rgba(0,0,0,0.06);">Todos <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8F88;">16</span></span>
+              <span style="display: flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px; border-radius: 9px; font-size: 13.5px; font-weight: 500; color: #6E7873;">Rascunho <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;">4</span></span>
+              <span style="display: flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px; border-radius: 9px; font-size: 13.5px; font-weight: 500; color: #6E7873;">Com o cliente <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;">7</span></span>
+              <span style="display: flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px; border-radius: 9px; font-size: 13.5px; font-weight: 500; color: #6E7873;">Aprovado <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;">3</span></span>
+              <span style="display: flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px; border-radius: 9px; font-size: 13.5px; font-weight: 500; color: #6E7873;">Encerrado <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;">2</span></span>
+            </div>
+          </div>
+
+          <div style="padding: 16px 34px 30px; display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; flex-direction: column; gap: 9px;">
+              <div style="display: flex; align-items: baseline; gap: 9px;">
+                <h2 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #A9761B;">Precisam de atenção</h2>
+                <span style="height: 1px; flex: 1; background: #E9D9B0;"></span>
+              </div>
+              <sc-for list="{{ atencao }}" as="q" hint-placeholder-count="2">
+                <div style="display: grid; grid-template-columns: 152px 1fr 132px 150px 140px 44px; align-items: center; gap: 12px; background: #FFFDF7; border: 1px solid #E9D9B0; border-radius: 13px; padding: 14px 16px; cursor: pointer;" style-hover="border-color: #D8BE7C;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #1C211E;">{{ q.numero }}</span>
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+                    <span style="font-size: 14.5px; font-weight: 600; color: #1C211E;">{{ q.cliente }}</span>
+                    <span style="font-size: 12.5px; color: #A9761B;">{{ q.aviso }}</span>
+                  </span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; text-align: right;">{{ q.total }}</span>
+                  <span style="font-size: 12.5px; color: #6E7873; text-align: right;">{{ q.validade }}</span>
+                  <span style="text-align: right;"><span style="display: inline-block; padding: 4px 11px; border-radius: 20px; background: #FBF2E0; color: #A9761B; font-size: 12px; font-weight: 600;">{{ q.status }}</span></span>
+                  <span style="text-align: right; font-size: 17px; color: #B9BDB6;">›</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 9px;">
+              <div style="display: flex; align-items: baseline; gap: 9px;">
+                <h2 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #8A8F88;">Em andamento</h2>
+                <span style="height: 1px; flex: 1; background: #E3E1DA;"></span>
+              </div>
+              <sc-for list="{{ andamento }}" as="q" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: 152px 1fr 132px 150px 140px 44px; align-items: center; gap: 12px; background: #fff; border: 1px solid #E3E1DA; border-radius: 13px; padding: 14px 16px; cursor: pointer;" style-hover="border-color: #C7CFC8;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #1C211E;">{{ q.numero }}</span>
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+                    <span style="font-size: 14.5px; font-weight: 600; color: #1C211E;">{{ q.cliente }}</span>
+                    <span style="font-size: 12.5px; color: #6E7873;">{{ q.aviso }}</span>
+                  </span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; text-align: right;">{{ q.total }}</span>
+                  <span style="font-size: 12.5px; color: #6E7873; text-align: right;">{{ q.validade }}</span>
+                  <span style="text-align: right;"><span style="display: inline-block; padding: 4px 11px; border-radius: 20px; background: #E7F0EA; color: #2F6F4F; font-size: 12px; font-weight: 600;">{{ q.status }}</span></span>
+                  <span style="text-align: right; font-size: 17px; color: #B9BDB6;">›</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 9px;">
+              <div style="display: flex; align-items: baseline; gap: 9px;">
+                <h2 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #8A8F88;">Encerrados</h2>
+                <span style="height: 1px; flex: 1; background: #E3E1DA;"></span>
+              </div>
+              <sc-for list="{{ encerrados }}" as="q" hint-placeholder-count="2">
+                <div style="display: grid; grid-template-columns: 152px 1fr 132px 150px 140px 44px; align-items: center; gap: 12px; background: #FAF9F6; border: 1px solid #EAE8E1; border-radius: 13px; padding: 14px 16px; cursor: pointer;" style-hover="border-color: #D9D7D0;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #6E7873;">{{ q.numero }}</span>
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+                    <span style="font-size: 14.5px; font-weight: 600; color: #5C635E;">{{ q.cliente }}</span>
+                    <span style="font-size: 12.5px; color: #8A8F88;">{{ q.aviso }}</span>
+                  </span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; text-align: right; color: #6E7873;">{{ q.total }}</span>
+                  <span style="font-size: 12.5px; color: #8A8F88; text-align: right;">{{ q.validade }}</span>
+                  <span style="text-align: right;"><span style="display: inline-block; padding: 4px 11px; border-radius: 20px; background: #EFEEE8; color: #6E7873; font-size: 12px; font-weight: 600;">{{ q.status }}</span></span>
+                  <span style="text-align: right; font-size: 17px; color: #CFCDC5;">›</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ EDITOR (Itens / Condições / Revisão compartilham cabeçalho) ══ -->
+      <sc-if value="{{ isEditor }}" hint-placeholder-val="{{ false }}">
+        <div style="flex-shrink: 0; background: #fff; border-bottom: 1px solid #E3E1DA;">
+          <div style="padding: 16px 30px 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;">
+            <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
+              <button type="button" onClick="{{ goLista }}" style="width: 40px; height: 40px; border-radius: 11px; border: 1px solid #E3E1DA; background: #fff; color: #5C635E; font-size: 17px; cursor: pointer; flex-shrink: 0;" style-hover="background: #F6F5F1;">‹</button>
+              <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; letter-spacing: 0.1em; color: #8A8F88;">ORC-2026-0184 · válido até 27 ago</span>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <h1 style="margin: 0; font-family: 'IBM Plex Serif', serif; font-size: 24px; font-weight: 600; color: #17372A;">Grupo Sanders</h1>
+                  <span style="display: inline-block; padding: 3px 11px; border-radius: 20px; background: #EFEEE8; color: #5C635E; font-size: 12px; font-weight: 600;">Rascunho</span>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 9px; flex-shrink: 0;">
+              <span style="font-size: 12.5px; color: #8A8F88; font-family: 'IBM Plex Mono', monospace;">salvo há 1 min</span>
+              <button type="button" onClick="{{ goDoc }}" style="height: 42px; padding: 0 16px; border-radius: 11px; border: 1px solid #D6D4CC; background: #fff; color: #1C211E; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background: #F6F5F1;">Pré-visualizar</button>
+              <button type="button" onClick="{{ goRevisao }}" style="height: 42px; padding: 0 18px; border-radius: 11px; border: none; background: #2F6F4F; color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background: #245840;">Revisar e enviar</button>
+            </div>
+          </div>
+
+          <div style="padding: 14px 30px 0; display: flex; align-items: center; gap: 0;">
+            <button type="button" onClick="{{ goItens }}" style="display: flex; align-items: center; gap: 10px; padding: 4px 4px 12px; border: none; background: transparent; cursor: pointer;">
+              <span style="width: 24px; height: 24px; border-radius: 50%; background: #2F6F4F; color: #fff; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center;">✓</span>
+              <span style="font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 500; color: #5C635E;">Cliente</span>
+            </button>
+            <span style="width: 34px; height: 1px; background: #DDDBD3; margin: 0 12px 12px;"></span>
+            <button type="button" onClick="{{ goItens }}" style="display: flex; align-items: center; gap: 10px; padding: 4px 4px 12px; border: none; border-bottom: 2px solid {{ stepItensBar }}; background: transparent; cursor: pointer;">
+              <span style="{{ stepItensDot }}">2</span>
+              <span style="font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; color: {{ stepItensText }};">Itens</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8F88;">3</span>
+            </button>
+            <span style="width: 34px; height: 1px; background: #DDDBD3; margin: 0 12px 12px;"></span>
+            <button type="button" onClick="{{ goCondicoes }}" style="display: flex; align-items: center; gap: 10px; padding: 4px 4px 12px; border: none; border-bottom: 2px solid {{ stepCondBar }}; background: transparent; cursor: pointer;">
+              <span style="{{ stepCondDot }}">3</span>
+              <span style="font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; color: {{ stepCondText }};">Condições comerciais</span>
+            </button>
+            <span style="width: 34px; height: 1px; background: #DDDBD3; margin: 0 12px 12px;"></span>
+            <button type="button" onClick="{{ goRevisao }}" style="display: flex; align-items: center; gap: 10px; padding: 4px 4px 12px; border: none; border-bottom: 2px solid {{ stepRevBar }}; background: transparent; cursor: pointer;">
+              <span style="{{ stepRevDot }}">4</span>
+              <span style="font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; color: {{ stepRevText }};">Revisar e enviar</span>
+            </button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ EDITOR · ITENS ══ -->
+      <sc-if value="{{ isItens }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; display: flex; min-height: 0;">
+          <div style="flex: 1; min-width: 0; overflow-y: auto; padding: 22px 26px 28px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+              <h2 style="margin: 0; font-size: 16px; font-weight: 600; color: #1C211E;">3 itens no orçamento</h2>
+              <button type="button" onClick="{{ goMontar }}" style="display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; border-radius: 11px; border: 1px dashed #9BB5A6; background: #F1F7F3; color: #2F6F4F; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background: #E7F0EA;">
+                <span style="font-size: 17px; line-height: 1; margin-top: -1px;">+</span> Adicionar item
+              </button>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 15px; overflow: hidden;">
+                <div style="display: flex; align-items: flex-start; gap: 14px; padding: 15px 18px;">
+                  <span style="width: 44px; height: 44px; border-radius: 11px; background: #E7F0EA; color: #2F6F4F; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; flex-shrink: 0;">4pç</span>
+                  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px;">
+                    <div style="display: flex; align-items: center; gap: 9px;">
+                      <span style="font-size: 15.5px; font-weight: 600; color: #1C211E;">Mesa de reunião Noar 2400×1200</span>
+                      <span style="display: inline-block; padding: 2px 9px; border-radius: 6px; background: #E7F0EA; color: #2F6F4F; font-size: 11px; font-weight: 600;">Produto montado</span>
+                    </div>
+                    <span style="font-size: 12.5px; color: #6E7873;">Dimensão travada em 2400×1200 · acabamento Nogueira</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 16px; flex-shrink: 0;">
+                    <div style="display: flex; align-items: center; gap: 2px; border: 1px solid #E3E1DA; border-radius: 10px; overflow: hidden;">
+                      <button type="button" style="width: 36px; height: 36px; border: none; background: #fff; color: #5C635E; font-size: 16px; cursor: pointer;" style-hover="background: #F6F5F1;">−</button>
+                      <span style="width: 34px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 14px;">2</span>
+                      <button type="button" style="width: 36px; height: 36px; border: none; background: #fff; color: #5C635E; font-size: 16px; cursor: pointer;" style-hover="background: #F6F5F1;">+</button>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 1px; min-width: 118px;">
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 500; color: #1C211E;">R$ 24.960,00</span>
+                      <span style="font-size: 11.5px; color: #8A8F88;">R$ 12.480,00 / un.</span>
+                    </div>
+                    <button type="button" style="width: 36px; height: 36px; border-radius: 9px; border: 1px solid #E3E1DA; background: #fff; color: #6E7873; font-size: 15px; cursor: pointer;" style-hover="background: #F6F5F1;">⋯</button>
+                  </div>
+                </div>
+                <div style="background: #FAF9F6; border-top: 1px solid #EFEEE8; padding: 10px 18px 12px 76px; display: flex; flex-direction: column; gap: 7px;">
+                  <div style="display: grid; grid-template-columns: 62px 1fr 150px 120px; align-items: center; gap: 12px;">
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 5px; background: #17372A; color: #E9C97A; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-align: center;">BASE</span>
+                    <span style="font-size: 13.5px; color: #1C211E;">Tampo Noar 2400×1200 — Nogueira</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8F88;">TPN-2412-NOG</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right;">R$ 6.840,00</span>
+                  </div>
+                  <div style="display: grid; grid-template-columns: 62px 1fr 150px 120px; align-items: center; gap: 12px;">
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 5px; background: #EFEEE8; color: #6E7873; font-size: 10px; font-weight: 600; text-align: center;">+</span>
+                    <span style="font-size: 13.5px; color: #1C211E;">Estrutura metálica Pórtico P900 — Preto</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8F88;">EST-P900-PRT</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right;">R$ 3.980,00</span>
+                  </div>
+                  <div style="display: grid; grid-template-columns: 62px 1fr 150px 120px; align-items: center; gap: 12px;">
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 5px; background: #EFEEE8; color: #6E7873; font-size: 10px; font-weight: 600; text-align: center;">+</span>
+                    <span style="font-size: 13.5px; color: #1C211E;">Caixa de tomadas embutida 4 pos.</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8F88;">ACC-CX4-ALU</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right;">R$ 1.660,00</span>
+                  </div>
+                  <div style="display: grid; grid-template-columns: 62px 1fr 150px 120px; align-items: center; gap: 12px;">
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 5px; background: #EFEEE8; color: #6E7873; font-size: 10px; font-weight: 600; text-align: center;">+</span>
+                    <span style="font-size: 13.5px; color: #1C211E;">Passa-fio vertical duplo</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8F88;">ACC-PFV-PRT</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right;">R$ 0,00</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px; padding-top: 4px;">
+                    <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #2F6F4F; background: #E7F0EA; padding: 3px 8px; border-radius: 5px;">
+                      <span style="width: 6px; height: 6px; border-radius: 2px; background: #2F6F4F;"></span> Preço congelado em 28/07
+                    </span>
+                    <span style="font-size: 12px; color: #8A8F88;">Tabela 01-2026 · não muda se o catálogo for atualizado</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 15px; overflow: hidden;">
+                <div style="display: flex; align-items: flex-start; gap: 14px; padding: 15px 18px;">
+                  <span style="width: 44px; height: 44px; border-radius: 11px; background: #F1F0EA; color: #6E7873; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; flex-shrink: 0;">1pç</span>
+                  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px;">
+                    <div style="display: flex; align-items: center; gap: 9px;">
+                      <span style="font-size: 15.5px; font-weight: 600; color: #1C211E;">Credenza Noar 1600 — Nogueira</span>
+                      <span style="display: inline-block; padding: 2px 9px; border-radius: 6px; background: #F1F0EA; color: #6E7873; font-size: 11px; font-weight: 600;">Item avulso</span>
+                    </div>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8F88;">CRD-1600-NOG</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 16px; flex-shrink: 0;">
+                    <div style="display: flex; align-items: center; gap: 2px; border: 1px solid #E3E1DA; border-radius: 10px; overflow: hidden;">
+                      <button type="button" style="width: 36px; height: 36px; border: none; background: #fff; color: #5C635E; font-size: 16px; cursor: pointer;" style-hover="background: #F6F5F1;">−</button>
+                      <span style="width: 34px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 14px;">1</span>
+                      <button type="button" style="width: 36px; height: 36px; border: none; background: #fff; color: #5C635E; font-size: 16px; cursor: pointer;" style-hover="background: #F6F5F1;">+</button>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 1px; min-width: 118px;">
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 500; color: #1C211E;">R$ 5.420,00</span>
+                      <span style="font-size: 11.5px; color: #2F6F4F;">−10% aplicado</span>
+                    </div>
+                    <button type="button" style="width: 36px; height: 36px; border-radius: 9px; border: 1px solid #E3E1DA; background: #fff; color: #6E7873; font-size: 15px; cursor: pointer;" style-hover="background: #F6F5F1;">⋯</button>
+                  </div>
+                </div>
+              </div>
+
+              <div style="background: #fff; border: 1px solid #E4B9B0; border-radius: 15px; overflow: hidden;">
+                <div style="display: flex; align-items: flex-start; gap: 14px; padding: 15px 18px;">
+                  <span style="width: 44px; height: 44px; border-radius: 11px; background: #FBEAE7; color: #A63A2B; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; flex-shrink: 0;">1pç</span>
+                  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px;">
+                    <div style="display: flex; align-items: center; gap: 9px;">
+                      <span style="font-size: 15.5px; font-weight: 600; color: #1C211E;">Mesa de apoio Bistrô 900</span>
+                      <span style="display: inline-block; padding: 2px 9px; border-radius: 6px; background: #FBEAE7; color: #A63A2B; font-size: 11px; font-weight: 600;">Incompleto</span>
+                    </div>
+                    <span style="font-size: 12.5px; color: #A63A2B;">Falta a estrutura — sem ela a linha não pode ser enviada ao cliente.</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+                    <button type="button" onClick="{{ goMontar }}" style="height: 38px; padding: 0 15px; border-radius: 10px; border: none; background: #A63A2B; color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 13.5px; font-weight: 600; cursor: pointer;" style-hover="background: #8F3024;">Completar linha</button>
+                    <button type="button" style="width: 36px; height: 36px; border-radius: 9px; border: 1px solid #E3E1DA; background: #fff; color: #6E7873; font-size: 15px; cursor: pointer;" style-hover="background: #F6F5F1;">⋯</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <aside style="width: 316px; flex-shrink: 0; border-left: 1px solid #E3E1DA; background: #fff; display: flex; flex-direction: column; overflow-y: auto;">
+            <div style="padding: 20px 22px 16px; border-bottom: 1px solid #EFEEE8;">
+              <h3 style="margin: 0 0 14px; font-size: 12px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #8A8F88;">Resumo ao vivo</h3>
+              <div style="display: flex; flex-direction: column; gap: 9px;">
+                <sc-if value="{{ mostrarCusto }}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; flex-direction: column; gap: 9px;">
+                    <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 13.5px; color: #6E7873;">Custo congelado</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px;">R$ 30.380,00</span></div>
+                    <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 13.5px; color: #6E7873;">Margem de venda <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8F88;">32%</span></span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px;">+ R$ 9.721,60</span></div>
+                  </div>
+                </sc-if>
+                <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 13.5px; color: #2F6F4F;">Descontos</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px; color: #2F6F4F;">− R$ 602,00</span></div>
+                <div style="height: 1px; background: #EFEEE8; margin: 3px 0;"></div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                  <span style="font-size: 15px; font-weight: 600; color: #1C211E;">Total</span>
+                  <span style="font-family: 'IBM Plex Serif', serif; font-size: 25px; font-weight: 600; color: #17372A;">R$ 39.499,60</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; padding-top: 2px;"><span style="font-size: 12.5px; color: #8A8F88;">6× sem juros</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #6E7873;">R$ 6.583,27</span></div>
+              </div>
+              <button type="button" onClick="{{ goCondicoes }}" style="width: 100%; margin-top: 14px; height: 40px; border-radius: 10px; border: 1px solid #D6D4CC; background: #fff; color: #1C211E; font-family: 'IBM Plex Sans', sans-serif; font-size: 13.5px; font-weight: 600; cursor: pointer;" style-hover="background: #F6F5F1;">Ajustar condições</button>
+            </div>
+
+            <div style="padding: 18px 22px 22px;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px;">
+                <h3 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #8A8F88;">Falta para enviar</h3>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #A9761B;">3 de 5</span>
+              </div>
+              <div style="height: 5px; border-radius: 3px; background: #EFEEE8; overflow: hidden; margin-bottom: 14px;"><div style="width: 60%; height: 100%; background: #2F6F4F;"></div></div>
+              <div style="display: flex; flex-direction: column; gap: 11px;">
+                <div style="display: flex; gap: 10px; align-items: flex-start;">
+                  <span style="width: 19px; height: 19px; border-radius: 50%; background: #2F6F4F; color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;">✓</span>
+                  <span style="font-size: 13.5px; color: #6E7873;">Cliente e validade definidos</span>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: flex-start;">
+                  <span style="width: 19px; height: 19px; border-radius: 50%; background: #2F6F4F; color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;">✓</span>
+                  <span style="font-size: 13.5px; color: #6E7873;">Todos os itens têm preço na tabela vigente</span>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: flex-start;">
+                  <span style="width: 19px; height: 19px; border-radius: 50%; background: #2F6F4F; color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;">✓</span>
+                  <span style="font-size: 13.5px; color: #6E7873;">Margem dentro do limite aprovado</span>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: flex-start; background: #FFFDF7; border: 1px solid #E9D9B0; border-radius: 10px; padding: 10px 11px;">
+                  <span style="width: 19px; height: 19px; border-radius: 50%; border: 1.5px solid #A9761B; flex-shrink: 0; margin-top: 1px;"></span>
+                  <span style="display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-size: 13.5px; font-weight: 600; color: #1C211E;">1 linha incompleta</span>
+                    <span style="font-size: 12.5px; color: #6E7873;">Mesa de apoio Bistrô 900 está sem estrutura.</span>
+                    <button type="button" onClick="{{ goMontar }}" style="align-self: flex-start; border: none; background: transparent; padding: 0; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; color: #A9761B; cursor: pointer;">Completar agora →</button>
+                  </span>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: flex-start;">
+                  <span style="width: 19px; height: 19px; border-radius: 50%; border: 1.5px solid #CFCDC5; flex-shrink: 0; margin-top: 1px;"></span>
+                  <span style="font-size: 13.5px; color: #6E7873;">Congelar o total e gerar o documento</span>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </sc-if>
+
+      <!-- ══ GAVETA · MONTAR ITEM ══ -->
+      <sc-if value="{{ isMontar }}" hint-placeholder-val="{{ false }}">
+        <div style="position: absolute; inset: 0; background: rgba(23,55,42,0.34); display: flex; justify-content: flex-end;">
+          <div style="width: 780px; height: 100%; background: #F6F5F1; box-shadow: -20px 0 50px -20px rgba(23,55,42,0.4); display: flex; flex-direction: column;">
+
+            <div style="flex-shrink: 0; background: #fff; border-bottom: 1px solid #E3E1DA; padding: 18px 24px 0;">
+              <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+                <div style="display: flex; flex-direction: column; gap: 3px;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A8F88;">Adicionar ao ORC-2026-0184</span>
+                  <h2 style="margin: 0; font-family: 'IBM Plex Serif', serif; font-size: 23px; font-weight: 600; color: #17372A;">Montar item</h2>
+                </div>
+                <button type="button" onClick="{{ goItens }}" style="width: 40px; height: 40px; border-radius: 11px; border: 1px solid #E3E1DA; background: #fff; color: #5C635E; font-size: 17px; cursor: pointer;" style-hover="background: #F6F5F1;">✕</button>
+              </div>
+              <div style="display: flex; align-items: center; gap: 0; margin-top: 14px;">
+                <span style="display: flex; align-items: center; gap: 9px; padding: 4px 4px 11px;">
+                  <span style="width: 22px; height: 22px; border-radius: 50%; background: #2F6F4F; color: #fff; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">✓</span>
+                  <span style="font-size: 13.5px; font-weight: 500; color: #5C635E;">Peça base</span>
+                </span>
+                <span style="width: 26px; height: 1px; background: #DDDBD3; margin: 0 10px 11px;"></span>
+                <span style="display: flex; align-items: center; gap: 9px; padding: 4px 4px 11px; border-bottom: 2px solid #17372A;">
+                  <span style="width: 22px; height: 22px; border-radius: 50%; background: #17372A; color: #fff; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">2</span>
+                  <span style="font-size: 13.5px; font-weight: 600; color: #17372A;">Complementos</span>
+                </span>
+                <span style="width: 26px; height: 1px; background: #DDDBD3; margin: 0 10px 11px;"></span>
+                <span style="display: flex; align-items: center; gap: 9px; padding: 4px 4px 11px;">
+                  <span style="width: 22px; height: 22px; border-radius: 50%; background: #EDECE6; color: #8A8F88; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">3</span>
+                  <span style="font-size: 13.5px; font-weight: 600; color: #8A8F88;">Confirmar</span>
+                </span>
+              </div>
+            </div>
+
+            <div style="flex: 1; overflow-y: auto; padding: 18px 24px 20px;">
+              <div style="background: #17372A; border-radius: 14px; padding: 15px 18px; display: flex; align-items: center; gap: 14px; margin-bottom: 8px;">
+                <span style="width: 40px; height: 40px; border-radius: 10px; background: rgba(233,201,122,0.18); color: #E9C97A; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; flex-shrink: 0;">BASE</span>
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+                  <span style="font-size: 15px; font-weight: 600; color: #fff;">Tampo Noar 2400×1200 — Nogueira</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8FAA9C;">TPN-2412-NOG · R$ 6.840,00</span>
+                </div>
+                <button type="button" style="height: 34px; padding: 0 13px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.28); background: transparent; color: #E4EDE7; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: rgba(255,255,255,0.1);">Trocar</button>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 0 4px 16px; font-size: 12.5px; color: #6E7873;">
+                <span style="width: 6px; height: 6px; border-radius: 2px; background: #E9C97A;"></span>
+                A base fixa a dimensão <strong style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; color: #1C211E;">2400×1200</strong> — só mostramos peças que encaixam nela.
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px;">
+                <h3 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #8A8F88;">Já adicionados · 3</h3>
+                <div style="display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid #E3E1DA; border-radius: 12px; padding: 12px 14px;">
+                  <span style="width: 7px; height: 7px; border-radius: 50%; background: #2F6F4F; flex-shrink: 0;"></span>
+                  <span style="flex: 1; font-size: 14px; color: #1C211E;">Estrutura metálica Pórtico P900 — Preto</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8F88;">EST-P900-PRT</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px;">R$ 3.980,00</span>
+                  <button type="button" style="width: 32px; height: 32px; border-radius: 8px; border: 1px solid #E3E1DA; background: #fff; color: #A63A2B; font-size: 15px; cursor: pointer;" style-hover="background: #FBEAE7;">✕</button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid #E3E1DA; border-radius: 12px; padding: 12px 14px;">
+                  <span style="width: 7px; height: 7px; border-radius: 50%; background: #2F6F4F; flex-shrink: 0;"></span>
+                  <span style="flex: 1; font-size: 14px; color: #1C211E;">Caixa de tomadas embutida 4 posições</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8F88;">ACC-CX4-ALU</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px;">R$ 1.660,00</span>
+                  <button type="button" style="width: 32px; height: 32px; border-radius: 8px; border: 1px solid #E3E1DA; background: #fff; color: #A63A2B; font-size: 15px; cursor: pointer;" style-hover="background: #FBEAE7;">✕</button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid #E3E1DA; border-radius: 12px; padding: 12px 14px;">
+                  <span style="width: 7px; height: 7px; border-radius: 50%; background: #2F6F4F; flex-shrink: 0;"></span>
+                  <span style="flex: 1; font-size: 14px; color: #1C211E;">Passa-fio vertical duplo</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8F88;">ACC-PFV-PRT</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px; color: #6E7873;">incluso</span>
+                  <button type="button" style="width: 32px; height: 32px; border-radius: 8px; border: 1px solid #E3E1DA; background: #fff; color: #A63A2B; font-size: 15px; cursor: pointer;" style-hover="background: #FBEAE7;">✕</button>
+                </div>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 11px;">
+                <h3 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #8A8F88;">Adicionar mais</h3>
+                <div style="display: flex; align-items: center; gap: 9px; height: 46px; padding: 0 15px; background: #fff; border: 1px solid #D6D4CC; border-radius: 12px;">
+                  <svg width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="5.5" stroke="#8A8F88" stroke-width="1.6"></circle><line x1="13.2" y1="13.2" x2="17" y2="17" stroke="#8A8F88" stroke-width="1.6" stroke-linecap="round"></line></svg>
+                  <span style="flex: 1; font-size: 14.5px; color: #9A9E97;">Buscar peça, SKU ou acabamento…</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #B9BDB6;">142 compatíveis</span>
+                </div>
+                <div style="display: flex; gap: 7px; flex-wrap: wrap;">
+                  <span style="display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 9px; background: #17372A; color: #fff; font-size: 13px; font-weight: 600;">Sugeridas</span>
+                  <span style="display: flex; align-items: center; height: 34px; padding: 0 12px; border-radius: 9px; background: #fff; border: 1px solid #D6D4CC; color: #5C635E; font-size: 13px;">Estruturas</span>
+                  <span style="display: flex; align-items: center; height: 34px; padding: 0 12px; border-radius: 9px; background: #fff; border: 1px solid #D6D4CC; color: #5C635E; font-size: 13px;">Elétrica &amp; dados</span>
+                  <span style="display: flex; align-items: center; height: 34px; padding: 0 12px; border-radius: 9px; background: #fff; border: 1px solid #D6D4CC; color: #5C635E; font-size: 13px;">Apoio / credenza</span>
+                  <span style="display: flex; align-items: center; height: 34px; padding: 0 12px; border-radius: 9px; background: #fff; border: 1px solid #D6D4CC; color: #5C635E; font-size: 13px;">Acústica</span>
+                  <span style="display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 9px; background: #E7F0EA; border: 1px solid #9BB5A6; color: #2F6F4F; font-size: 13px; font-weight: 600;">Nogueira ✕</span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 3px;">
+                  <sc-for list="{{ sugestoes }}" as="p" hint-placeholder-count="6">
+                    <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 13px; padding: 13px 14px; display: flex; flex-direction: column; gap: 9px; cursor: pointer;" style-hover="border-color: #9BB5A6; background: #FCFDFC;">
+                      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
+                        <span style="font-size: 14px; font-weight: 600; color: #1C211E; line-height: 1.3;">{{ p.nome }}</span>
+                        <span style="{{ p.tagStyle }}">{{ p.tag }}</span>
+                      </div>
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8F88;">{{ p.sku }}</span>
+                      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14.5px; color: #1C211E;">{{ p.preco }}</span>
+                        <span style="display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 9px; background: #F1F7F3; color: #2F6F4F; font-size: 13px; font-weight: 600;">+ Adicionar</span>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+
+            <div style="flex-shrink: 0; background: #fff; border-top: 1px solid #E3E1DA; padding: 14px 24px; display: flex; align-items: center; gap: 16px;">
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 12px; color: #8A8F88;">4 peças · preço congelado ao adicionar</span>
+                <span style="font-family: 'IBM Plex Serif', serif; font-size: 22px; font-weight: 600; color: #17372A;">R$ 12.480,00</span>
+              </div>
+              <div style="flex: 1;"></div>
+              <div style="display: flex; align-items: center; gap: 9px;">
+                <span style="font-size: 13px; color: #6E7873;">Qtd.</span>
+                <div style="display: flex; align-items: center; border: 1px solid #E3E1DA; border-radius: 10px; overflow: hidden;">
+                  <button type="button" style="width: 38px; height: 40px; border: none; background: #fff; color: #5C635E; font-size: 17px; cursor: pointer;" style-hover="background: #F6F5F1;">−</button>
+                  <span style="width: 36px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 14.5px;">2</span>
+                  <button type="button" style="width: 38px; height: 40px; border: none; background: #fff; color: #5C635E; font-size: 17px; cursor: pointer;" style-hover="background: #F6F5F1;">+</button>
+                </div>
+              </div>
+              <button type="button" onClick="{{ goItens }}" style="height: 46px; padding: 0 22px; border-radius: 12px; border: none; background: #2F6F4F; color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer;" style-hover="background: #245840;">Adicionar ao orçamento</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ EDITOR · CONDIÇÕES ══ -->
+      <sc-if value="{{ isCondicoes }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; overflow-y: auto; padding: 22px 30px 30px;">
+          <div style="display: grid; grid-template-columns: 1fr 372px; gap: 20px; align-items: start;">
+
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+              <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 15px; padding: 18px 20px;">
+                <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px;">
+                  <h2 style="margin: 0; font-size: 15.5px; font-weight: 600; color: #1C211E;">Margem de venda</h2>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8F88;">aplicada sobre o custo congelado</span>
+                </div>
+                <p style="margin: 0 0 14px; font-size: 13px; color: #6E7873;">É o que transforma o custo de catálogo no preço de venda. O padrão da empresa é 32%.</p>
+                <div style="display: flex; gap: 10px; align-items: stretch;">
+                  <div style="flex: 1; border: 1.5px solid #2F6F4F; background: #F1F7F3; border-radius: 12px; padding: 13px 15px; display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                    <span style="width: 18px; height: 18px; border-radius: 50%; border: 5px solid #2F6F4F; background: #fff; flex-shrink: 0;"></span>
+                    <span style="display: flex; flex-direction: column; gap: 2px;">
+                      <span style="font-size: 14px; font-weight: 600; color: #1C211E;">Padrão da empresa · 32%</span>
+                      <span style="font-size: 12.5px; color: #6E7873;">Acompanha mudanças de política</span>
+                    </span>
+                  </div>
+                  <div style="flex: 1; border: 1px solid #E3E1DA; border-radius: 12px; padding: 13px 15px; display: flex; align-items: center; gap: 12px; cursor: pointer;" style-hover="border-color: #C7CFC8;">
+                    <span style="width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #CFCDC5; flex-shrink: 0;"></span>
+                    <span style="display: flex; flex-direction: column; gap: 2px;">
+                      <span style="font-size: 14px; font-weight: 600; color: #1C211E;">Margem específica</span>
+                      <span style="font-size: 12.5px; color: #6E7873;">Só para este orçamento</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 15px; padding: 18px 20px;">
+                <h2 style="margin: 0 0 4px; font-size: 15.5px; font-weight: 600; color: #1C211E;">Desconto</h2>
+                <p style="margin: 0 0 14px; font-size: 13px; color: #6E7873;">Você já concedeu <strong style="color: #1C211E; font-weight: 600;">R$ 602,00</strong> em descontos de item. Este é o desconto sobre o orçamento inteiro.</p>
+                <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #8A8F88;">Tipo</span>
+                    <div style="display: flex; gap: 3px; padding: 3px; background: #EDECE6; border-radius: 10px;">
+                      <span style="display: flex; align-items: center; height: 36px; padding: 0 15px; border-radius: 8px; font-size: 13.5px; font-weight: 500; color: #6E7873;">Nenhum</span>
+                      <span style="display: flex; align-items: center; height: 36px; padding: 0 15px; border-radius: 8px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.06); font-size: 13.5px; font-weight: 600; color: #1C211E;">Percentual</span>
+                      <span style="display: flex; align-items: center; height: 36px; padding: 0 15px; border-radius: 8px; font-size: 13.5px; font-weight: 500; color: #6E7873;">Valor R$</span>
+                    </div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #8A8F88;">Valor</span>
+                    <div style="display: flex; align-items: center; gap: 8px; height: 42px; width: 120px; padding: 0 14px; border: 1px solid #D6D4CC; border-radius: 10px; background: #fff;">
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: #1C211E;">4,0</span>
+                      <span style="font-size: 14px; color: #8A8F88;">%</span>
+                    </div>
+                  </div>
+                  <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 6px;">
+                    <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #8A8F88;">Motivo (fica no histórico)</span>
+                    <div style="display: flex; align-items: center; height: 42px; padding: 0 14px; border: 1px solid #D6D4CC; border-radius: 10px; background: #fff; font-size: 14px; color: #1C211E;">Recompra — cliente desde 2023</div>
+                  </div>
+                </div>
+                <div style="margin-top: 12px; display: flex; align-items: center; gap: 9px; padding: 10px 13px; background: #F1F7F3; border-radius: 10px;">
+                  <span style="width: 7px; height: 7px; border-radius: 50%; background: #2F6F4F;"></span>
+                  <span style="font-size: 12.5px; color: #2F6F4F;">Dentro do seu limite de alçada (até 8%). Acima disso, precisa da aprovação do gestor.</span>
+                </div>
+              </div>
+
+              <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 15px; padding: 18px 20px;">
+                <h2 style="margin: 0 0 4px; font-size: 15.5px; font-weight: 600; color: #1C211E;">Pagamento</h2>
+                <p style="margin: 0 0 14px; font-size: 13px; color: #6E7873;">O que o cliente vê na proposta.</p>
+                <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #8A8F88;">Entrada</span>
+                    <div style="display: flex; align-items: center; gap: 8px; height: 42px; width: 140px; padding: 0 14px; border: 1px solid #D6D4CC; border-radius: 10px; background: #fff;">
+                      <span style="font-size: 13px; color: #8A8F88;">R$</span>
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: #1C211E;">10.000,00</span>
+                    </div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #8A8F88;">Parcelas</span>
+                    <div style="display: flex; gap: 5px;">
+                      <span style="display: flex; align-items: center; justify-content: center; width: 44px; height: 42px; border-radius: 10px; border: 1px solid #D6D4CC; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #5C635E;">1×</span>
+                      <span style="display: flex; align-items: center; justify-content: center; width: 44px; height: 42px; border-radius: 10px; border: 1px solid #D6D4CC; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #5C635E;">3×</span>
+                      <span style="display: flex; align-items: center; justify-content: center; width: 44px; height: 42px; border-radius: 10px; border: 1.5px solid #2F6F4F; background: #E7F0EA; font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; color: #2F6F4F;">6×</span>
+                      <span style="display: flex; align-items: center; justify-content: center; width: 44px; height: 42px; border-radius: 10px; border: 1px solid #D6D4CC; background: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #5C635E;">10×</span>
+                      <span style="display: flex; align-items: center; justify-content: center; width: 52px; height: 42px; border-radius: 10px; border: 1px solid #D6D4CC; background: #fff; font-size: 13px; color: #5C635E;">outro</span>
+                    </div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #8A8F88;">Juros ao mês</span>
+                    <div style="display: flex; align-items: center; gap: 8px; height: 42px; width: 106px; padding: 0 14px; border: 1px solid #D6D4CC; border-radius: 10px; background: #fff;">
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: #1C211E;">0,0</span>
+                      <span style="font-size: 14px; color: #8A8F88;">%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 15px; overflow: hidden; position: sticky; top: 0;">
+              <div style="padding: 16px 20px 12px; border-bottom: 1px solid #EFEEE8;">
+                <h3 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #8A8F88;">Como o número se forma</h3>
+              </div>
+              <div style="padding: 16px 20px; display: flex; flex-direction: column; gap: 11px;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 13.5px; color: #6E7873;">Custo congelado · 3 itens</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px;">R$ 30.380,00</span></div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 13.5px; color: #6E7873;">Margem 32%</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px;">+ R$ 9.721,60</span></div>
+                <div style="height: 1px; background: #EFEEE8;"></div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 13.5px; color: #1C211E; font-weight: 600;">Preço de tabela</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px; font-weight: 500;">R$ 40.101,60</span></div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 13.5px; color: #2F6F4F;">Descontos de item</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px; color: #2F6F4F;">− R$ 602,00</span></div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 13.5px; color: #2F6F4F;">Desconto do orçamento · 4%</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px; color: #2F6F4F;">− R$ 1.579,98</span></div>
+                <div style="height: 1px; background: #EFEEE8;"></div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; padding-top: 2px;">
+                  <span style="font-size: 15px; font-weight: 600; color: #1C211E;">Total</span>
+                  <span style="font-family: 'IBM Plex Serif', serif; font-size: 27px; font-weight: 600; color: #17372A;">R$ 37.919,62</span>
+                </div>
+              </div>
+              <div style="background: #FAF9F6; border-top: 1px solid #EFEEE8; padding: 14px 20px; display: flex; flex-direction: column; gap: 8px;">
+                <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #8A8F88;">Como o cliente vai pagar</span>
+                <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 13.5px; color: #6E7873;">Entrada</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13.5px;">R$ 10.000,00</span></div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 13.5px; color: #6E7873;">Saldo em 6×</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 500; color: #17372A;">R$ 4.653,27</span></div>
+                <span style="font-size: 12px; color: #8A8F88;">Sem juros · primeira parcela 30 dias após a entrega.</span>
+              </div>
+              <div style="padding: 14px 20px 18px; display: flex; gap: 9px;">
+                <button type="button" onClick="{{ goItens }}" style="flex: 1; height: 44px; border-radius: 11px; border: 1px solid #D6D4CC; background: #fff; color: #1C211E; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background: #F6F5F1;">Voltar</button>
+                <button type="button" onClick="{{ goRevisao }}" style="flex: 1.4; height: 44px; border-radius: 11px; border: none; background: #2F6F4F; color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background: #245840;">Revisar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ EDITOR · REVISAR E ENVIAR ══ -->
+      <sc-if value="{{ isRevisao }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; overflow-y: auto; padding: 22px 30px 30px;">
+          <div style="display: grid; grid-template-columns: 1fr 400px; gap: 22px; align-items: start;">
+
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+              <div style="background: #17372A; border-radius: 15px; padding: 20px 22px; display: flex; align-items: center; gap: 18px;">
+                <div style="width: 52px; height: 52px; border-radius: 14px; background: rgba(233,201,122,0.16); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                  <span style="font-family: 'IBM Plex Serif', serif; font-size: 22px; color: #E9C97A;">4</span>
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                  <span style="font-family: 'IBM Plex Serif', serif; font-size: 20px; font-weight: 600; color: #fff;">Falta uma coisa antes de enviar</span>
+                  <span style="font-size: 13.5px; color: #A9C2B4;">4 de 5 verificações concluídas. Resolva a pendência abaixo e o envio libera sozinho.</span>
+                </div>
+              </div>
+
+              <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 15px; overflow: hidden;">
+                <div style="display: flex; align-items: center; gap: 14px; padding: 15px 20px; border-bottom: 1px solid #F4F3EE;">
+                  <span style="width: 22px; height: 22px; border-radius: 50%; background: #2F6F4F; color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">✓</span>
+                  <span style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                    <span style="font-size: 14.5px; font-weight: 600; color: #1C211E;">Cliente identificado</span>
+                    <span style="font-size: 12.5px; color: #6E7873;">Grupo Sanders · CNPJ 12.345.678/0001-90 · compras@sanders.com.br</span>
+                  </span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 14px; padding: 15px 20px; border-bottom: 1px solid #F4F3EE;">
+                  <span style="width: 22px; height: 22px; border-radius: 50%; background: #2F6F4F; color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">✓</span>
+                  <span style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                    <span style="font-size: 14.5px; font-weight: 600; color: #1C211E;">Todos os itens têm preço</span>
+                    <span style="font-size: 12.5px; color: #6E7873;">Tabela 01-2026 vigente · congelada em 28/07/2026</span>
+                  </span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 14px; padding: 15px 20px; border-bottom: 1px solid #F4F3EE;">
+                  <span style="width: 22px; height: 22px; border-radius: 50%; background: #2F6F4F; color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">✓</span>
+                  <span style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                    <span style="font-size: 14.5px; font-weight: 600; color: #1C211E;">Desconto dentro da alçada</span>
+                    <span style="font-size: 12.5px; color: #6E7873;">4% no orçamento + R$ 602,00 em itens · justificado</span>
+                  </span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 14px; padding: 15px 20px; border-bottom: 1px solid #F4F3EE;">
+                  <span style="width: 22px; height: 22px; border-radius: 50%; background: #2F6F4F; color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">✓</span>
+                  <span style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                    <span style="font-size: 14.5px; font-weight: 600; color: #1C211E;">Validade e pagamento definidos</span>
+                    <span style="font-size: 12.5px; color: #6E7873;">Válido até 27/08/2026 · entrada + 6× sem juros</span>
+                  </span>
+                </div>
+                <div style="display: flex; align-items: flex-start; gap: 14px; padding: 15px 20px; background: #FFFDF7;">
+                  <span style="width: 22px; height: 22px; border-radius: 50%; border: 1.8px solid #A9761B; flex-shrink: 0; margin-top: 1px;"></span>
+                  <span style="flex: 1; display: flex; flex-direction: column; gap: 3px;">
+                    <span style="font-size: 14.5px; font-weight: 600; color: #1C211E;">1 linha incompleta</span>
+                    <span style="font-size: 12.5px; color: #6E7873;">“Mesa de apoio Bistrô 900” está sem estrutura. Complete a linha ou registre uma justificativa para enviar assim mesmo.</span>
+                  </span>
+                  <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                    <button type="button" style="height: 36px; padding: 0 13px; border-radius: 9px; border: 1px solid #D8BE7C; background: #fff; color: #A9761B; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #FBF2E0;">Justificar</button>
+                    <button type="button" onClick="{{ goMontar }}" style="height: 36px; padding: 0 13px; border-radius: 9px; border: none; background: #A9761B; color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #8E6215;">Completar</button>
+                  </div>
+                </div>
+              </div>
+
+              <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 15px; padding: 18px 20px;">
+                <h2 style="margin: 0 0 12px; font-size: 15.5px; font-weight: 600; color: #1C211E;">Como enviar</h2>
+                <div style="display: flex; gap: 10px;">
+                  <div style="flex: 1; border: 1.5px solid #2F6F4F; background: #F1F7F3; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 5px; cursor: pointer;">
+                    <span style="font-size: 14px; font-weight: 600; color: #1C211E;">E-mail com link</span>
+                    <span style="font-size: 12.5px; color: #6E7873;">O cliente abre, lê e aceita pelo navegador. Você vê quando ele abriu.</span>
+                  </div>
+                  <div style="flex: 1; border: 1px solid #E3E1DA; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 5px; cursor: pointer;" style-hover="border-color: #C7CFC8;">
+                    <span style="font-size: 14px; font-weight: 600; color: #1C211E;">Baixar PDF</span>
+                    <span style="font-size: 12.5px; color: #6E7873;">Para anexar você mesmo ou imprimir.</span>
+                  </div>
+                  <div style="flex: 1; border: 1px solid #E3E1DA; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 5px; cursor: pointer;" style-hover="border-color: #C7CFC8;">
+                    <span style="font-size: 14px; font-weight: 600; color: #1C211E;">Só congelar</span>
+                    <span style="font-size: 12.5px; color: #6E7873;">Trava os valores e envia depois.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px; position: sticky; top: 0;">
+              <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 15px; overflow: hidden;">
+                <div style="padding: 14px 18px; border-bottom: 1px solid #EFEEE8; display: flex; align-items: center; justify-content: space-between;">
+                  <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #8A8F88;">Prévia do documento</span>
+                  <button type="button" onClick="{{ goDoc }}" style="border: none; background: transparent; padding: 0; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; color: #2F6F4F; cursor: pointer;">Abrir →</button>
+                </div>
+                <button type="button" onClick="{{ goDoc }}" style="display: block; width: 100%; border: none; background: #EDECE6; padding: 18px; cursor: pointer;" style-hover="background: #E7E5DE;">
+                  <div style="background: #fff; border-radius: 4px; box-shadow: 0 8px 20px -10px rgba(23,55,42,0.4); padding: 22px 20px; text-align: left; display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+                      <span style="width: 22px; height: 22px; border-radius: 6px; background: #17372A; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Serif', serif; font-size: 12px; color: #E9C97A;">h</span>
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 7px; color: #8A8F88;">ORC-2026-0184</span>
+                    </div>
+                    <span style="font-family: 'IBM Plex Serif', serif; font-size: 13px; color: #17372A;">Proposta comercial</span>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="height: 4px; width: 70%; background: #EFEEE8; border-radius: 2px;"></span>
+                      <span style="height: 4px; width: 88%; background: #EFEEE8; border-radius: 2px;"></span>
+                      <span style="height: 4px; width: 52%; background: #EFEEE8; border-radius: 2px;"></span>
+                    </div>
+                    <div style="height: 1px; background: #EFEEE8;"></div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="height: 4px; width: 96%; background: #EFEEE8; border-radius: 2px;"></span>
+                      <span style="height: 4px; width: 90%; background: #EFEEE8; border-radius: 2px;"></span>
+                      <span style="height: 4px; width: 94%; background: #EFEEE8; border-radius: 2px;"></span>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; padding-top: 4px;">
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: #17372A;">R$ 37.919,62</span>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 15px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                  <span style="font-size: 14px; color: #6E7873;">Total da proposta</span>
+                  <span style="font-family: 'IBM Plex Serif', serif; font-size: 26px; font-weight: 600; color: #17372A;">R$ 37.919,62</span>
+                </div>
+                <button type="button" style="height: 50px; border-radius: 12px; border: none; background: #C7CFC8; color: #F6F5F1; font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: not-allowed;">Congelar e enviar</button>
+                <span style="font-size: 12.5px; color: #8A8F88; text-align: center;">Libera quando as 5 verificações passarem.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ CATÁLOGO ══ -->
+      <sc-if value="{{ isCatalogo }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; display: flex; min-height: 0;">
+          <div style="width: 234px; flex-shrink: 0; border-right: 1px solid #E3E1DA; background: #fff; overflow-y: auto; padding: 22px 18px;">
+            <h3 style="margin: 0 0 14px; font-size: 12px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #8A8F88;">Refinar</h3>
+            <div style="display: flex; flex-direction: column; gap: 18px;">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <span style="font-size: 13px; font-weight: 600; color: #1C211E;">Linha</span>
+                <sc-for list="{{ filtrosLinha }}" as="f" hint-placeholder-count="4">
+                  <label style="display: flex; align-items: center; gap: 9px; font-size: 13.5px; color: #5C635E; cursor: pointer;">
+                    <span style="{{ f.box }}"></span>{{ f.nome }}
+                    <span style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #B9BDB6;">{{ f.n }}</span>
+                  </label>
+                </sc-for>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <span style="font-size: 13px; font-weight: 600; color: #1C211E;">Tipo de peça</span>
+                <sc-for list="{{ filtrosTipo }}" as="f" hint-placeholder-count="4">
+                  <label style="display: flex; align-items: center; gap: 9px; font-size: 13.5px; color: #5C635E; cursor: pointer;">
+                    <span style="{{ f.box }}"></span>{{ f.nome }}
+                    <span style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #B9BDB6;">{{ f.n }}</span>
+                  </label>
+                </sc-for>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <span style="font-size: 13px; font-weight: 600; color: #1C211E;">Acabamento</span>
+                <div style="display: flex; gap: 7px; flex-wrap: wrap;">
+                  <span style="width: 30px; height: 30px; border-radius: 8px; background: #6B4A2F; border: 2px solid #2F6F4F; box-shadow: 0 0 0 2px #fff inset;"></span>
+                  <span style="width: 30px; height: 30px; border-radius: 8px; background: #B08858; border: 1px solid #E3E1DA;"></span>
+                  <span style="width: 30px; height: 30px; border-radius: 8px; background: #2B2B2B; border: 1px solid #E3E1DA;"></span>
+                  <span style="width: 30px; height: 30px; border-radius: 8px; background: #E8E6E0; border: 1px solid #E3E1DA;"></span>
+                  <span style="width: 30px; height: 30px; border-radius: 8px; background: #9BA39C; border: 1px solid #E3E1DA;"></span>
+                </div>
+                <span style="font-size: 12.5px; color: #8A8F88;">Nogueira selecionado</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <span style="font-size: 13px; font-weight: 600; color: #1C211E;">Dimensão</span>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                  <span style="padding: 5px 10px; border-radius: 8px; border: 1px solid #D6D4CC; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5C635E;">1800×900</span>
+                  <span style="padding: 5px 10px; border-radius: 8px; border: 1px solid #D6D4CC; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5C635E;">2000×1000</span>
+                  <span style="padding: 5px 10px; border-radius: 8px; border: 1.5px solid #2F6F4F; background: #E7F0EA; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; color: #2F6F4F;">2400×1200</span>
+                  <span style="padding: 5px 10px; border-radius: 8px; border: 1px solid #D6D4CC; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5C635E;">3000×1200</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="flex: 1; min-width: 0; overflow-y: auto; padding: 22px 26px 28px;">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 16px;">
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; color: #8A8F88;">Tabela 01-2026 · vigente desde 12/01</span>
+                <h1 style="margin: 0; font-family: 'IBM Plex Serif', serif; font-size: 26px; font-weight: 600; color: #17372A;">Catálogo</h1>
+              </div>
+              <div style="display: flex; align-items: center; gap: 9px; height: 44px; padding: 0 15px; background: #fff; border: 1px solid #D6D4CC; border-radius: 12px; width: 340px;">
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="5.5" stroke="#8A8F88" stroke-width="1.6"></circle><line x1="13.2" y1="13.2" x2="17" y2="17" stroke="#8A8F88" stroke-width="1.6" stroke-linecap="round"></line></svg>
+                <span style="flex: 1; font-size: 14px; color: #9A9E97;">Buscar SKU, peça ou descritor…</span>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+              <span style="font-size: 13.5px; color: #6E7873;"><strong style="color: #1C211E; font-weight: 600;">28 variações</strong> em Nogueira · 2400×1200</span>
+              <span style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px; background: #E7F0EA; color: #2F6F4F; font-size: 12.5px; font-weight: 600;">Nogueira ✕</span>
+              <span style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px; background: #E7F0EA; color: #2F6F4F; font-size: 12.5px; font-weight: 600;">2400×1200 ✕</span>
+            </div>
+
+            <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 15px; overflow: hidden;">
+              <div style="display: grid; grid-template-columns: 1fr 168px 116px 132px 122px; gap: 12px; padding: 12px 18px; border-bottom: 1px solid #EFEEE8; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #8A8F88;">
+                <span>Peça</span><span>SKU</span><span>Dimensão</span><span style="text-align: right;">Preço tabela</span><span></span>
+              </div>
+              <sc-for list="{{ catalogo }}" as="c" hint-placeholder-count="7">
+                <div style="display: grid; grid-template-columns: 1fr 168px 116px 132px 122px; gap: 12px; align-items: center; padding: 13px 18px; border-bottom: 1px solid #F4F3EE;" style-hover="background: #FAF9F6;">
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+                    <span style="font-size: 14px; font-weight: 500; color: #1C211E;">{{ c.nome }}</span>
+                    <span style="font-size: 12px; color: #8A8F88;">{{ c.tipo }}</span>
+                  </span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #5C635E;">{{ c.sku }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #5C635E;">{{ c.dim }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; text-align: right; color: #1C211E;">{{ c.preco }}</span>
+                  <span style="display: flex; justify-content: flex-end;">
+                    <button type="button" onClick="{{ goMontar }}" style="height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid #D6D4CC; background: #fff; color: #2F6F4F; font-family: 'IBM Plex Sans', sans-serif; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap;" style-hover="background: #F1F7F3; border-color: #9BB5A6;">+ Orçamento</button>
+                  </span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ IMPORTAÇÕES ══ -->
+      <sc-if value="{{ isImport }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; overflow-y: auto; padding: 30px 34px;">
+          <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 20px;">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; color: #8A8F88;">Catálogo &amp; preços</span>
+            <h1 style="margin: 0; font-family: 'IBM Plex Serif', serif; font-size: 28px; font-weight: 600; color: #17372A;">Importações</h1>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px;">
+            <div style="background: #fff; border: 1.5px dashed #C7CFC8; border-radius: 16px; padding: 26px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;">
+              <span style="width: 46px; height: 46px; border-radius: 13px; background: #F1F7F3; display: flex; align-items: center; justify-content: center;">
+                <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 13V3.5" stroke="#2F6F4F" stroke-width="1.6" stroke-linecap="round"></path><path d="M6.5 7L10 3.5L13.5 7" stroke="#2F6F4F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path><path d="M3.5 13v2.5a1.5 1.5 0 001.5 1.5h10a1.5 1.5 0 001.5-1.5V13" stroke="#2F6F4F" stroke-width="1.6" stroke-linecap="round"></path></svg>
+              </span>
+              <span style="font-size: 15px; font-weight: 600; color: #1C211E;">Solte o JSON da tabela aqui</span>
+              <span style="font-size: 13px; color: #6E7873; max-width: 320px;">Gerado pelo agente de extração a partir das planilhas do fabricante.</span>
+              <button type="button" style="margin-top: 6px; height: 42px; padding: 0 18px; border-radius: 11px; border: 1px solid #D6D4CC; background: #fff; color: #1C211E; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background: #F6F5F1;">Escolher arquivo</button>
+            </div>
+
+            <div style="background: #FFFDF7; border: 1px solid #E9D9B0; border-radius: 16px; padding: 20px 22px; display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between;">
+                <span style="font-size: 15px; font-weight: 600; color: #1C211E;">Fila de revisão</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #A9761B;">7 bloqueando publicação</span>
+              </div>
+              <div style="height: 7px; border-radius: 4px; background: #F0E5CB; overflow: hidden;"><div style="width: 82%; height: 100%; background: #2F6F4F;"></div></div>
+              <span style="font-size: 13px; color: #6E7873;">124 de 131 itens já revisados na importação <strong style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; color: #1C211E;">01-2026 · Linha Noar</strong>.</span>
+              <div style="display: flex; flex-direction: column; gap: 7px; margin-top: 2px;">
+                <div style="display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #E9D9B0; border-radius: 10px; padding: 10px 12px;">
+                  <span style="padding: 2px 8px; border-radius: 5px; background: #FBEAE7; color: #A63A2B; font-size: 11px; font-weight: 600;">baixa</span>
+                  <span style="flex: 1; font-size: 13px; color: #1C211E;">TPN-3012-CRV — código sem preço</span>
+                  <span style="font-size: 12.5px; font-weight: 600; color: #2F6F4F;">Revisar</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #E9D9B0; border-radius: 10px; padding: 10px 12px;">
+                  <span style="padding: 2px 8px; border-radius: 5px; background: #FBF2E0; color: #A9761B; font-size: 11px; font-weight: 600;">média</span>
+                  <span style="flex: 1; font-size: 13px; color: #1C211E;">EST-P900-BRC — acabamento novo no catálogo</span>
+                  <span style="font-size: 12.5px; font-weight: 600; color: #2F6F4F;">Revisar</span>
+                </div>
+              </div>
+              <button type="button" style="margin-top: 4px; height: 44px; border-radius: 11px; border: none; background: #A9761B; color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background: #8E6215;">Abrir fila de revisão · 7</button>
+            </div>
+          </div>
+
+          <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 16px; overflow: hidden;">
+            <div style="padding: 15px 20px 11px; font-size: 15px; font-weight: 600; color: #1C211E;">Histórico</div>
+            <div style="display: grid; grid-template-columns: 1fr 130px 118px 150px 150px; gap: 12px; padding: 0 20px 8px; border-bottom: 1px solid #EFEEE8; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #8A8F88;">
+              <span>Arquivo</span><span>Tabela</span><span style="text-align: right;">Itens</span><span style="text-align: right;">Enviado</span><span style="text-align: right;">Situação</span>
+            </div>
+            <sc-for list="{{ importacoes }}" as="i" hint-placeholder-count="4">
+              <div style="display: grid; grid-template-columns: 1fr 130px 118px 150px 150px; gap: 12px; align-items: center; padding: 13px 20px; border-bottom: 1px solid #F4F3EE;" style-hover="background: #FAF9F6;">
+                <span style="font-size: 14px; color: #1C211E;">{{ i.arquivo }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #5C635E;">{{ i.tabela }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right; color: #5C635E;">{{ i.itens }}</span>
+                <span style="font-size: 12.5px; color: #6E7873; text-align: right;">{{ i.data }}</span>
+                <span style="text-align: right;"><span style="{{ i.badge }}">{{ i.situacao }}</span></span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ FILA DE REVISÃO DA IMPORTAÇÃO ══ -->
+      <sc-if value="{{ isFila }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; display: flex; min-height: 0;">
+          <div style="width: 396px; flex-shrink: 0; border-right: 1px solid #E3E1DA; background: #fff; display: flex; flex-direction: column;">
+            <div style="padding: 22px 20px 14px; border-bottom: 1px solid #EFEEE8;">
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <button type="button" onClick="{{ goImport }}" style="width: 34px; height: 34px; border-radius: 9px; border: 1px solid #E3E1DA; background: #fff; color: #5C635E; font-size: 15px; cursor: pointer;" style-hover="background: #F6F5F1;">‹</button>
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A8F88;">importacao_linha_noar.json</span>
+                  <h1 style="margin: 0; font-family: 'IBM Plex Serif', serif; font-size: 20px; font-weight: 600; color: #17372A;">Fila de revisão</h1>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                <div style="flex: 1; height: 6px; border-radius: 4px; background: #EFEEE8; overflow: hidden;"><div style="width: 82%; height: 100%; background: #2F6F4F;"></div></div>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #6E7873;">124/131</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 9px; height: 40px; padding: 0 13px; background: #F6F5F1; border: 1px solid #E3E1DA; border-radius: 10px; margin-bottom: 9px;">
+                <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="5.5" stroke="#8A8F88" stroke-width="1.6"></circle><line x1="13.2" y1="13.2" x2="17" y2="17" stroke="#8A8F88" stroke-width="1.6" stroke-linecap="round"></line></svg>
+                <span style="font-size: 13.5px; color: #9A9E97;">Buscar SKU ou descrição…</span>
+              </div>
+              <div style="display: flex; gap: 5px;">
+                <span style="display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 11px; border-radius: 8px; background: #17372A; color: #fff; font-size: 12.5px; font-weight: 600;">Pendentes <span style="font-family: 'IBM Plex Mono', monospace;">7</span></span>
+                <span style="display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 11px; border-radius: 8px; border: 1px solid #D6D4CC; color: #5C635E; font-size: 12.5px;">Baixa <span style="font-family: 'IBM Plex Mono', monospace;">3</span></span>
+                <span style="display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 11px; border-radius: 8px; border: 1px solid #D6D4CC; color: #5C635E; font-size: 12.5px;">Média <span style="font-family: 'IBM Plex Mono', monospace;">4</span></span>
+                <span style="display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 11px; border-radius: 8px; border: 1px solid #D6D4CC; color: #5C635E; font-size: 12.5px;">Decididos</span>
+              </div>
+            </div>
+
+            <div style="flex: 1; overflow-y: auto; padding: 10px 12px;">
+              <sc-for list="{{ fila }}" as="f" hint-placeholder-count="6">
+                <div style="{{ f.wrap }}" style-hover="border-color: #9BB5A6;">
+                  <span style="width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid #CFCDC5; background: #fff; flex-shrink: 0; margin-top: 2px;"></span>
+                  <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #1C211E;">{{ f.sku }}</span>
+                    <span style="font-size: 13px; color: #5C635E; line-height: 1.35;">{{ f.desc }}</span>
+                    <span style="font-size: 12px; color: #A9761B;">{{ f.motivo }}</span>
+                  </span>
+                  <span style="{{ f.badge }}">{{ f.conf }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="flex-shrink: 0; border-top: 1px solid #EFEEE8; padding: 12px 16px; display: flex; align-items: center; gap: 9px;">
+              <span style="font-size: 12.5px; color: #6E7873;">2 selecionados</span>
+              <div style="flex: 1;"></div>
+              <button type="button" style="height: 38px; padding: 0 13px; border-radius: 9px; border: 1px solid #D6D4CC; background: #fff; color: #A63A2B; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #FBEAE7;">Rejeitar</button>
+              <button type="button" style="height: 38px; padding: 0 14px; border-radius: 9px; border: none; background: #2F6F4F; color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #245840;">Aprovar em lote</button>
+            </div>
+          </div>
+
+          <div style="flex: 1; min-width: 0; overflow-y: auto; padding: 22px 26px 26px;">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px;">
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <h2 style="margin: 0; font-family: 'IBM Plex Serif', serif; font-size: 22px; font-weight: 600; color: #17372A;">TPN-3012-CRV</h2>
+                  <span style="padding: 3px 10px; border-radius: 20px; background: #FBEAE7; color: #A63A2B; font-size: 12px; font-weight: 600;">Confiança baixa</span>
+                </div>
+                <span style="font-size: 13px; color: #6E7873;">Página 14 da planilha · linha 218 · item 128 de 131</span>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid #D6D4CC; background: #fff; color: #5C635E; font-size: 15px; cursor: pointer;" style-hover="background: #F6F5F1;">‹</button>
+                <button type="button" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid #D6D4CC; background: #fff; color: #5C635E; font-size: 15px; cursor: pointer;" style-hover="background: #F6F5F1;">›</button>
+              </div>
+            </div>
+
+            <div style="background: #FFFDF7; border: 1px solid #E9D9B0; border-radius: 13px; padding: 13px 16px; display: flex; gap: 11px; align-items: flex-start; margin-bottom: 16px;">
+              <span style="width: 7px; height: 7px; border-radius: 50%; background: #A9761B; flex-shrink: 0; margin-top: 6px;"></span>
+              <span style="display: flex; flex-direction: column; gap: 3px;">
+                <span style="font-size: 13.5px; font-weight: 600; color: #1C211E;">Por que caiu na revisão</span>
+                <span style="font-size: 13px; color: #6E7873; line-height: 1.5;">A célula de preço estava vazia na planilha e o acabamento “CRV” não existe no catálogo. Nada entra no catálogo enquanto isso não for decidido por uma pessoa.</span>
+              </span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start;">
+              <div style="background: #F1F0EA; border: 1px solid #E3E1DA; border-radius: 14px; overflow: hidden;">
+                <div style="padding: 12px 16px; border-bottom: 1px solid #E3E1DA; display: flex; align-items: center; justify-content: space-between;">
+                  <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8F88;">Como veio da planilha</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #B9BDB6;">somente leitura</span>
+                </div>
+                <sc-for list="{{ bruto }}" as="b" hint-placeholder-count="6">
+                  <div style="display: flex; gap: 12px; padding: 11px 16px; border-bottom: 1px solid #E7E5DE;">
+                    <span style="width: 118px; flex-shrink: 0; font-size: 12.5px; color: #8A8F88;">{{ b.campo }}</span>
+                    <span style="{{ b.valorStyle }}">{{ b.valor }}</span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 14px; overflow: hidden;">
+                <div style="padding: 12px 16px; border-bottom: 1px solid #EFEEE8; display: flex; align-items: center; justify-content: space-between;">
+                  <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #2F6F4F;">Como vai para o catálogo</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8F88;">editável</span>
+                </div>
+                <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 11px;">
+                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #8A8F88;">Tipo de componente</span>
+                    <div style="height: 42px; display: flex; align-items: center; padding: 0 13px; border: 1px solid #D6D4CC; border-radius: 10px; font-size: 14px;">Tampo</div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #8A8F88;">Descrição</span>
+                    <div style="height: 42px; display: flex; align-items: center; padding: 0 13px; border: 1px solid #D6D4CC; border-radius: 10px; font-size: 14px;">Tampo Noar 3000×1200 — Carvalho</div>
+                  </div>
+                  <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1; display: flex; flex-direction: column; gap: 5px;">
+                      <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #8A8F88;">Dimensão</span>
+                      <div style="height: 42px; display: flex; align-items: center; padding: 0 13px; border: 1px solid #D6D4CC; border-radius: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13.5px;">3000×1200</div>
+                    </div>
+                    <div style="flex: 1; display: flex; flex-direction: column; gap: 5px;">
+                      <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #A9761B;">Acabamento · novo</span>
+                      <div style="height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 13px; border: 1.5px solid #D8BE7C; background: #FFFDF7; border-radius: 10px; font-size: 14px;">Carvalho <span style="font-size: 11px; color: #A9761B;">criar</span></div>
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1; display: flex; flex-direction: column; gap: 5px;">
+                      <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #8A8F88;">SKU</span>
+                      <div style="height: 42px; display: flex; align-items: center; padding: 0 13px; border: 1px solid #D6D4CC; border-radius: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13.5px;">TPN-3012-CRV</div>
+                    </div>
+                    <div style="flex: 1; display: flex; flex-direction: column; gap: 5px;">
+                      <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #A63A2B;">Preço · faltando</span>
+                      <div style="height: 42px; display: flex; align-items: center; gap: 7px; padding: 0 13px; border: 1.5px solid #E4B9B0; background: #FFFBFA; border-radius: 10px;">
+                        <span style="font-size: 13px; color: #8A8F88;">R$</span>
+                        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #C9A9A2;">0,00</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div style="background: #FAF9F6; border-top: 1px solid #EFEEE8; padding: 12px 16px; display: flex; align-items: center; gap: 10px;">
+                  <span style="width: 17px; height: 17px; border-radius: 5px; background: #2F6F4F; color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">✓</span>
+                  <span style="font-size: 12.5px; color: #6E7873; line-height: 1.4;">Aplicar a mesma correção de acabamento aos <strong style="color: #1C211E;">14 itens</strong> com “CRV” nesta importação. Itens já decididos por alguém não serão tocados.</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 10px; margin-top: 16px;">
+              <button type="button" style="height: 46px; padding: 0 16px; border-radius: 11px; border: 1px solid #D6D4CC; background: #fff; color: #A63A2B; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background: #FBEAE7;">Rejeitar item</button>
+              <div style="flex: 1;"></div>
+              <span style="font-size: 12.5px; color: #8A8F88;">Toda decisão fica registrada com seu nome e horário.</span>
+              <button type="button" style="height: 46px; padding: 0 18px; border-radius: 11px; border: 1px solid #D6D4CC; background: #fff; color: #1C211E; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background: #F6F5F1;">Pular</button>
+              <button type="button" style="height: 46px; padding: 0 20px; border-radius: 11px; border: none; background: #2F6F4F; color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background: #245840;">Aprovar corrigido →</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ CATÁLOGO · ADMINISTRAÇÃO ══ -->
+      <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; overflow-y: auto; padding: 28px 34px 30px;">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 6px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; color: #8A8F88;">Cadastro · somente admin</span>
+              <h1 style="margin: 0; font-family: 'IBM Plex Serif', serif; font-size: 28px; font-weight: 600; color: #17372A;">Estrutura do catálogo</h1>
+            </div>
+            <button type="button" onClick="{{ goCatalogo }}" style="height: 44px; padding: 0 16px; border-radius: 11px; border: 1px solid #D6D4CC; background: #fff; color: #1C211E; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background: #F6F5F1;">Ir para a consulta</button>
+          </div>
+          <p style="margin: 0 0 18px; font-size: 13.5px; color: #6E7873; max-width: 640px;">Famílias, produtos-base, tipos de componente, dimensões e acabamentos são as peças de montagem. As variações vendáveis são o que o vendedor realmente coloca num orçamento.</p>
+
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 22px;">
+            <sc-for list="{{ entidades }}" as="e" hint-placeholder-count="6">
+              <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 14px; padding: 15px 17px; display: flex; flex-direction: column; gap: 6px; cursor: pointer;" style-hover="border-color: #9BB5A6; background: #FCFDFC;">
+                <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px;">
+                  <span style="font-size: 14.5px; font-weight: 600; color: #1C211E;">{{ e.nome }}</span>
+                  <span style="font-family: 'IBM Plex Serif', serif; font-size: 21px; font-weight: 600; color: #17372A;">{{ e.n }}</span>
+                </div>
+                <span style="font-size: 12.5px; color: #6E7873; line-height: 1.45;">{{ e.desc }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 16px; overflow: hidden;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 20px 13px; border-bottom: 1px solid #EFEEE8;">
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 15.5px; font-weight: 600; color: #1C211E;">Variações vendáveis</span>
+                <span style="font-size: 12.5px; color: #6E7873;">produto + componente + dimensão + acabamento, com SKU e preço</span>
+              </div>
+              <button type="button" style="height: 42px; padding: 0 16px; border-radius: 11px; border: none; background: #2F6F4F; color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background: #245840;">+ Nova variação</button>
+            </div>
+            <div style="display: grid; grid-template-columns: 128px 1fr 138px 116px 128px 120px 92px; gap: 12px; padding: 11px 20px; border-bottom: 1px solid #EFEEE8; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #8A8F88;">
+              <span>Componente</span><span>Descritor</span><span>SKU</span><span>Dimensão</span><span>Acabamento</span><span style="text-align: right;">Preço</span><span></span>
+            </div>
+            <sc-for list="{{ variacoes }}" as="v" hint-placeholder-count="5">
+              <div style="display: grid; grid-template-columns: 128px 1fr 138px 116px 128px 120px 92px; gap: 12px; align-items: center; padding: 12px 20px; border-bottom: 1px solid #F4F3EE;" style-hover="background: #FAF9F6;">
+                <span style="font-size: 13.5px; color: #1C211E;">{{ v.componente }}</span>
+                <span style="font-size: 13.5px; color: #5C635E;">{{ v.descritor }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #5C635E;">{{ v.sku }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #5C635E;">{{ v.dim }}</span>
+                <span style="font-size: 13.5px; color: #5C635E;">{{ v.acabamento }}</span>
+                <span style="{{ v.precoStyle }}">{{ v.preco }}</span>
+                <span style="display: flex; justify-content: flex-end;">
+                  <button type="button" style="height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid #D6D4CC; background: #fff; color: #5C635E; font-family: 'IBM Plex Sans', sans-serif; font-size: 12.5px; font-weight: 600; cursor: pointer;" style-hover="background: #F6F5F1;">Editar</button>
+                </span>
+              </div>
+            </sc-for>
+            <div style="padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 12.5px; color: #8A8F88;">Mostrando 5 de 303 variações</span>
+              <span style="font-size: 12.5px; color: #6E7873;">Toda edição aqui exige justificativa e fica no histórico.</span>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ AJUSTES ══ -->
+      <sc-if value="{{ isAjustes }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; overflow-y: auto; padding: 30px 34px;">
+          <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 20px;">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; color: #8A8F88;">Gestão</span>
+            <h1 style="margin: 0; font-family: 'IBM Plex Serif', serif; font-size: 28px; font-weight: 600; color: #17372A;">Ajustes</h1>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 900px;">
+            <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 15px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;">
+              <h2 style="margin: 0; font-size: 15.5px; font-weight: 600; color: #1C211E;">Política comercial</h2>
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F4F3EE;"><span style="font-size: 13.5px; color: #6E7873;">Margem padrão</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px;">32,0%</span></div>
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F4F3EE;"><span style="font-size: 13.5px; color: #6E7873;">Alçada de desconto do vendedor</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px;">8,0%</span></div>
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0;"><span style="font-size: 13.5px; color: #6E7873;">Validade padrão da proposta</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px;">30 dias</span></div>
+            </div>
+            <div style="background: #fff; border: 1px solid #E3E1DA; border-radius: 15px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;">
+              <h2 style="margin: 0; font-size: 15.5px; font-weight: 600; color: #1C211E;">Equipe</h2>
+              <div style="display: flex; align-items: center; gap: 11px; padding: 8px 0; border-bottom: 1px solid #F4F3EE;">
+                <span style="width: 34px; height: 34px; border-radius: 50%; background: #E7F0EA; color: #2F6F4F; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;">MR</span>
+                <span style="flex: 1; display: flex; flex-direction: column;"><span style="font-size: 14px; font-weight: 600;">Marina Reis</span><span style="font-size: 12.5px; color: #8A8F88;">marina@helence.com.br</span></span>
+                <span style="padding: 3px 10px; border-radius: 20px; background: #E7F0EA; color: #2F6F4F; font-size: 12px; font-weight: 600;">Vendedor</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 11px; padding: 8px 0; border-bottom: 1px solid #F4F3EE;">
+                <span style="width: 34px; height: 34px; border-radius: 50%; background: #EFEEE8; color: #6E7873; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;">JT</span>
+                <span style="flex: 1; display: flex; flex-direction: column;"><span style="font-size: 14px; font-weight: 600;">João Tavares</span><span style="font-size: 12.5px; color: #8A8F88;">joao@helence.com.br</span></span>
+                <span style="padding: 3px 10px; border-radius: 20px; background: #EFEEE8; color: #6E7873; font-size: 12px; font-weight: 600;">Revisor</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 11px; padding: 8px 0;">
+                <span style="width: 34px; height: 34px; border-radius: 50%; background: #EFEEE8; color: #6E7873; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;">CS</span>
+                <span style="flex: 1; display: flex; flex-direction: column;"><span style="font-size: 14px; font-weight: 600;">Carla Souza</span><span style="font-size: 12.5px; color: #8A8F88;">carla@helence.com.br</span></span>
+                <span style="padding: 3px 10px; border-radius: 20px; background: #17372A; color: #E9C97A; font-size: 12px; font-weight: 600;">Admin</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ DOCUMENTO (o que o cliente recebe) ══ -->
+      <sc-if value="{{ isDoc }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; display: flex; flex-direction: column; min-height: 0; background: #DEDCD5;">
+          <div style="flex-shrink: 0; height: 58px; background: #17372A; display: flex; align-items: center; gap: 14px; padding: 0 20px;">
+            <button type="button" onClick="{{ goRevisao }}" style="height: 38px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.24); background: transparent; color: #E4EDE7; font-family: 'IBM Plex Sans', sans-serif; font-size: 13.5px; font-weight: 600; cursor: pointer;" style-hover="background: rgba(255,255,255,0.1);">‹ Voltar ao orçamento</button>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8FAA9C;">Proposta ORC-2026-0184 · página 1 de 2</span>
+            <div style="flex: 1;"></div>
+            <button type="button" style="height: 38px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.24); background: transparent; color: #E4EDE7; font-family: 'IBM Plex Sans', sans-serif; font-size: 13.5px; font-weight: 600; cursor: pointer;" style-hover="background: rgba(255,255,255,0.1);">Baixar PDF</button>
+            <button type="button" style="height: 38px; padding: 0 16px; border-radius: 10px; border: none; background: #E9C97A; color: #17372A; font-family: 'IBM Plex Sans', sans-serif; font-size: 13.5px; font-weight: 700; cursor: pointer;" style-hover="background: #DFBB63;">Enviar ao cliente</button>
+          </div>
+
+          <div style="flex: 1; overflow-y: auto; padding: 26px 0 34px; display: flex; justify-content: center;">
+            <div style="width: 794px; background: #fff; box-shadow: 0 18px 44px -20px rgba(23,55,42,0.4); padding: 56px 60px 48px; display: flex; flex-direction: column;">
+
+              <div style="display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 22px; border-bottom: 2px solid #17372A;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <span style="width: 40px; height: 40px; border-radius: 11px; background: #17372A; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Serif', serif; font-size: 22px; color: #E9C97A;">h</span>
+                  <span style="display: flex; flex-direction: column;">
+                    <span style="font-family: 'IBM Plex Serif', serif; font-size: 19px; font-weight: 600; color: #17372A; letter-spacing: 0.02em;">Helence Mobiliário</span>
+                    <span style="font-size: 11.5px; color: #6E7873;">Mesas de reunião sob medida · desde 1998</span>
+                  </span>
+                </div>
+                <div style="text-align: right; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #8A8F88;">Proposta</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #17372A;">ORC-2026-0184</span>
+                  <span style="font-size: 11.5px; color: #6E7873;">Emitida em 28/07/2026</span>
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; padding: 24px 0 26px; border-bottom: 1px solid #E3E1DA;">
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                  <span style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.11em; text-transform: uppercase; color: #8A8F88;">Preparada para</span>
+                  <span style="font-family: 'IBM Plex Serif', serif; font-size: 19px; font-weight: 600; color: #17372A;">Grupo Sanders</span>
+                  <span style="font-size: 12.5px; color: #5C635E; line-height: 1.55;">CNPJ 12.345.678/0001-90<br />Av. Cândido de Abreu, 1200 — Curitiba/PR<br />A/C Renata Pinho · compras@sanders.com.br</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                  <span style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.11em; text-transform: uppercase; color: #8A8F88;">Condições</span>
+                  <span style="font-size: 12.5px; color: #5C635E; line-height: 1.75;">
+                    Validade da proposta: <strong style="color: #1C211E;">27/08/2026</strong><br />
+                    Prazo de entrega: <strong style="color: #1C211E;">35 dias úteis</strong> após aprovação<br />
+                    Pagamento: entrada de R$ 10.000,00 + <strong style="color: #1C211E;">6× sem juros</strong><br />
+                    Consultora: Marina Reis · marina@helence.com.br
+                  </span>
+                </div>
+              </div>
+
+              <div style="padding: 26px 0 0;">
+                <span style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.11em; text-transform: uppercase; color: #8A8F88;">Itens da proposta</span>
+                <div style="margin-top: 14px; display: grid; grid-template-columns: 1fr 54px 118px 128px; gap: 14px; padding-bottom: 8px; border-bottom: 1px solid #17372A; font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #17372A;">
+                  <span>Descrição</span><span style="text-align: center;">Qtd</span><span style="text-align: right;">Unitário</span><span style="text-align: right;">Total</span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 54px 118px 128px; gap: 14px; padding: 15px 0 14px; border-bottom: 1px solid #EFEEE8; align-items: start;">
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <span style="font-family: 'IBM Plex Serif', serif; font-size: 15px; font-weight: 600; color: #1C211E;">Mesa de reunião Noar 2400 × 1200</span>
+                    <span style="font-size: 12px; color: #5C635E; line-height: 1.6;">Tampo em MDF revestido Nogueira, 25 mm, borda reta · estrutura metálica Pórtico P900 em pintura eletrostática preta · caixa de tomadas embutida com 4 posições (2 elétricas + 2 USB-C) · passa-fio vertical duplo.</span>
+                  </div>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: center; color: #1C211E;">2</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right; color: #1C211E;">16.473,60</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right; color: #1C211E;">32.947,20</span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 54px 118px 128px; gap: 14px; padding: 15px 0 14px; border-bottom: 1px solid #EFEEE8; align-items: start;">
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <span style="font-family: 'IBM Plex Serif', serif; font-size: 15px; font-weight: 600; color: #1C211E;">Credenza Noar 1600</span>
+                    <span style="font-size: 12px; color: #5C635E; line-height: 1.6;">Módulo de apoio 1600 × 450 × 750 mm em Nogueira, duas portas de abrir com fecho push e prateleira interna regulável.</span>
+                  </div>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: center; color: #1C211E;">1</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right; color: #1C211E;">7.154,40</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right; color: #1C211E;">7.154,40</span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 54px 118px 128px; gap: 14px; padding: 15px 0 14px; border-bottom: 1px solid #EFEEE8; align-items: start;">
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <span style="font-family: 'IBM Plex Serif', serif; font-size: 15px; font-weight: 600; color: #1C211E;">Mesa de apoio Bistrô 900</span>
+                    <span style="font-size: 12px; color: #5C635E; line-height: 1.6;">Tampo redondo Ø900 mm em Nogueira com coluna central e base em disco de aço.</span>
+                  </div>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: center; color: #1C211E;">1</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right; color: #1C211E;">2.400,00</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right; color: #1C211E;">2.400,00</span>
+                </div>
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; padding-top: 20px;">
+                <div style="width: 330px; display: flex; flex-direction: column; gap: 9px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: #5C635E;">Subtotal</span><span style="font-family: 'IBM Plex Mono', monospace; color: #1C211E;">R$ 42.501,60</span></div>
+                  <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: #5C635E;">Desconto comercial</span><span style="font-family: 'IBM Plex Mono', monospace; color: #2F6F4F;">− R$ 4.581,98</span></div>
+                  <div style="height: 1px; background: #17372A; margin: 4px 0;"></div>
+                  <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                    <span style="font-family: 'IBM Plex Serif', serif; font-size: 16px; font-weight: 600; color: #17372A;">Total da proposta</span>
+                    <span style="font-family: 'IBM Plex Serif', serif; font-size: 25px; font-weight: 600; color: #17372A;">R$ 37.919,62</span>
+                  </div>
+                  <div style="background: #F1F7F3; border-radius: 8px; padding: 11px 13px; display: flex; flex-direction: column; gap: 3px; margin-top: 6px;">
+                    <span style="font-size: 12px; color: #2F6F4F;">Entrada de R$ 10.000,00 e mais</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 500; color: #17372A;">6 × R$ 4.653,27</span>
+                    <span style="font-size: 11.5px; color: #5C635E;">sem juros · primeira parcela 30 dias após a entrega</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top: 34px; padding-top: 20px; border-top: 1px solid #E3E1DA; display: flex; align-items: flex-end; justify-content: space-between; gap: 30px;">
+                <span style="font-size: 11px; color: #8A8F88; line-height: 1.6; max-width: 380px;">Valores em reais, impostos inclusos. Instalação em Curitiba e região metropolitana inclusa. Esta proposta perde a validade em 27/08/2026.</span>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                  <span style="width: 210px; border-bottom: 1px solid #1C211E; height: 26px;"></span>
+                  <span style="font-size: 11px; color: #5C635E;">Aceite do cliente · data e assinatura</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ LOGIN ══ -->
+      <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; display: flex; min-height: 0;">
+          <div style="width: 46%; background: #17372A; padding: 46px 44px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <span style="width: 36px; height: 36px; border-radius: 10px; background: #E9C97A; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Serif', serif; font-size: 20px; color: #17372A;">h</span>
+              <span style="font-family: 'IBM Plex Serif', serif; font-size: 18px; font-weight: 600; color: #fff;">Helence</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+              <span style="font-family: 'IBM Plex Serif', serif; font-size: 34px; font-weight: 600; color: #fff; line-height: 1.25; text-wrap: pretty;">Do catálogo à proposta assinada, sem retrabalho.</span>
+              <span style="font-size: 14.5px; color: #A9C2B4; line-height: 1.6; max-width: 380px;">Preços congelados no instante em que entram no orçamento. O que você mostrou ao cliente continua valendo.</span>
+            </div>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: #567A69;">TABELA VIGENTE 01-2026</span>
+          </div>
+          <div style="flex: 1; background: #F6F5F1; display: flex; align-items: center; justify-content: center; padding: 40px;">
+            <div style="width: 340px; display: flex; flex-direction: column; gap: 18px;">
+              <div style="display: flex; flex-direction: column; gap: 5px;">
+                <h1 style="margin: 0; font-family: 'IBM Plex Serif', serif; font-size: 25px; font-weight: 600; color: #17372A;">Entrar</h1>
+                <span style="font-size: 13.5px; color: #6E7873;">Use o e-mail da Helence.</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #8A8F88;">E-mail</span>
+                <div style="height: 48px; display: flex; align-items: center; padding: 0 15px; background: #fff; border: 1px solid #D6D4CC; border-radius: 11px; font-size: 15px; color: #1C211E;">marina@helence.com.br</div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #8A8F88;">Senha</span>
+                <div style="height: 48px; display: flex; align-items: center; padding: 0 15px; background: #fff; border: 1px solid #D6D4CC; border-radius: 11px; font-size: 15px; letter-spacing: 0.24em; color: #6E7873;">••••••••</div>
+              </div>
+              <button type="button" onClick="{{ goPainel }}" style="height: 50px; border-radius: 12px; border: none; background: #2F6F4F; color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer;" style-hover="background: #245840;">Entrar</button>
+              <span style="font-size: 13px; color: #8A8F88; text-align: center;">Esqueceu a senha? Fale com o administrador.</span>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1250,&quot;height&quot;:980},&quot;telaInicial&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;painel&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;painel&quot;,&quot;lista&quot;,&quot;itens&quot;,&quot;montar&quot;,&quot;condicoes&quot;,&quot;revisao&quot;,&quot;catalogo&quot;,&quot;admin&quot;,&quot;import&quot;,&quot;fila&quot;,&quot;ajustes&quot;,&quot;doc&quot;,&quot;login&quot;],&quot;section&quot;:&quot;Protótipo&quot;},&quot;mostrarCustoInterno&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Protótipo&quot;}}">
+const CHIP_ON = "display:flex;align-items:center;height:34px;padding:0 13px;border-radius:9px;border:1px solid #17372A;background:#17372A;color:#F6F5F1;font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;";
+const CHIP_OFF = "display:flex;align-items:center;height:34px;padding:0 13px;border-radius:9px;border:1px solid #D6D4CC;background:#fff;color:#5C635E;font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap;";
+const NAV_ON = "position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 0;border:none;border-radius:12px;background:rgba(255,255,255,0.13);color:#FFFFFF;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;";
+const NAV_OFF = "position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 0;border:none;border-radius:12px;background:transparent;color:#8FAA9C;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;";
+const DOT_ON = "width:24px;height:24px;border-radius:50%;background:#17372A;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;";
+const DOT_OFF = "width:24px;height:24px;border-radius:50%;background:#EDECE6;color:#8A8F88;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;";
+
+class Component extends DCLogic {
+  state = { screen: null };
+
+  go(s) { return () => this.setState({ screen: s }); }
+
+  renderVals() {
+    const s = this.state.screen ?? (this.props.telaInicial || 'painel');
+    const mostrarCusto = this.props.mostrarCustoInterno ?? true;
+    const tab = (n) => (s === n ? CHIP_ON : CHIP_OFF);
+    const nav = (list) => (list.indexOf(s) >= 0 ? NAV_ON : NAV_OFF);
+    return {
+      goPainel: this.go('painel'), goLista: this.go('lista'), goItens: this.go('itens'),
+      goMontar: this.go('montar'), goCondicoes: this.go('condicoes'), goRevisao: this.go('revisao'),
+      goCatalogo: this.go('catalogo'), goImport: this.go('import'), goDoc: this.go('doc'),
+      goLogin: this.go('login'), goAjustes: this.go('ajustes'),
+      goFila: this.go('fila'), goAdmin: this.go('admin'),
+      tabFila: tab('fila'), tabAdmin: tab('admin'),
+      isFila: s === 'fila', isAdmin: s === 'admin',
+      fila: [
+        { sku: 'TPN-3012-CRV', desc: 'Tampo Noar 3000×1200 — Carvalho', motivo: 'Sem preço e acabamento novo', conf: 'baixa', wrap: "display:flex;gap:10px;align-items:flex-start;padding:12px 13px;border:1.5px solid #17372A;border-radius:12px;background:#F1F7F3;margin-bottom:8px;cursor:pointer;", badge: 'padding:2px 8px;border-radius:5px;background:#FBEAE7;color:#A63A2B;font-size:10.5px;font-weight:700;letter-spacing:0.04em;height:fit-content;' },
+        { sku: 'EST-P900-BRC', desc: 'Estrutura Pórtico P900 — Branco', motivo: 'Acabamento novo no catálogo', conf: 'média', wrap: "display:flex;gap:10px;align-items:flex-start;padding:12px 13px;border:1px solid #E3E1DA;border-radius:12px;background:#fff;margin-bottom:8px;cursor:pointer;", badge: 'padding:2px 8px;border-radius:5px;background:#FBF2E0;color:#A9761B;font-size:10.5px;font-weight:700;letter-spacing:0.04em;height:fit-content;' },
+        { sku: 'ACU-PF30-CNZ', desc: 'Painel acústico frontal 3000 — Cinza', motivo: 'Dimensão não reconhecida', conf: 'média', wrap: "display:flex;gap:10px;align-items:flex-start;padding:12px 13px;border:1px solid #E3E1DA;border-radius:12px;background:#fff;margin-bottom:8px;cursor:pointer;", badge: 'padding:2px 8px;border-radius:5px;background:#FBF2E0;color:#A9761B;font-size:10.5px;font-weight:700;letter-spacing:0.04em;height:fit-content;' },
+        { sku: 'CRD-1800-CRV', desc: 'Credenza Noar 1800 — Carvalho', motivo: 'Preço fora do padrão da linha (+62%)', conf: 'baixa', wrap: "display:flex;gap:10px;align-items:flex-start;padding:12px 13px;border:1px solid #E3E1DA;border-radius:12px;background:#fff;margin-bottom:8px;cursor:pointer;", badge: 'padding:2px 8px;border-radius:5px;background:#FBEAE7;color:#A63A2B;font-size:10.5px;font-weight:700;letter-spacing:0.04em;height:fit-content;' },
+        { sku: 'ACC-CX6-ALU', desc: 'Caixa de tomadas 6 posições', motivo: 'Produto-base ambíguo', conf: 'média', wrap: "display:flex;gap:10px;align-items:flex-start;padding:12px 13px;border:1px solid #E3E1DA;border-radius:12px;background:#fff;margin-bottom:8px;cursor:pointer;", badge: 'padding:2px 8px;border-radius:5px;background:#FBF2E0;color:#A9761B;font-size:10.5px;font-weight:700;letter-spacing:0.04em;height:fit-content;' },
+        { sku: 'TPN-1809-CRV', desc: 'Tampo Noar 1800×900 — Carvalho', motivo: 'Acabamento novo no catálogo', conf: 'baixa', wrap: "display:flex;gap:10px;align-items:flex-start;padding:12px 13px;border:1px solid #E3E1DA;border-radius:12px;background:#fff;margin-bottom:8px;cursor:pointer;", badge: 'padding:2px 8px;border-radius:5px;background:#FBEAE7;color:#A63A2B;font-size:10.5px;font-weight:700;letter-spacing:0.04em;height:fit-content;' },
+      ],
+      bruto: [
+        { campo: 'Descrição', valor: 'TAMPO 300X120 CARV. INT.SIMPLES', valorStyle: "font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#1C211E;" },
+        { campo: 'SKU', valor: 'TPN-3012-CRV', valorStyle: "font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#1C211E;" },
+        { campo: 'Preço', valor: '(célula vazia)', valorStyle: "font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A63A2B;" },
+        { campo: 'Acabamento', valor: 'CRV', valorStyle: "font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A9761B;" },
+        { campo: 'Dimensão', valor: '300X120', valorStyle: "font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#1C211E;" },
+        { campo: 'Tipo', valor: 'TAMPO', valorStyle: "font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#1C211E;" },
+      ],
+      entidades: [
+        { nome: 'Famílias de produto', n: '4', desc: 'Agrupamentos de alto nível: Mesas de Reunião, Plataformas, Bistrô, Soluções Acústicas.' },
+        { nome: 'Produtos-base', n: '46', desc: 'Produtos dentro de uma família, com uma dimensão associada.' },
+        { nome: 'Tipos de componente', n: '9', desc: 'Peças que compõem um produto: tampo, estrutura, painel, apoio.' },
+        { nome: 'Dimensões', n: '23', desc: 'Medidas reutilizadas pelos produtos: largura, profundidade, diâmetro, altura.' },
+        { nome: 'Acabamentos', n: '18', desc: 'Cores e materiais, agrupados por tipo (madeirado, metálico, pé/estrutura).' },
+        { nome: 'Variações vendáveis', n: '303', desc: 'Combinações finais com SKU e preço — é o que entra no orçamento.' },
+      ],
+      variacoes: [
+        { componente: 'Tampo', descritor: 'Inteiro simples', sku: 'TPN-2412-NOG', dim: '2400×1200', acabamento: 'Nogueira', preco: 'R$ 6.840,00', precoStyle: "font-family:'IBM Plex Mono',monospace;font-size:13.5px;text-align:right;color:#1C211E;" },
+        { componente: 'Tampo', descritor: 'Com recorte central', sku: 'TPN-2412-NOGR', dim: '2400×1200', acabamento: 'Nogueira', preco: 'R$ 7.120,00', precoStyle: "font-family:'IBM Plex Mono',monospace;font-size:13.5px;text-align:right;color:#1C211E;" },
+        { componente: 'Estrutura', descritor: 'Pórtico P900', sku: 'EST-P900-PRT', dim: '2400×1200', acabamento: 'Preto', preco: 'R$ 3.980,00', precoStyle: "font-family:'IBM Plex Mono',monospace;font-size:13.5px;text-align:right;color:#1C211E;" },
+        { componente: 'Apoio', descritor: 'Credenza 1600 duas portas', sku: 'CRD-1600-NOG', dim: '1600×450', acabamento: 'Nogueira', preco: 'R$ 5.420,00', precoStyle: "font-family:'IBM Plex Mono',monospace;font-size:13.5px;text-align:right;color:#1C211E;" },
+        { componente: 'Tampo', descritor: 'Inteiro simples', sku: 'TPN-3012-CRV', dim: '3000×1200', acabamento: 'Carvalho', preco: 'sem preço', precoStyle: "font-family:'IBM Plex Mono',monospace;font-size:12.5px;text-align:right;color:#A63A2B;" },
+      ],
+
+      tabPainel: tab('painel'), tabLista: tab('lista'), tabItens: tab('itens'),
+      tabMontar: tab('montar'), tabCondicoes: tab('condicoes'), tabRevisao: tab('revisao'),
+      tabCatalogo: tab('catalogo'), tabImport: tab('import'), tabDoc: tab('doc'), tabLogin: tab('login'),
+
+      navPainel: nav(['painel']),
+      navOrcamentos: nav(['lista', 'itens', 'montar', 'condicoes', 'revisao']),
+      navCatalogo: nav(['catalogo', 'admin']),
+      navImport: nav(['import', 'fila']),
+      navAjustes: nav(['ajustes']),
+
+      mostrarCusto,
+      chromeVisible: s !== 'login' && s !== 'doc',
+      isPainel: s === 'painel',
+      isLista: s === 'lista',
+      isEditor: s === 'itens' || s === 'montar' || s === 'condicoes' || s === 'revisao',
+      isItens: s === 'itens' || s === 'montar',
+      isMontar: s === 'montar',
+      isCondicoes: s === 'condicoes',
+      isRevisao: s === 'revisao',
+      isCatalogo: s === 'catalogo',
+      isImport: s === 'import',
+      isDoc: s === 'doc',
+      isLogin: s === 'login',
+      isAjustes: s === 'ajustes',
+
+      stepItensBar: (s === 'itens' || s === 'montar') ? '#17372A' : 'transparent',
+      stepItensDot: (s === 'itens' || s === 'montar') ? DOT_ON : DOT_OFF,
+      stepItensText: (s === 'itens' || s === 'montar') ? '#17372A' : '#8A8F88',
+      stepCondBar: s === 'condicoes' ? '#17372A' : 'transparent',
+      stepCondDot: s === 'condicoes' ? DOT_ON : DOT_OFF,
+      stepCondText: s === 'condicoes' ? '#17372A' : '#8A8F88',
+      stepRevBar: s === 'revisao' ? '#17372A' : 'transparent',
+      stepRevDot: s === 'revisao' ? DOT_ON : DOT_OFF,
+      stepRevText: s === 'revisao' ? '#17372A' : '#8A8F88',
+
+      atencao: [
+        { numero: 'ORC-2026-0184', cliente: 'Grupo Sanders', aviso: '1 linha incompleta — falta estrutura', total: 'R$ 74.320,00', validade: 'válido até 27 ago', status: 'Rascunho' },
+        { numero: 'ORC-2026-0171', cliente: 'Clínica Ventura', aviso: 'Sem resposta há 12 dias', total: 'R$ 28.140,00', validade: 'expira em 3 dias', status: 'Com o cliente' },
+      ],
+      andamento: [
+        { numero: 'ORC-2026-0183', cliente: 'Nexa Advogados', aviso: 'Aguardando aprovação de desconto', total: 'R$ 96.500,00', validade: 'válido até 30 ago', status: 'Com o cliente' },
+        { numero: 'ORC-2026-0182', cliente: 'Instituto Alvorada', aviso: 'Enviado em 27 jul', total: 'R$ 39.980,00', validade: 'válido até 26 ago', status: 'Com o cliente' },
+        { numero: 'ORC-2026-0181', cliente: 'Praça Digital', aviso: 'Em montagem — 2 itens', total: 'R$ 18.220,00', validade: 'sem validade definida', status: 'Rascunho' },
+        { numero: 'ORC-2026-0180', cliente: 'Vértice Coworking', aviso: 'Aprovado em 26 jul', total: 'R$ 51.600,00', validade: 'válido até 25 ago', status: 'Aprovado' },
+      ],
+      sugestoes: [
+        { nome: 'Estrutura Pórtico P900 — Branco', sku: 'EST-P900-BRC', preco: 'R$ 3.980,00', tag: 'Combina', tagStyle: 'padding:2px 8px;border-radius:5px;background:#E7F0EA;color:#2F6F4F;font-size:10.5px;font-weight:600;white-space:nowrap;' },
+        { nome: 'Estrutura Viga central Slim', sku: 'EST-SLM-PRT', preco: 'R$ 3.240,00', tag: 'Combina', tagStyle: 'padding:2px 8px;border-radius:5px;background:#E7F0EA;color:#2F6F4F;font-size:10.5px;font-weight:600;white-space:nowrap;' },
+        { nome: 'Caixa de tomadas pop-up 6 pos.', sku: 'ACC-PU6-ALU', preco: 'R$ 2.410,00', tag: 'Popular', tagStyle: 'padding:2px 8px;border-radius:5px;background:#FBF2E0;color:#A9761B;font-size:10.5px;font-weight:600;white-space:nowrap;' },
+        { nome: 'Painel acústico frontal 2400', sku: 'ACU-PF24-CNZ', preco: 'R$ 1.890,00', tag: 'Combina', tagStyle: 'padding:2px 8px;border-radius:5px;background:#E7F0EA;color:#2F6F4F;font-size:10.5px;font-weight:600;white-space:nowrap;' },
+        { nome: 'Suporte para monitor duplo', sku: 'ACC-SMD-PRT', preco: 'R$ 980,00', tag: 'Combina', tagStyle: 'padding:2px 8px;border-radius:5px;background:#E7F0EA;color:#2F6F4F;font-size:10.5px;font-weight:600;white-space:nowrap;' },
+        { nome: 'Calha de cabos sob tampo 2400', sku: 'ACC-CC24-PRT', preco: 'R$ 640,00', tag: 'Combina', tagStyle: 'padding:2px 8px;border-radius:5px;background:#E7F0EA;color:#2F6F4F;font-size:10.5px;font-weight:600;white-space:nowrap;' },
+      ],
+      filtrosLinha: [
+        { nome: 'Noar', n: 128, box: 'width:17px;height:17px;border-radius:5px;background:#2F6F4F;border:1px solid #2F6F4F;flex-shrink:0;' },
+        { nome: 'Plataformas', n: 96, box: 'width:17px;height:17px;border-radius:5px;background:#fff;border:1.5px solid #CFCDC5;flex-shrink:0;' },
+        { nome: 'Reuniões Bistrô', n: 42, box: 'width:17px;height:17px;border-radius:5px;background:#fff;border:1.5px solid #CFCDC5;flex-shrink:0;' },
+        { nome: 'Soluções acústicas', n: 37, box: 'width:17px;height:17px;border-radius:5px;background:#fff;border:1.5px solid #CFCDC5;flex-shrink:0;' },
+      ],
+      filtrosTipo: [
+        { nome: 'Tampo', n: 44, box: 'width:17px;height:17px;border-radius:5px;background:#2F6F4F;border:1px solid #2F6F4F;flex-shrink:0;' },
+        { nome: 'Estrutura', n: 31, box: 'width:17px;height:17px;border-radius:5px;background:#2F6F4F;border:1px solid #2F6F4F;flex-shrink:0;' },
+        { nome: 'Apoio / credenza', n: 22, box: 'width:17px;height:17px;border-radius:5px;background:#fff;border:1.5px solid #CFCDC5;flex-shrink:0;' },
+        { nome: 'Elétrica & dados', n: 18, box: 'width:17px;height:17px;border-radius:5px;background:#fff;border:1.5px solid #CFCDC5;flex-shrink:0;' },
+      ],
+      catalogo: [
+        { nome: 'Tampo Noar 2400×1200 — Nogueira', tipo: 'Tampo · MDF 25 mm, borda reta', sku: 'TPN-2412-NOG', dim: '2400×1200', preco: 'R$ 6.840,00' },
+        { nome: 'Tampo Noar 2400×1200 — Nogueira c/ recorte', tipo: 'Tampo · recorte para caixa de tomadas', sku: 'TPN-2412-NOGR', dim: '2400×1200', preco: 'R$ 7.120,00' },
+        { nome: 'Estrutura Pórtico P900 — Preto', tipo: 'Estrutura · aço, pintura eletrostática', sku: 'EST-P900-PRT', dim: '2400×1200', preco: 'R$ 3.980,00' },
+        { nome: 'Estrutura Pórtico P900 — Branco', tipo: 'Estrutura · aço, pintura eletrostática', sku: 'EST-P900-BRC', dim: '2400×1200', preco: 'R$ 3.980,00' },
+        { nome: 'Estrutura Viga central Slim — Preto', tipo: 'Estrutura · viga central', sku: 'EST-SLM-PRT', dim: '2400×1200', preco: 'R$ 3.240,00' },
+        { nome: 'Painel acústico frontal 2400 — Cinza', tipo: 'Acústica · lã PET 12 mm', sku: 'ACU-PF24-CNZ', dim: '2400×400', preco: 'R$ 1.890,00' },
+        { nome: 'Caixa de tomadas embutida 4 pos.', tipo: 'Elétrica & dados · 2 tomadas + 2 USB-C', sku: 'ACC-CX4-ALU', dim: 'universal', preco: 'R$ 1.660,00' },
+      ],
+      importacoes: [
+        { arquivo: 'importacao_linha_noar.json', tabela: '01-2026', itens: '131', data: '28/07 · 09:12', situacao: 'Em revisão', badge: 'display:inline-block;padding:3px 10px;border-radius:20px;background:#FBF2E0;color:#A9761B;font-size:12px;font-weight:600;' },
+        { arquivo: 'importacao_plataformas.json', tabela: '01-2026', itens: '96', data: '24/07 · 15:40', situacao: 'Publicada', badge: 'display:inline-block;padding:3px 10px;border-radius:20px;background:#E4EFE7;color:#1F5C3F;font-size:12px;font-weight:600;' },
+        { arquivo: 'importacao_reunioes_bistro.json', tabela: '01-2026', itens: '42', data: '21/07 · 11:05', situacao: 'Publicada', badge: 'display:inline-block;padding:3px 10px;border-radius:20px;background:#E4EFE7;color:#1F5C3F;font-size:12px;font-weight:600;' },
+        { arquivo: 'importacao_acustica_v2.json', tabela: '01-2026', itens: '0', data: '18/07 · 08:31', situacao: 'Erro no arquivo', badge: 'display:inline-block;padding:3px 10px;border-radius:20px;background:#FBEAE7;color:#A63A2B;font-size:12px;font-weight:600;' },
+      ],
+      encerrados: [
+        { numero: 'ORC-2026-0166', cliente: 'Loja Matriz Curitiba', aviso: 'Cliente escolheu outro fornecedor', total: 'R$ 22.400,00', validade: 'encerrado em 14 jul', status: 'Rejeitado' },
+        { numero: 'ORC-2026-0159', cliente: 'Studio Aurora', aviso: 'Validade vencida sem retorno', total: 'R$ 21.700,00', validade: 'expirou em 02 jul', status: 'Expirado' },
+      ],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

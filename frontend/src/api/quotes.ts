@@ -87,6 +87,9 @@ export interface Quote {
 }
 
 export const listQuotes = () => request<Quote[]>('/quotes')
+export interface QuoteSummaryBucket { count: number; total: number }
+export interface QuoteSummary { por_status: Record<QuoteStatus, QuoteSummaryBucket>; expirando_7d: number[]; pendencias: number[] }
+export const getQuoteSummary = () => request<QuoteSummary>('/quotes/summary')
 export const getQuote = (id: number) => request<Quote>(`/quotes/${id}`)
 export const createQuote = (data: {
   customer_id: number

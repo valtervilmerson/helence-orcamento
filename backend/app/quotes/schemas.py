@@ -178,6 +178,17 @@ class QuoteReviewChecklistOut(BaseModel):
     items: list[QuoteReviewChecklistItem]
 
 
+class QuoteSummaryBucket(BaseModel):
+    count: int
+    total: float
+
+
+class QuoteSummaryOut(BaseModel):
+    por_status: dict[str, QuoteSummaryBucket]
+    expirando_7d: list[int]
+    pendencias: list[int]
+
+
 # ---------------------------------------------------------------------------
 # Totais — 14.13
 # ---------------------------------------------------------------------------

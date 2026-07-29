@@ -1,82 +1,13 @@
 import { useEffect, useState } from 'react'
-import { QuotesApiError } from '../../api/quotes'
 import { getSettings, updateSettings, type AppSettings } from '../../api/settings'
-import { usePageHeader } from '../../layout/usePageHeader'
-
-function describeError(err: unknown): string {
-  if (err instanceof QuotesApiError) return `${err.code}: ${err.message}`
-  return String(err)
-}
+import { Botao, Card, Esqueleto } from '../../components/ui'
 
 export function SettingsPage() {
-  usePageHeader({ title: 'Configurações', narrow: true })
-
   const [settings, setSettings] = useState<AppSettings | null>(null)
-  const [markupInput, setMarkupInput] = useState('')
-  const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-
-  useEffect(() => {
-    getSettings()
-      .then((s) => {
-        setSettings(s)
-        setMarkupInput(s.global_markup_percent.toString())
-      })
-      .catch((err) => setError(describeError(err)))
-  }, [])
-
-  async function handleSave(event: React.FormEvent) {
-    event.preventDefault()
-    setError(null)
-    setSaved(false)
-    setSubmitting(true)
-    try {
-      const updated = await updateSettings({
-        global_markup_percent: Number(markupInput) || 0,
-      })
-      setSettings(updated)
-      setSaved(true)
-    } catch (err) {
-      setError(describeError(err))
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <div>
-      <section>
-        <h2>Markup de venda global</h2>
-        <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-3)' }}>
-          Percentual aplicado silenciosamente sobre o preço de custo em todos os orçamentos que não
-          possuem override específico. Não é exibido ao cliente.
-        </p>
-        {settings !== null && (
-          <form onSubmit={handleSave} className="action-group">
-            <div className="form-field">
-              <span className="form-field__label">% de venda global</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                style={{ width: '8rem' }}
-                value={markupInput}
-                onChange={(e) => { setMarkupInput(e.target.value); setSaved(false) }}
-              />
-            </div>
-            <button type="submit" disabled={submitting}>
-              {submitting ? 'Salvando…' : 'Salvar'}
-            </button>
-          </form>
-        )}
-        {saved && (
-          <p className="feedback-success" style={{ marginTop: 'var(--space-2)' }}>
-            Configurações salvas.
-          </p>
-        )}
-        {error && <p className="feedback-error">{error}</p>}
-      </section>
-    </div>
-  )
+  const [saving, setSaving] = useState(false)
+  useEffect(() => { void getSettings().then(setSettings).catch((err) => setError(String(err))) }, [])
+  if (!settings) return <div className="page">{error ? <p className="feedback-error">{error}</p> : <Esqueleto linhas={4} />}</div>
+  async function save() { if (!settings) return; setSaving(true); setError(null); try { setSettings(await updateSettings(settings)) } catch (err) { setError(String(err)) } finally { setSaving(false) } }
+  return <div className="page"><span className="eyebrow">Administração</span><h1>Ajustes</h1><div className="settings-grid"><Card title="Política comercial"><label>Margem padrão <input type="number" value={settings.global_markup_percent} onChange={(e) => setSettings({ ...settings, global_markup_percent: Number(e.target.value) })} /> %</label><label>Alçada de desconto <input type="number" value={settings.discount_limit_percent} onChange={(e) => setSettings({ ...settings, discount_limit_percent: Number(e.target.value) })} /> %</label><label>Validade padrão <input type="number" min="1" value={settings.default_validity_days} onChange={(e) => setSettings({ ...settings, default_validity_days: Number(e.target.value) })} /> dias</label><Botao disabled={saving} onClick={() => void save()}>{saving ? 'Salvando…' : 'Salvar alterações'}</Botao>{error && <p className="feedback-error">{error}</p>}</Card></div></div>
 }

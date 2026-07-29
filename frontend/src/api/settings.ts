@@ -19,6 +19,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export interface AppSettings {
   global_markup_percent: number
+  discount_limit_percent: number
+  default_validity_days: number
 }
 
 export const getSettings = () => request<AppSettings>('/settings')

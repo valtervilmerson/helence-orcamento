@@ -29,3 +29,11 @@ def get_global_markup(connection: sqlite3.Connection) -> float:
 
 def set_global_markup(connection: sqlite3.Connection, value: float) -> None:
     set_setting(connection, "global_markup_percent", str(value))
+
+
+def get_discount_limit_percent(connection: sqlite3.Connection) -> float:
+    return float(get_setting(connection, "discount_limit_percent", "8"))
+
+
+def get_default_validity_days(connection: sqlite3.Connection) -> int:
+    return int(float(get_setting(connection, "default_validity_days", "30")))

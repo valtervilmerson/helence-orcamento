@@ -26,6 +26,8 @@ from app.quotes.schemas import (
     QuoteOut,
     QuoteReviewChecklistItem,
     QuoteReviewChecklistOut,
+    QuoteSummaryOut,
+    QuoteSummaryBucket,
     QuoteSettingsPatchIn,
     QuoteTotalsOut,
     QuoteTotalWarning,
@@ -106,6 +108,26 @@ def get_quote(connection: sqlite3.Connection, quote_id: int) -> QuoteOut:
 
 def list_quotes(connection: sqlite3.Connection) -> list[QuoteOut]:
     return [_row_to_quote_out(row) for row in repository.list_quote_rows(connection)]
+
+
+def get_summary(connection: sqlite3.Connection) -> QuoteSummaryOut:
+    buckets = {status: QuoteSummaryBucket(count=0, total=0.0) for status in ("rascunho", "enviado", "aprovado", "rejeitado", "expirado")}
+    expiring: list[int] = []
+    pending: list[int] = []
+    today = datetime.now().date()
+    for quote in list_quotes(connection):
+        totals = get_totals(connection, quote.id)
+        bucket = buckets[quote.status]
+        buckets[quote.status] = QuoteSummaryBucket(count=bucket.count + 1, total=round(bucket.total + totals.total, 2))
+        if quote.status == "rascunho" and not get_review_checklist(connection, quote.id).ready:
+            pending.append(quote.id)
+        if quote.status == "enviado" and quote.valid_until:
+            try:
+                if 0 <= (datetime.fromisoformat(quote.valid_until).date() - today).days <= 7:
+                    expiring.append(quote.id)
+            except ValueError:
+                pass
+    return QuoteSummaryOut(por_status=buckets, expirando_7d=expiring, pendencias=pending)
 
 
 def delete_quote(connection: sqlite3.Connection, quote_id: int) -> None:
