@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import sqlite3
@@ -288,12 +289,16 @@ def create_variant(
 
 
 def update_variant(
-    connection: sqlite3.Connection, variant_id: int, payload: ComponentVariantPatch
+    connection: sqlite3.Connection,
+    variant_id: int,
+    payload: ComponentVariantPatch,
+    changed_by_user_id: int | None = None,
 ) -> ComponentVariantOut:
     if not repository.variant_exists(connection, variant_id):
         raise ComponenteNaoEncontradoError(details={"id": variant_id})
 
-    data = payload.model_dump(exclude_unset=True, exclude={"sku", "price"})
+    previous = get_variant(connection, variant_id)
+    data = payload.model_dump(exclude_unset=True, exclude={"sku", "price", "change_reason"})
     _validate_variant_references(connection, data)
 
     try:
@@ -320,8 +325,18 @@ def update_variant(
             connection.rollback()
             raise PrecoDuplicadoError() from exc
 
+    updated = get_variant(connection, variant_id)
+    if payload.change_reason and changed_by_user_id is not None:
+        repository.insert_variant_change_log(
+            connection,
+            component_variant_id=variant_id,
+            changed_by_user_id=changed_by_user_id,
+            reason=payload.change_reason.strip(),
+            previous_data=json.dumps(previous.model_dump(mode="json"), ensure_ascii=False, sort_keys=True),
+            new_data=json.dumps(updated.model_dump(mode="json"), ensure_ascii=False, sort_keys=True),
+        )
     connection.commit()
-    return get_variant(connection, variant_id)
+    return updated
 
 
 def delete_variant(connection: sqlite3.Connection, variant_id: int) -> None:

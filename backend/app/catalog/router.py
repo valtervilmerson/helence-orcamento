@@ -319,9 +319,12 @@ def get_component(id: int, connection: sqlite3.Connection = Depends(get_db)) -> 
     dependencies=[Depends(require_role("admin"))],
 )
 def update_component(
-    id: int, payload: ComponentVariantPatch, connection: sqlite3.Connection = Depends(get_db)
+    id: int,
+    payload: ComponentVariantPatch,
+    connection: sqlite3.Connection = Depends(get_db),
+    user: sqlite3.Row = Depends(require_role("admin")),
 ) -> ComponentVariantOut:
-    return service.update_variant(connection, id, payload)
+    return service.update_variant(connection, id, payload, changed_by_user_id=int(user["id"]))
 
 
 @router.delete(

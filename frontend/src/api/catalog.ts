@@ -199,6 +199,7 @@ export interface ComponentVariantInput {
   description?: string | null
   sku?: { code: string; notes?: string | null } | null
   price?: { amount: number; currency: string } | null
+  change_reason?: string
 }
 
 export type ComponentVariantPatchInput = Partial<ComponentVariantInput>

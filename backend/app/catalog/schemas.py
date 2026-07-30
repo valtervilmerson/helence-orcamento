@@ -199,6 +199,7 @@ class ComponentVariantPatch(BaseModel):
     description: str | None = None
     sku: SkuIn | None = None
     price: PriceIn | None = None
+    change_reason: str | None = Field(default=None, min_length=3, max_length=500)
 
 
 class DimensionSummary(BaseModel):

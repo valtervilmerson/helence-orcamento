@@ -474,3 +474,22 @@ def expand_composition(
             expanded.append((row, item_quantity))
 
     return expanded
+
+
+def insert_variant_change_log(
+    connection: sqlite3.Connection,
+    *,
+    component_variant_id: int,
+    changed_by_user_id: int,
+    reason: str,
+    previous_data: str,
+    new_data: str,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO component_variant_change_log
+          (component_variant_id, changed_by_user_id, reason, previous_data, new_data)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (component_variant_id, changed_by_user_id, reason, previous_data, new_data),
+    )

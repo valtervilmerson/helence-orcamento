@@ -4,7 +4,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # `.env.local` é uma sobreposição apenas para desenvolvimento e não deve
+    # conter configuração de produção. No Pydantic, o primeiro arquivo tem
+    # precedência para chaves repetidas.
+    model_config = SettingsConfigDict(env_file=(".env.local", ".env"), env_file_encoding="utf-8", extra="ignore")
 
     app_env: str = "development"
     database_path: str = "./data/helence.db"

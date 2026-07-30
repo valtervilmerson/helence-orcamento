@@ -8,6 +8,7 @@ __pycache__/
 backend/data/
 backend/logs/
 backend/.env
+backend/.env.local
 
 # --- Node / frontend ---
 node_modules/
