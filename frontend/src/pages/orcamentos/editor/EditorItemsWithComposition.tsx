@@ -2,12 +2,36 @@ import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import type { QuoteItem } from '../../../api/quotes'
 import type { OrcamentoData } from './useOrcamento'
-import { EditorItemsPage } from './EditorPage'
 import { CompositionDrawer } from './CompositionDrawer'
+import { EditorItemsPage } from './EditorPage'
+
+type DrawerState =
+  | { mode: 'closed' }
+  | { mode: 'create' }
+  | { mode: 'edit'; item: QuoteItem }
 
 export function EditorItemsWithComposition() {
   const data = useOutletContext<OrcamentoData>()
-  const [item, setItem] = useState<QuoteItem | null>(null)
+  const [drawer, setDrawer] = useState<DrawerState>({ mode: 'closed' })
+
   if (!data.quote) return null
-  return <><EditorItemsPage /><div className="composition-launcher" aria-label="Editar composição"><span>Composição</span>{data.items.map((current) => <button key={current.id} disabled={data.quote?.status !== 'rascunho'} onClick={() => setItem(current)}>{current.label}</button>)}</div><CompositionDrawer quoteId={data.quoteId} item={item} onClose={() => setItem(null)} onChanged={data.recarregar} /></>
+
+  const closeDrawer = () => setDrawer({ mode: 'closed' })
+
+  return (
+    <>
+      <EditorItemsPage
+        onEditComposition={(item) => setDrawer({ mode: 'edit', item })}
+        onAddReadyProduct={() => setDrawer({ mode: 'create' })}
+      />
+      {drawer.mode !== 'closed' && (
+        <CompositionDrawer
+          quoteId={data.quoteId}
+          item={drawer.mode === 'edit' ? drawer.item : null}
+          onClose={closeDrawer}
+          onChanged={data.recarregar}
+        />
+      )}
+    </>
+  )
 }

@@ -386,6 +386,8 @@ def _component_row_to_out(row: sqlite3.Row) -> QuoteItemComponentOut:
         component=row["component"],
         descriptor=row["descriptor"],
         description=row["description"],
+        dimension_id=row["dimension_id"],
+        dimension_label=row["dimension_label"],
         sku=row["sku"],
         frozen_unit_price=row["frozen_unit_price"],
         frozen_currency=row["frozen_currency"],

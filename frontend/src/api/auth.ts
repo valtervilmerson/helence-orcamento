@@ -51,3 +51,4 @@ export const login = (email: string, password: string) =>
 export const logout = () => request<void>('/auth/logout', { method: 'POST' })
 
 export const getCurrentUser = () => request<AuthUser>('/auth/me')
+export const listUsers = () => request<AuthUser[]>('/auth/users')

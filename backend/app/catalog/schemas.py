@@ -203,6 +203,7 @@ class ComponentVariantPatch(BaseModel):
 
 
 class DimensionSummary(BaseModel):
+    id: int
     width_mm: int | None = None
     depth_mm: int | None = None
     diameter_mm: int | None = None
@@ -238,6 +239,28 @@ class ComponentVariantSearchResult(BaseModel):
     page: int
     page_size: int
     total: int
+
+
+class ComponentVariantPriceOriginSource(BaseModel):
+    kind: Literal["importacao_json", "importacao_pdf", "cadastro_manual"]
+    reference: str | None = None
+    original_filename: str | None = None
+    imported_at: str | None = None
+
+
+class ComponentVariantChangeLogOut(BaseModel):
+    changed_at: str
+    changed_by: str
+    reason: str
+    previous_price: PriceSummary | None = None
+    new_price: PriceSummary | None = None
+
+
+class ComponentVariantPriceOriginOut(BaseModel):
+    component_variant_id: int
+    price: PriceSummary | None = None
+    source: ComponentVariantPriceOriginSource
+    changes: list[ComponentVariantChangeLogOut] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

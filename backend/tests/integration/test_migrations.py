@@ -54,6 +54,10 @@ def test_migrations_are_idempotent(connection) -> None:
         "0015_entrada_amount",
         "0016_entrada_percent",
         "0017_finish_multi_group",
+        "0018_component_variants_tech_desc",
+        "0019_extracted_items_tech_desc",
+        "0020_commercial_policy_settings",
+        "0021_component_variant_audit",
     ]
     assert second == []
 
@@ -76,6 +80,10 @@ def test_migrations_are_idempotent(connection) -> None:
         "0015_entrada_amount",
         "0016_entrada_percent",
         "0017_finish_multi_group",
+        "0018_component_variants_tech_desc",
+        "0019_extracted_items_tech_desc",
+        "0020_commercial_policy_settings",
+        "0021_component_variant_audit",
     ]
 
 

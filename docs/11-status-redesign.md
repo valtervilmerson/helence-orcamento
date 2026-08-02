@@ -1,6 +1,6 @@
 # Status operacional e continuidade do redesign
 
-> **Fonte de verdade operacional do redesign.** Atualizado em 2026-07-29.
+> **Fonte de verdade operacional do redesign.** Atualizado em 2026-08-01.
 > Leia este arquivo e `Agents.md` antes de alterar frontend, settings ou PDF.
 > Sempre execute `git status --short` antes de começar: o worktree pode conter
 > mudanças de uma etapa anterior que devem ser preservadas.
@@ -35,11 +35,20 @@
 - O editor usa `useOrcamento.ts` como fonte compartilhada de orçamento, itens,
   totais e checklist.
 - Itens usam cards, permitem ajustar quantidade, aplicar/limpar desconto por
-  item com motivo e remover com `ConfirmDialog`.
+  item com motivo e remover com `ConfirmDialog`. As ações do card ficam no
+  menu `⋯`, que também permite duplicar a composição como uma nova linha.
+- O painel lateral de itens usa o checklist RN-18 para mostrar progresso,
+  pendências explicadas e links para a etapa que as resolve; também oferece
+  acesso direto às condições comerciais.
 - Condições comerciais usam autosave com debounce de 600 ms e indicador de
-  estado no cabeçalho.
+  estado no cabeçalho. A etapa agora traz cartões de escolha para margem,
+  desconto e pagamento, botões rápidos de parcelamento, alerta de alçada com
+  motivo obrigatório e a cascata financeira fixa conforme documento 07.
 - Revisão tem veredito, checklist acionável, prévia do documento e explicação
   de bloqueio antes de congelar/enviar.
+- Acompanhamento agrupa orçamentos em atenção, andamento e encerrados, com
+  filtros por situação e criação unificada de cliente + orçamento. Propostas
+  enviadas permitem registrar aprovação, recusa ou expiração com confirmação.
 - `CompositionDrawer.tsx` está conectada à etapa de itens por
   `EditorItemsWithComposition.tsx`: busca, adiciona, remove e troca componentes
   pelas APIs existentes. Variantes sem preço são bloqueadas e erros de
@@ -51,6 +60,9 @@
 
 - Consulta `/catalogo` possui filtros visuais, amostras de acabamento via
   `FINISH_HEX`, resultados com SKU/preço e inclusão em orçamento em rascunho.
+- O filtro de dimensão da consulta foi corrigido pelo complemento 09b: largura
+  reduz a lista de medidas completas, grupos são colapsáveis e a barra lateral
+  fica contida na viewport de tablet sem alterar o contrato de busca.
 - Administração `/catalogo/admin` lista variações e abre `VariantEditDrawer`.
   A gaveta edita descritor, descrição, SKU e preço, exige motivo e recarrega a
   lista após salvar. CRUDs legados nas rotas filhas permanecem como ponte.
@@ -60,6 +72,40 @@
   anterior e snapshot novo.
 - O motivo ainda não é obrigatório no backend porque os CRUDs legados não foram
   migrados; só torná-lo obrigatório após esses fluxos enviarem `change_reason`.
+- Administração em `/catalogo/admin` passou a reunir as seis entidades na mesma
+  rota: os cards trocam a tabela ativa sem navegação. Variações vendáveis têm
+  paginação de 25, criação local e edição em gaveta com motivo obrigatório.
+- A consulta em `/catalogo` agora pagina explicitamente de 25 em 25. Quando
+  aberta com `?voltarPara=/orcamentos/:id/itens`, a adição da variação é direta
+  e retorna ao editor do orçamento de origem.
+
+### Importações
+
+- `/importacoes` foi migrada para o fluxo ativo de JSON: zona de envio restrita
+  a `.json`, feedback de contrato, cartão prioritário da fila bloqueante e
+  histórico com ações por permissão. A revisão agora tem rota própria em
+  `/importacoes/:id/revisao`; o pipeline legado de processamento permanece
+  acessível somente para registros antigos recebidos.
+- A fila de revisão passou ao layout operacional de duas colunas: busca e
+  filtros com seleção em lote à esquerda; motivo da pendência e comparação
+  entre origem e catálogo à direita. Mantém correção de campo, criação de
+  acabamento, aplicação em lote, rejeição justificada e avança para o próximo
+  item pendente depois da decisão.
+
+### Ajustes
+
+- `/ajustes` agora apresenta a política comercial em edição por linha, ligada
+  às configurações persistidas de margem global, alçada de desconto e validade
+  padrão. A equipe usa `GET /auth/users`, restrito a admin, em vez de dados
+  estáticos; testes cobrem acesso permitido e negado.
+
+### Login
+
+- Login migrou para a composição de dois painéis: a proposta do produto ocupa
+  o painel de marca e o formulário permanece enxuto no painel claro. Falhas de
+  credencial usam uma mensagem genérica e o sucesso sempre direciona ao Painel.
+  Como o modelo atual não expõe uma tabela vigente, a tela não inventa esse
+  dado. Em tablet retrato, o painel de marca vira uma faixa superior de 160 px.
 
 ### Execução local
 
@@ -68,44 +114,54 @@
 - `backend/.env.local` e `frontend/.env.local` são sobreposições não
   versionadas para desenvolvimento. Em HTTP local, usar
   `SESSION_COOKIE_SECURE=false` e permitir a origem exata do Vite.
-- Nesta sessão as portas padrão estão ocupadas por processos externos; a cópia
-  verificada roda em frontend `http://localhost:5174` e backend
-  `http://localhost:8001`.
+- Nesta sessão a cópia local verificada roda em frontend
+  `http://localhost:5173` e backend `http://localhost:8000`.
 
 ## Lacunas abertas — não declarar como concluídas
 
-1. **Composição de item:** transformar o acionador provisório em ação integrada
-   no card; carregar produto pronto e filtrar complementos pela dimensão da
-   base. Preço anterior/novo e remoção da última peça já estão tratados.
-   Para o filtro, o contrato de `QuoteItemComponent` precisa expor a dimensão
-   da peça-base, ou o backend precisa oferecer uma busca compatível por item;
-   não inferir dimensão pelo texto no frontend.
-2. **Acompanhamento:** remover o comportamento legado de orçamentos finalizados
-   em `<details>` e unificar criação de cliente e orçamento em um diálogo.
-3. **Condições:** completar a cascata financeira visual, as opções grandes de
-   margem/pagamento e a mensagem de alçada conforme docs 07.
-4. **Revisão posterior:** para orçamento enviado, criar “Registrar resposta do
-   cliente” (aprovar, recusar ou expirar) com `ConfirmDialog`.
-5. **Catálogo:** paginação explícita, tabela vigente visível, retorno direto ao
-   orçamento de origem e auditoria/origem do preço na consulta. Administração
-   precisa voltar a listar/editar as seis entidades na mesma rota sem navegar.
-6. **Importações, fila de revisão, Ajustes e Login:** ainda são essencialmente
-   telas legadas e precisam migrar conforme docs 11, 12, 15 e 14.
-7. **Documento comercial:** `backend/app/quotes/export.py` ainda não foi
-   redesenhado. É o maior bloqueio para uso externo: PDF e prévia devem ser
-   equivalentes e nunca expor SKU, custo, margem, tabela, confiança ou auditoria.
+1. **Composição de item:** a ação agora vive no card e o fluxo “Carregar
+   produto pronto” cria a linha pela composição cadastrada. O contrato de
+   `QuoteItemComponent` expõe `dimension_id`/`dimension_label`, e
+   `GET /components` filtra por `dimension_id` no servidor; a gaveta usa a
+   dimensão da peça-base sem inferência textual. A criação manual passou a ter
+   os passos Peça base → Complementos → Confirmar, cartões com SKU/preço,
+   total e aviso de congelamento. Os cards de item indicam linha incompleta,
+   levam diretamente à composição e mostram o instante do preço congelado.
+   Preço anterior/novo e remoção da última peça já estão tratados. O atalho de
+   produto pronto também preenche o passo de confirmação em vez de adicionar
+   diretamente. Resta validar o fluxo com composições reais.
+2. **Acompanhamento:** o fluxo legado de finalizados foi removido e a criação
+   de cliente + orçamento está no mesmo diálogo. Rascunhos agora consultam as
+   próprias linhas para mostrar quantidade de itens incompletos e os
+   componentes ausentes, além de irem automaticamente para atenção. Resta
+   validar o carregamento dessa informação em uma base com alto volume de
+   orçamentos.
+3. **Condições:** a estrutura do documento 07 está aplicada. Resta validar o
+   comportamento com dados reais, especialmente quando a política global de
+   margem é alterada enquanto um rascunho usa o padrão da empresa.
+4. **Revisão posterior:** “Registrar resposta do cliente” já oferece aprovar,
+   recusar ou expirar com `ConfirmDialog`. O motivo opcional de recusa depende
+   de um campo persistido pelo backend, que ainda não existe no contrato.
+5. **Catálogo:** paginação explícita, retorno direto ao orçamento de origem,
+   administração unificada e a consulta de origem/auditoria de preço estão
+   entregues. A migration `0009` removeu tabela/preço por vigência; portanto a
+   leitura mostra "Preços ativos do catálogo", sem inventar código ou data de
+   tabela. A auditoria é restrita a admin/revisor e nunca integra o PDF.
+6. **Importações, fila de revisão, Ajustes e Login:** todas essas telas já
+   seguem o desenho operacional. Ainda falta validar os fluxos com dados reais.
+7. **Documento comercial:** a prévia web e `backend/app/quotes/export.py`
+   usam a folha comercial: condições, descrição comercial, desconto unificado
+   e aceite. O PDF passa a distribuir os valores a partir de `quote_totals`,
+   sem reler markup global, e não expõe SKU, custo, margem, tabela, confiança
+   ou auditoria. Ainda falta a comparação visual rigorosa página a página e o
+   embed das fontes IBM Plex para declarar equivalência total.
 8. **Hardening:** remover gradualmente `window.confirm`, `usePageHeader` e
    tokens/estilos legados; validar tablet retrato e todos os papéis.
 
 ## Próxima sequência recomendada
 
-1. Concluir a gaveta de composição integrada ao card e cobrir
-   `addComponent`/`removeComponent`/`swapComponent` com testes. Primeiro
-   expor a dimensão pelo contrato/API e aplicar o filtro server-side.
-2. Implementar resposta do cliente e concluir acompanhamento.
-3. Finalizar catálogo: entidades administrativas, paginação e auditoria.
-4. Migrar Importações, fila de revisão, Ajustes e Login.
-5. Reescrever o PDF comercial a partir do snapshot congelado e comparar com a
+1. Validar os fluxos operacionais com dados reais.
+2. Reescrever o PDF comercial a partir do snapshot congelado e comparar com a
    prévia web.
 
 ## Verificação obrigatória antes de handoff

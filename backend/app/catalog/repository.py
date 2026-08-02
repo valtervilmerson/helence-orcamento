@@ -203,6 +203,7 @@ _VARIANT_SEARCH_BASE = """
         cv.descriptor AS descriptor,
         cv.description AS description,
         cv.technical_description AS technical_description,
+        cv.dimension_id AS dim_id,
         d.width_mm AS dim_width_mm,
         d.depth_mm AS dim_depth_mm,
         d.diameter_mm AS dim_diameter_mm,
@@ -235,6 +236,7 @@ def search_variants(
     product: str | None = None,
     component: str | None = None,
     dimension: str | None = None,
+    dimension_id: int | None = None,
     finish: str | None = None,
     finish_group: str | None = None,
     q: str | None = None,
@@ -256,6 +258,9 @@ def search_variants(
     if dimension:
         conditions.append("d.raw_label = ?")
         params.append(dimension)
+    if dimension_id is not None:
+        conditions.append("cv.dimension_id = ?")
+        params.append(dimension_id)
     if finish:
         conditions.append("f.name = ?")
         params.append(finish)
@@ -493,3 +498,45 @@ def insert_variant_change_log(
         """,
         (component_variant_id, changed_by_user_id, reason, previous_data, new_data),
     )
+
+
+def get_variant_price_origin(
+    connection: sqlite3.Connection, variant_id: int
+) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT
+            pr.amount AS price_amount,
+            pr.currency AS price_currency,
+            pr.source_extracted_item_id,
+            ei.source_text,
+            ip.page_profile,
+            imported_files.original_filename,
+            imported_files.imported_at
+        FROM component_variants cv
+        LEFT JOIN prices pr ON pr.component_variant_id = cv.id
+        LEFT JOIN extracted_items ei ON ei.id = pr.source_extracted_item_id
+        LEFT JOIN imported_pages ip ON ip.id = ei.imported_page_id
+        LEFT JOIN imported_files ON imported_files.id = ip.imported_file_id
+        WHERE cv.id = ?
+        """,
+        (variant_id,),
+    ).fetchone()
+
+
+def list_variant_change_logs(connection: sqlite3.Connection, variant_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT
+            log.created_at AS changed_at,
+            users.name AS changed_by,
+            log.reason,
+            log.previous_data,
+            log.new_data
+        FROM component_variant_change_log log
+        JOIN users ON users.id = log.changed_by_user_id
+        WHERE log.component_variant_id = ?
+        ORDER BY log.created_at DESC, log.id DESC
+        """,
+        (variant_id,),
+    ).fetchall()

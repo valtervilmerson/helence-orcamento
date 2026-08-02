@@ -1,5 +1,7 @@
 """Ciclo de vida básico de orçamentos (docs/06, 14.10-14.13; docs/07, Fase 3)."""
 
+import fitz
+
 from app.db.connection import get_connection
 from app.db.seed import SEED_CUSTOMER_NAME
 
@@ -223,12 +225,19 @@ def test_discount_without_reason_is_blocked(client) -> None:
 
 
 def _create_variant_with_price(
-    client, *, component_id: int, descriptor: str, sku: str, amount: float = 100
+    client,
+    *,
+    component_id: int,
+    descriptor: str,
+    sku: str,
+    amount: float = 100,
+    dimension_id: int | None = None,
 ) -> dict:
     response = client.post(
         "/api/v1/components",
         json={
             "component_id": component_id,
+            "dimension_id": dimension_id,
             "descriptor": descriptor,
             "sku": {"code": sku},
             "price": {"amount": amount},
@@ -236,6 +245,103 @@ def _create_variant_with_price(
     )
     assert response.status_code == 201
     return response.json()
+
+
+def test_composition_uses_base_dimension_for_search_and_component_lifecycle(client) -> None:
+    """A dimensão exposta pela linha guia a busca de complementos (RN-03)."""
+    dimensions = [
+        client.post(
+            "/api/v1/catalog/dimensions",
+            json={"width_mm": width, "depth_mm": 900, "raw_label": f"{width}×900"},
+        ).json()
+        for width in (1200, 1600)
+    ]
+    dimension_1200, dimension_1600 = dimensions
+    component_types = client.get("/api/v1/catalog/component-types").json()
+    tampo_id = next(
+        component["id"] for component in component_types if component["name"] == "Tampo"
+    )
+    estrutura = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Estrutura dimensão teste"}
+    ).json()
+
+    tampo_base = _create_variant_with_price(
+        client,
+        component_id=tampo_id,
+        dimension_id=dimension_1200["id"],
+        descriptor="Tampo base 1200",
+        sku="TOP-DIM-1200-A",
+        amount=100,
+    )
+    tampo_substituto = _create_variant_with_price(
+        client,
+        component_id=tampo_id,
+        dimension_id=dimension_1200["id"],
+        descriptor="Tampo substituto 1200",
+        sku="TOP-DIM-1200-B",
+        amount=150,
+    )
+    estrutura_1200 = _create_variant_with_price(
+        client,
+        component_id=estrutura["id"],
+        dimension_id=dimension_1200["id"],
+        descriptor="Estrutura 1200",
+        sku="EST-DIM-1200",
+        amount=80,
+    )
+    estrutura_1600 = _create_variant_with_price(
+        client,
+        component_id=estrutura["id"],
+        dimension_id=dimension_1600["id"],
+        descriptor="Estrutura 1600",
+        sku="EST-DIM-1600",
+        amount=90,
+    )
+
+    search = client.get("/api/v1/components", params={"dimension_id": dimension_1200["id"]})
+    assert search.status_code == 200
+    result_ids = {variant["component_variant_id"] for variant in search.json()["items"]}
+    assert estrutura_1200["component_variant_id"] in result_ids
+    assert estrutura_1600["component_variant_id"] not in result_ids
+
+    quote = client.post("/api/v1/quotes", json={"customer_id": _customer_id()}).json()
+    item = client.post(
+        f"/api/v1/quotes/{quote['id']}/items",
+        json={
+            "component_variant_id": tampo_base["component_variant_id"],
+            "label": "Mesa dimensão teste",
+        },
+    ).json()
+    base_component = item["components"][0]
+    assert base_component["dimension_id"] == dimension_1200["id"]
+    assert base_component["dimension_label"] == "1200×900"
+
+    added = client.post(
+        f"/api/v1/quotes/{quote['id']}/items/{item['id']}/components",
+        json={"component_variant_id": estrutura_1200["component_variant_id"]},
+    )
+    assert added.status_code == 201
+    structure_component = next(
+        component
+        for component in added.json()["components"]
+        if component["component_variant_id"] == estrutura_1200["component_variant_id"]
+    )
+
+    swapped = client.patch(
+        f"/api/v1/quotes/{quote['id']}/items/{item['id']}/components/{base_component['id']}",
+        json={"component_variant_id": tampo_substituto["component_variant_id"]},
+    )
+    assert swapped.status_code == 200
+    assert swapped.json()["previous_frozen_unit_price"] == 100
+    assert swapped.json()["frozen_unit_price"] == 150
+
+    removed = client.delete(
+        f"/api/v1/quotes/{quote['id']}/items/{item['id']}/components/{structure_component['id']}"
+    )
+    assert removed.status_code == 200
+    assert [component["component_variant_id"] for component in removed.json()["components"]] == [
+        tampo_substituto["component_variant_id"]
+    ]
 
 
 def _create_variant_with_product(
@@ -1106,6 +1212,11 @@ def test_export_pdf_after_freeze(client) -> None:
     assert response.headers["content-type"] == "application/pdf"
     assert quote["quote_number"] in response.headers["content-disposition"]
     assert response.content[:4] == b"%PDF"
+    with fitz.open(stream=response.content, filetype="pdf") as document:
+        text = "".join(page.get_text() for page in document)
+    assert "Helence Mobiliário" in text
+    assert "TOP-EXPORT" not in text
+    assert "SKU" not in text
 
 
 def test_export_blocked_before_freeze(client) -> None:

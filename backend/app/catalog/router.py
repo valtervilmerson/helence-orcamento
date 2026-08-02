@@ -12,6 +12,7 @@ from app.catalog.schemas import (
     CompatibilityRuleOut,
     CompatibilityRulePatch,
     ComponentVariantIn,
+    ComponentVariantPriceOriginOut,
     ComponentVariantOut,
     ComponentVariantPatch,
     ComponentVariantSearchResult,
@@ -273,6 +274,7 @@ def search_components(
     product: str | None = Query(default=None),
     component: str | None = Query(default=None),
     dimension: str | None = Query(default=None),
+    dimension_id: int | None = Query(default=None, ge=1),
     finish: str | None = Query(default=None),
     finish_group: str | None = Query(default=None),
     q: str | None = Query(default=None),
@@ -286,6 +288,7 @@ def search_components(
         product=product,
         component=component,
         dimension=dimension,
+        dimension_id=dimension_id,
         finish=finish,
         finish_group=finish_group,
         q=q,
@@ -304,6 +307,17 @@ def create_component(
     payload: ComponentVariantIn, connection: sqlite3.Connection = Depends(get_db)
 ) -> ComponentVariantOut:
     return service.create_variant(connection, payload)
+
+
+@router.get(
+    "/components/{id}/price-origin",
+    response_model=ComponentVariantPriceOriginOut,
+    dependencies=[Depends(require_role("admin", "revisor"))],
+)
+def get_component_price_origin(
+    id: int, connection: sqlite3.Connection = Depends(get_db)
+) -> ComponentVariantPriceOriginOut:
+    return service.get_variant_price_origin(connection, id)
 
 
 @router.get(

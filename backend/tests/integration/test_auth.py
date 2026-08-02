@@ -95,3 +95,18 @@ def test_anonymous_cannot_list_quotes() -> None:
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "NAO_AUTENTICADO"
+
+
+def test_admin_can_list_team_users(client) -> None:
+    response = client.get("/api/v1/auth/users")
+
+    assert response.status_code == 200
+    assert response.json()[0]["role"] == "admin"
+
+
+def test_non_admin_cannot_list_team_users(client, as_role) -> None:
+    as_role("vendedor@helence.local")
+
+    response = client.get("/api/v1/auth/users")
+
+    assert response.status_code == 403

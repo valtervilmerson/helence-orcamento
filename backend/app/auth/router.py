@@ -4,8 +4,8 @@ import sqlite3
 
 from fastapi import APIRouter, Depends, Response, status
 
-from app.auth import service
-from app.auth.dependencies import SESSION_COOKIE_NAME, get_current_user
+from app.auth import repository, service
+from app.auth.dependencies import SESSION_COOKIE_NAME, get_current_user, require_role
 from app.auth.schemas import LoginIn, UserOut
 from app.auth.security import SESSION_MAX_AGE_SECONDS, create_session_token
 from app.config import get_settings
@@ -55,3 +55,9 @@ def logout(response: Response) -> None:
 @router.get("/me", response_model=UserOut)
 def me(user: sqlite3.Row = Depends(get_current_user)) -> UserOut:
     return _user_out(user)
+
+
+@router.get("/users", response_model=list[UserOut], dependencies=[Depends(require_role("admin"))])
+def users() -> list[UserOut]:
+    with get_connection() as connection:
+        return [_user_out(user) for user in repository.list_users(connection)]

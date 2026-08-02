@@ -1,482 +1,223 @@
-"""Geração de PDF do orçamento (docs/06 §14.14; docs/04 Tela 9).
+"""Geração do PDF comercial a partir do snapshot congelado do orçamento.
 
-O PDF é montado a partir do snapshot congelado (`quote_totals` +
-`quote_item_components`) — não recalcula preços. Distingue observações do
-vendedor (`quote_items.notes`) de observações de catálogo/fabricante
-(`business_rules`, RN-11).
-
-Layout "executivo": cabeçalho com a logo da empresa em todas as páginas,
-dados do cliente, tabela de itens com cabeçalho destacado e caixa de totais
-com o valor final em evidência.
+O documento é deliberadamente uma visão para o cliente: não expõe SKU,
+markup, custo, tabela de preço, confiança de importação ou auditoria. Os
+totais usados vêm exclusivamente de ``quote_totals``; os preços por linha são
+distribuídos proporcionalmente a partir desse snapshot, sem reler a margem
+global atual (RN-16).
 """
 
 from __future__ import annotations
 
 import sqlite3
 from datetime import datetime
-from pathlib import Path
+from typing import Any
 
 import fitz
 
-from app.quotes import pricing, repository
-from app.settings import repository as settings_repository
+from app.quotes import repository
 
 _PAGE_WIDTH = 595.0
 _PAGE_HEIGHT = 842.0
-_MARGIN = 50.0
-_CONTENT_WIDTH = _PAGE_WIDTH - 2 * _MARGIN
-_TABLE_RIGHT = _MARGIN + _CONTENT_WIDTH
+_LEFT = 45.0
+_RIGHT = _PAGE_WIDTH - _LEFT
+_BOTTOM = _PAGE_HEIGHT - 48.0
 
-_NAVY = (0.13, 0.20, 0.32)
-_ACCENT = (0.72, 0.45, 0.18)
-_GRAY = (0.45, 0.45, 0.45)
-_LIGHT_GRAY = (0.90, 0.90, 0.92)
-_WHITE = (1.0, 1.0, 1.0)
-
-_LOGO_PATH = Path(__file__).resolve().parent / "assets" / "logo.png"
-_LOGO_RATIO = 89 / 359  # altura / largura da imagem original
-
-_HEADER_HEIGHT = 60.0
-_FOOTER_HEIGHT = 26.0
-
-# Colunas da tabela de itens.
-_COL_DESC = _MARGIN
-_COL_QTY = _MARGIN + 275
-_COL_UNIT = _COL_QTY + 40
-_COL_SUBTOTAL = _COL_UNIT + 85
+_GREEN = (23 / 255, 55 / 255, 42 / 255)
+_GREEN_LIGHT = (241 / 255, 247 / 255, 243 / 255)
+_GOLD = (233 / 255, 201 / 255, 122 / 255)
+_INK = (28 / 255, 33 / 255, 30 / 255)
+_MUTED = (110 / 255, 120 / 255, 115 / 255)
+_LINE = (227 / 255, 225 / 255, 218 / 255)
 
 
-def _format_currency(value: float, currency: str) -> str:
-    sign = "-" if value < 0 else ""
-    text = f"{abs(value):,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
-    if currency == "BRL":
-        return f"{sign}R$ {text}"
-    return f"{sign}{text} {currency}"
+def _currency(value: float, currency: str) -> str:
+    number = f"{abs(value):,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
+    prefix = "− " if value < 0 else ""
+    return f"{prefix}R$ {number}" if currency == "BRL" else f"{prefix}{number} {currency}"
 
 
-def _wrap_text(text: str, fontsize: float, fontname: str, max_width: float) -> list[str]:
-    words = text.split()
-    lines: list[str] = []
-    current = ""
-    for word in words:
-        candidate = f"{current} {word}".strip()
-        if fitz.get_text_length(candidate, fontname=fontname, fontsize=fontsize) <= max_width:
-            current = candidate
+def _date(value: str | None) -> str | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).strftime("%d/%m/%Y")
+    except ValueError:
+        return value
+
+
+def _commercial_description(components: list[dict[str, Any]]) -> str:
+    parts = [component.get("description") or component.get("descriptor") or component.get("component") for component in components]
+    text = " · ".join(part for part in parts if part)
+    if not text:
+        return "Composição personalizada Helence."
+    return f"{text[:1].upper()}{text[1:]}."
+
+
+def _line_values(items: list[sqlite3.Row], connection: sqlite3.Connection, subtotal: float) -> list[dict[str, Any]]:
+    """Distribui o subtotal congelado entre linhas sem ler markup atual."""
+    prepared: list[dict[str, Any]] = []
+    raw_total = 0.0
+    for item in items:
+        components = [dict(row) for row in repository.get_item_components(connection, item["id"])]
+        raw = sum(float(component["frozen_unit_price"]) * float(component["quantity"]) for component in components) * item["quantity"]
+        raw_total += raw
+        prepared.append({"item": dict(item), "components": components, "raw": raw})
+    scale = subtotal / raw_total if raw_total else 0.0
+    for entry in prepared:
+        item = entry["item"]
+        line_before_discount = entry["raw"] * scale
+        if item.get("discount_percent") is not None:
+            discount = line_before_discount * float(item["discount_percent"]) / 100
+        elif item.get("discount_amount") is not None:
+            discount = float(item["discount_amount"])
         else:
-            if current:
-                lines.append(current)
-            current = word
-    lines.append(current)
-    return lines
+            discount = 0.0
+        entry["line_total"] = max(0.0, line_before_discount - discount)
+        entry["unit_value"] = entry["line_total"] / item["quantity"] if item["quantity"] else 0.0
+    return prepared
 
 
-class _PdfWriter:
-    """Monta o PDF do orçamento com cabeçalho/rodapé recorrentes e tabela de itens."""
+class _ProposalPdf:
+    def __init__(self, quote_number: str, issued_at: str) -> None:
+        self.doc = fitz.open()
+        self.quote_number = quote_number
+        self.issued_at = issued_at
+        self.page = self.doc.new_page(width=_PAGE_WIDTH, height=_PAGE_HEIGHT)
+        self.y = _LEFT
+        self._page_header()
 
-    def __init__(self, doc: fitz.Document, *, quote_number: str, generated_at: str) -> None:
-        self._doc = doc
-        self._quote_number = quote_number
-        self._generated_at = generated_at
-        self._table_header_pending = False
-        self._page = self._new_page()
+    def _page_header(self) -> None:
+        page = self.page
+        page.draw_rect(fitz.Rect(_LEFT, self.y, _LEFT + 40, self.y + 40), color=None, fill=_GREEN)
+        page.insert_text((_LEFT + 13, self.y + 27), "h", fontsize=22, fontname="tiro", color=_GOLD)
+        page.insert_text((_LEFT + 52, self.y + 18), "Helence Mobiliário", fontsize=19, fontname="tibo", color=_GREEN)
+        page.insert_text((_LEFT + 52, self.y + 34), "Mesas de reunião sob medida · desde 1998", fontsize=8.8, fontname="helv", color=_MUTED)
+        page.insert_textbox(fitz.Rect(400, self.y, _RIGHT, self.y + 14), "PROPOSTA", fontsize=8.5, fontname="hebo", color=_MUTED, align=fitz.TEXT_ALIGN_RIGHT)
+        page.insert_textbox(fitz.Rect(400, self.y + 13, _RIGHT, self.y + 31), self.quote_number, fontsize=13, fontname="hebo", color=_GREEN, align=fitz.TEXT_ALIGN_RIGHT)
+        page.insert_textbox(fitz.Rect(400, self.y + 30, _RIGHT, self.y + 44), f"Emitida em {self.issued_at}", fontsize=8.5, fontname="helv", color=_MUTED, align=fitz.TEXT_ALIGN_RIGHT)
+        self.y += 58
+        page.draw_line(fitz.Point(_LEFT, self.y), fitz.Point(_RIGHT, self.y), color=_GREEN, width=1.5)
+        self.y += 20
 
-    # -- páginas -------------------------------------------------------
+    def _new_page(self) -> None:
+        self.page = self.doc.new_page(width=_PAGE_WIDTH, height=_PAGE_HEIGHT)
+        self.y = _LEFT
+        self._page_header()
 
-    def _new_page(self) -> fitz.Page:
-        page = self._doc.new_page(width=_PAGE_WIDTH, height=_PAGE_HEIGHT)
-        self._draw_header(page)
-        self._y = _MARGIN + _HEADER_HEIGHT
-        return page
+    def _space(self, height: float) -> None:
+        if self.y + height > _BOTTOM:
+            self._new_page()
 
-    def _draw_header(self, page: fitz.Page) -> None:
-        if _LOGO_PATH.exists():
-            logo_width = 110.0
-            logo_height = logo_width * _LOGO_RATIO
-            logo_rect = fitz.Rect(
-                _MARGIN, _MARGIN - 8, _MARGIN + logo_width, _MARGIN - 8 + logo_height
-            )
-            page.insert_image(logo_rect, filename=str(_LOGO_PATH))
+    def text(self, rect: fitz.Rect, value: str, *, size: float, font: str = "helv", color: tuple[float, float, float] = _INK, align: int = fitz.TEXT_ALIGN_LEFT) -> None:
+        self.page.insert_textbox(rect, value, fontsize=size, fontname=font, color=color, align=align, lineheight=1.3)
 
-        title_rect = fitz.Rect(_MARGIN, _MARGIN - 10, _TABLE_RIGHT, _MARGIN + 16)
-        page.insert_textbox(
-            title_rect,
-            f"Orçamento {self._quote_number}",
-            fontsize=14,
-            fontname="hebo",
-            color=_NAVY,
-            align=fitz.TEXT_ALIGN_RIGHT,
-        )
-        subtitle_rect = fitz.Rect(_MARGIN, _MARGIN + 12, _TABLE_RIGHT, _MARGIN + 28)
-        page.insert_textbox(
-            subtitle_rect,
-            f"Gerado em {self._generated_at}",
-            fontsize=9,
-            fontname="helv",
-            color=_GRAY,
-            align=fitz.TEXT_ALIGN_RIGHT,
-        )
+    def metadata(self, customer: sqlite3.Row, quote: sqlite3.Row, payment: str) -> None:
+        self._space(98)
+        left = fitz.Rect(_LEFT, self.y, 294, self.y + 82)
+        right = fitz.Rect(324, self.y, _RIGHT, self.y + 82)
+        self.text(fitz.Rect(left.x0, left.y0, left.x1, left.y0 + 12), "PREPARADA PARA", size=8.5, font="hebo", color=_GREEN)
+        self.text(fitz.Rect(left.x0, left.y0 + 17, left.x1, left.y0 + 40), quote["customer_name"], size=16, font="tibo", color=_GREEN)
+        contact = " · ".join(value for value in (customer["document"], customer["email"], customer["phone"]) if value)
+        details = "\n".join(value for value in (contact, customer["address"]) if value) or "Proposta comercial preparada especialmente para este projeto."
+        self.text(fitz.Rect(left.x0, left.y0 + 44, left.x1, left.y1), details, size=8.8, color=_MUTED)
+        self.text(fitz.Rect(right.x0, right.y0, right.x1, right.y0 + 12), "CONDIÇÕES", size=8.5, font="hebo", color=_GREEN)
+        validity = _date(quote["valid_until"]) or "a definir"
+        consultant = quote["created_by_name"] or "Equipe comercial Helence"
+        self.text(fitz.Rect(right.x0, right.y0 + 18, right.x1, right.y1), f"Validade: {validity}\nPagamento: {payment}\nConsultora: {consultant}", size=8.8, color=_INK)
+        self.y += 92
+        self.page.draw_line(fitz.Point(_LEFT, self.y), fitz.Point(_RIGHT, self.y), color=_LINE, width=.7)
+        self.y += 22
 
-        line_y = _MARGIN + _HEADER_HEIGHT - 12
-        page.draw_line(
-            fitz.Point(_MARGIN, line_y),
-            fitz.Point(_TABLE_RIGHT, line_y),
-            color=_ACCENT,
-            width=1.5,
-        )
+    def item_header(self) -> None:
+        self._space(30)
+        self.text(fitz.Rect(_LEFT, self.y, _RIGHT, self.y + 12), "ITENS DA PROPOSTA", size=8.5, font="hebo", color=_GREEN)
+        self.y += 18
+        self.page.draw_line(fitz.Point(_LEFT, self.y), fitz.Point(_RIGHT, self.y), color=_GREEN, width=.8)
+        self.text(fitz.Rect(_LEFT, self.y + 4, 325, self.y + 18), "DESCRIÇÃO", size=8, font="hebo", color=_GREEN)
+        self.text(fitz.Rect(330, self.y + 4, 375, self.y + 18), "QTD", size=8, font="hebo", color=_GREEN, align=fitz.TEXT_ALIGN_RIGHT)
+        self.text(fitz.Rect(380, self.y + 4, 462, self.y + 18), "UNITÁRIO", size=8, font="hebo", color=_GREEN, align=fitz.TEXT_ALIGN_RIGHT)
+        self.text(fitz.Rect(468, self.y + 4, _RIGHT, self.y + 18), "TOTAL", size=8, font="hebo", color=_GREEN, align=fitz.TEXT_ALIGN_RIGHT)
+        self.y += 23
 
-    def _ensure_space(self, height: float) -> None:
-        if self._y + height > _PAGE_HEIGHT - _MARGIN - _FOOTER_HEIGHT:
-            self._page = self._new_page()
-            if self._table_header_pending:
-                self.table_header()
+    def item(self, entry: dict[str, Any], currency: str) -> None:
+        item = entry["item"]
+        description = _commercial_description(entry["components"])
+        lines = max(1, len(description) // 70 + 1)
+        height = 28 + lines * 11
+        self._space(height + 8)
+        self.text(fitz.Rect(_LEFT, self.y, 318, self.y + 18), item["label"], size=11.5, font="tibo", color=_GREEN)
+        self.text(fitz.Rect(_LEFT, self.y + 16, 318, self.y + height), description, size=8.5, color=_MUTED)
+        self.text(fitz.Rect(330, self.y + 5, 375, self.y + 20), f"{item['quantity']:g}", size=9.5, align=fitz.TEXT_ALIGN_RIGHT)
+        self.text(fitz.Rect(380, self.y + 5, 462, self.y + 20), _currency(entry["unit_value"], currency), size=9.2, align=fitz.TEXT_ALIGN_RIGHT)
+        self.text(fitz.Rect(468, self.y + 5, _RIGHT, self.y + 20), _currency(entry["line_total"], currency), size=9.2, font="hebo", color=_GREEN, align=fitz.TEXT_ALIGN_RIGHT)
+        self.y += height
+        self.page.draw_line(fitz.Point(_LEFT, self.y), fitz.Point(_RIGHT, self.y), color=_LINE, width=.6)
+        self.y += 8
 
-    # -- texto simples ---------------------------------------------------
+    def totals(self, totals: sqlite3.Row, quote: sqlite3.Row) -> None:
+        self._space(132)
+        x0, width = 308, 242
+        subtotal = float(totals["subtotal"])
+        item_discount = float(totals["item_discount_amount"] or 0)
+        quote_discount = float(totals["quote_discount_amount"] or totals["discount_amount"] or 0) - item_discount
+        discount = item_discount + max(0.0, quote_discount)
+        rows = [("Subtotal", subtotal, _INK)]
+        if discount > 0:
+            rows.append(("Desconto comercial", -discount, _GREEN))
+        for index, (label, value, color) in enumerate(rows):
+            y = self.y + index * 19
+            self.text(fitz.Rect(x0, y, x0 + 125, y + 15), label, size=9.5, color=color)
+            self.text(fitz.Rect(x0 + 125, y, _RIGHT, y + 15), _currency(value, totals["currency"]), size=9.5, font="hebo", color=color, align=fitz.TEXT_ALIGN_RIGHT)
+        total_y = self.y + len(rows) * 19 + 4
+        self.page.draw_line(fitz.Point(x0, total_y), fitz.Point(_RIGHT, total_y), color=_GREEN, width=.9)
+        self.text(fitz.Rect(x0, total_y + 8, x0 + 130, total_y + 30), "Total da proposta", size=13, font="tibo", color=_GREEN)
+        self.text(fitz.Rect(x0 + 120, total_y + 5, _RIGHT, total_y + 33), _currency(float(totals["total"]), totals["currency"]), size=18, font="tibo", color=_GREEN, align=fitz.TEXT_ALIGN_RIGHT)
+        self.y = total_y + 42
+        count = int(totals["installment_count"] or 1)
+        if count > 1:
+            self._space(48)
+            box = fitz.Rect(x0, self.y, _RIGHT, self.y + 47)
+            self.page.draw_rect(box, color=None, fill=_GREEN_LIGHT)
+            entry = float(quote["entrada_amount"] or 0)
+            if quote["entrada_percent"]:
+                entry = float(totals["installment_total"] or totals["total"]) * float(quote["entrada_percent"]) / 100
+            prefix = f"Entrada de {_currency(entry, totals['currency'])} e mais " if entry > 0 else ""
+            interest = "sem juros" if not totals["installment_interest_amount"] else "com juros"
+            self.text(fitz.Rect(x0 + 12, self.y + 9, _RIGHT - 12, self.y + 38), f"{prefix}{count} × {_currency(float(totals['installment_value']), totals['currency'])}\n{interest} · primeira parcela 30 dias após a entrega", size=8.8, font="hebo", color=_GREEN)
+            self.y += 58
 
-    def line(
-        self,
-        text: str,
-        *,
-        size: float = 10,
-        bold: bool = False,
-        color: tuple[float, float, float] = (0, 0, 0),
-        indent: float = 0.0,
-    ) -> None:
-        self._ensure_space(14.0 * (size / 10))
-        fontname = "hebo" if bold else "helv"
-        self._page.insert_text(
-            (_MARGIN + indent, self._y + size), text, fontsize=size, fontname=fontname, color=color
-        )
-        self._y += 14.0 * (size / 10)
+    def footer(self, validity: str | None) -> None:
+        self._space(82)
+        self.y = max(self.y + 20, _BOTTOM - 62)
+        self.page.draw_line(fitz.Point(_LEFT, self.y), fitz.Point(_RIGHT, self.y), color=_LINE, width=.7)
+        self.text(fitz.Rect(_LEFT, self.y + 9, 330, self.y + 40), f"Valores em reais, impostos inclusos. Instalação em Curitiba e região metropolitana inclusa. Esta proposta perde a validade em {validity or 'data a definir'}.", size=7.8, color=_MUTED)
+        self.text(fitz.Rect(355, self.y + 12, _RIGHT, self.y + 40), "_______________________________\nAceite do cliente · data e assinatura", size=7.8, color=_MUTED, align=fitz.TEXT_ALIGN_CENTER)
 
-    def spacer(self, height: float = 8.0) -> None:
-        self._y += height
-
-    def section_title(self, text: str) -> None:
-        self._ensure_space(24.0)
-        self._page.insert_text(
-            (_MARGIN, self._y + 12), text, fontsize=12, fontname="hebo", color=_NAVY
-        )
-        self._y += 16.0
-        self._page.draw_line(
-            fitz.Point(_MARGIN, self._y),
-            fitz.Point(_TABLE_RIGHT, self._y),
-            color=_LIGHT_GRAY,
-            width=0.75,
-        )
-        self._y += 10.0
-
-    # -- tabela de itens --------------------------------------------------
-
-    def table_header(self) -> None:
-        self._table_header_pending = True
-        self._ensure_space(20.0)
-        header_rect = fitz.Rect(_MARGIN, self._y, _TABLE_RIGHT, self._y + 18)
-        self._page.draw_rect(header_rect, color=None, fill=_NAVY)
-        self._page.insert_text(
-            (_COL_DESC + 4, self._y + 13), "Descrição", fontsize=9, fontname="hebo", color=_WHITE
-        )
-        self._page.insert_textbox(
-            fitz.Rect(_COL_QTY, self._y, _COL_UNIT, self._y + 18),
-            "Qtd",
-            fontsize=9,
-            fontname="hebo",
-            color=_WHITE,
-            align=fitz.TEXT_ALIGN_CENTER,
-        )
-        self._page.insert_textbox(
-            fitz.Rect(_COL_UNIT, self._y, _COL_SUBTOTAL - 4, self._y + 18),
-            "Valor unit.",
-            fontsize=9,
-            fontname="hebo",
-            color=_WHITE,
-            align=fitz.TEXT_ALIGN_RIGHT,
-        )
-        self._page.insert_textbox(
-            fitz.Rect(_COL_SUBTOTAL, self._y, _TABLE_RIGHT - 4, self._y + 18),
-            "Subtotal",
-            fontsize=9,
-            fontname="hebo",
-            color=_WHITE,
-            align=fitz.TEXT_ALIGN_RIGHT,
-        )
-        self._y += 22.0
-
-    def item_row(
-        self,
-        description: str,
-        quantity: float,
-        unit_value: float | None,
-        subtotal: float,
-        currency: str,
-    ) -> None:
-        desc_lines = _wrap_text(description, 10, "hebo", _COL_QTY - _COL_DESC - 6)
-        row_height = max(18.0, 14.0 * len(desc_lines))
-        self._ensure_space(row_height)
-
-        for index, desc_line in enumerate(desc_lines):
-            self._page.insert_text(
-                (_COL_DESC, self._y + 11 + 14 * index),
-                desc_line,
-                fontsize=10,
-                fontname="hebo",
-                color=_NAVY,
-            )
-
-        cell_rect = fitz.Rect(_COL_QTY, self._y, _COL_UNIT, self._y + 16)
-        self._page.insert_textbox(
-            cell_rect, f"{quantity:g}", fontsize=10, fontname="helv", align=fitz.TEXT_ALIGN_CENTER
-        )
-        unit_text = _format_currency(unit_value, currency) if unit_value is not None else "—"
-        self._page.insert_textbox(
-            fitz.Rect(_COL_UNIT, self._y, _COL_SUBTOTAL - 4, self._y + 16),
-            unit_text,
-            fontsize=10,
-            fontname="helv",
-            align=fitz.TEXT_ALIGN_RIGHT,
-        )
-        self._page.insert_textbox(
-            fitz.Rect(_COL_SUBTOTAL, self._y, _TABLE_RIGHT - 4, self._y + 16),
-            _format_currency(subtotal, currency),
-            fontsize=10,
-            fontname="hebo",
-            color=_NAVY,
-            align=fitz.TEXT_ALIGN_RIGHT,
-        )
-        self._y += row_height + 4.0
-
-    def row_separator(self) -> None:
-        self._ensure_space(6.0)
-        self._page.draw_line(
-            fitz.Point(_MARGIN, self._y),
-            fitz.Point(_TABLE_RIGHT, self._y),
-            color=_LIGHT_GRAY,
-            width=0.5,
-        )
-        self._y += 8.0
-
-    # -- caixa de totais ---------------------------------------------------
-
-    def totals_box(self, rows: list[tuple[str, float, str, bool]]) -> None:
-        box_width = 220.0
-        box_x0 = _TABLE_RIGHT - box_width
-        row_height = 20.0
-        box_height = row_height * len(rows)
-        self._ensure_space(box_height + 6.0)
-
-        self._page.draw_rect(
-            fitz.Rect(box_x0, self._y, _TABLE_RIGHT, self._y + box_height),
-            color=_LIGHT_GRAY,
-            fill=_WHITE,
-            width=0.75,
-        )
-        for index, (label, value, currency, is_total) in enumerate(rows):
-            row_y0 = self._y + row_height * index
-            row_y1 = row_y0 + row_height
-            if is_total:
-                self._page.draw_rect(
-                    fitz.Rect(box_x0, row_y0, _TABLE_RIGHT, row_y1), color=None, fill=_NAVY
-                )
-                color = _WHITE
-                fontname = "hebo"
-            else:
-                color = (0.0, 0.0, 0.0)
-                fontname = "helv"
-            self._page.insert_textbox(
-                fitz.Rect(box_x0 + 10, row_y0, box_x0 + 120, row_y1),
-                label,
-                fontsize=10,
-                fontname=fontname,
-                color=color,
-                align=fitz.TEXT_ALIGN_LEFT,
-            )
-            self._page.insert_textbox(
-                fitz.Rect(box_x0 + 110, row_y0, _TABLE_RIGHT - 10, row_y1),
-                _format_currency(value, currency),
-                fontsize=10,
-                fontname=fontname,
-                color=color,
-                align=fitz.TEXT_ALIGN_RIGHT,
-            )
-        self._y += box_height
-
-    # -- finalização ---------------------------------------------------
-
-    def finalize(self) -> None:
-        total_pages = len(self._doc)
-        for index in range(total_pages):
-            page = self._doc[index]
-            footer_y = _PAGE_HEIGHT - _MARGIN + 6
-            page.draw_line(
-                fitz.Point(_MARGIN, footer_y - 8),
-                fitz.Point(_TABLE_RIGHT, footer_y - 8),
-                color=_LIGHT_GRAY,
-                width=0.75,
-            )
-            page.insert_text(
-                (_MARGIN, footer_y + 4),
-                "Helence Móveis Corporativos e Planejados",
-                fontsize=8,
-                fontname="helv",
-                color=_GRAY,
-            )
-            page.insert_textbox(
-                fitz.Rect(_MARGIN, footer_y, _TABLE_RIGHT, footer_y + 16),
-                f"Página {index + 1} de {total_pages}",
-                fontsize=8,
-                fontname="helv",
-                color=_GRAY,
-                align=fitz.TEXT_ALIGN_RIGHT,
-            )
+    def close(self) -> bytes:
+        pages = len(self.doc)
+        for index, page in enumerate(self.doc):
+            page.insert_textbox(fitz.Rect(_LEFT, _PAGE_HEIGHT - 28, _RIGHT, _PAGE_HEIGHT - 15), f"Página {index + 1} de {pages}", fontsize=7.5, fontname="helv", color=_MUTED, align=fitz.TEXT_ALIGN_RIGHT)
+        result = self.doc.tobytes()
+        self.doc.close()
+        return result
 
 
 def generate_pdf(connection: sqlite3.Connection, quote_id: int) -> bytes:
-    quote_row = repository.get_quote_row(connection, quote_id)
-    customer_row = repository.get_customer(connection, quote_row["customer_id"])
-    item_rows = repository.list_items_with_components(connection, quote_id)
-    totals_row = repository.get_quote_totals_row(connection, quote_id)
-    catalog_observations = repository.get_catalog_observations_for_quote(connection, quote_id)
-    currency = totals_row["currency"] if totals_row else "BRL"
-    if quote_row["markup_uses_global"]:
-        effective_markup = settings_repository.get_global_markup(connection)
-    else:
-        effective_markup = quote_row["markup_percent"] or 0.0
-    markup_factor = 1.0 + effective_markup / 100.0
-
-    doc = fitz.open()
-    generated_at = datetime.now().strftime("%d/%m/%Y %H:%M")
-    writer = _PdfWriter(doc, quote_number=quote_row["quote_number"], generated_at=generated_at)
-
-    # Dados do cliente
-    writer.section_title("Dados do cliente")
-    writer.line(quote_row["customer_name"], size=11, bold=True)
-    if customer_row["document"]:
-        writer.line(f"CNPJ/CPF: {customer_row['document']}")
-    contact_parts = [part for part in (customer_row["email"], customer_row["phone"]) if part]
-    if contact_parts:
-        writer.line("  •  ".join(contact_parts))
-    if customer_row["address"]:
-        writer.line(customer_row["address"])
-    writer.spacer(4)
-
-    info_parts = [f"Data: {quote_row['created_at']}"]
-    if quote_row["valid_until"]:
-        info_parts.append(f"Válido até: {quote_row['valid_until']}")
-    if quote_row["created_by_name"]:
-        info_parts.append(f"Vendedor: {quote_row['created_by_name']}")
-    writer.line("   |   ".join(info_parts), size=9, color=_GRAY)
-    writer.spacer(14)
-
-    # Itens
-    writer.section_title("Itens do orçamento")
-    writer.table_header()
-    for item_row in item_rows:
-        component_rows = [
-            dict(row) for row in repository.get_item_components(connection, item_row["id"])
-        ]
-        item_dict = dict(item_row)
-        is_composite = len(component_rows) > 1
-        unit_value = pricing.component_total(component_rows, markup_factor)
-        subtotal = pricing.line_subtotal(item_dict, component_rows, markup_factor)
-
-        label = item_row["label"]
-        if is_composite:
-            label = f"[Composto] {label}"
-        writer.item_row(label, item_row["quantity"], unit_value, subtotal, currency)
-        for idx, component_row in enumerate(component_rows):
-            if component_row["sku"]:
-                price_text = _format_currency(
-                    component_row["frozen_unit_price"] * markup_factor,
-                    component_row["frozen_currency"],
-                )
-                prefix = "BASE — " if (is_composite and idx == 0) else ""
-                writer.line(
-                    f"{prefix}SKU {component_row['sku']} — {price_text} × {component_row['quantity']:g}",
-                    size=8.5,
-                    color=_GRAY,
-                    indent=10,
-                )
-        if item_dict.get("discount_reason"):
-            writer.line(
-                f"Desconto: {item_dict['discount_reason']}", size=8.5, color=_GRAY, indent=10
-            )
-        if item_row["notes"]:
-            writer.line(f"Observação: {item_row['notes']}", size=8.5, color=_GRAY, indent=10)
-        if item_dict.get("composition_justification"):
-            writer.line(
-                f"Justificativa de composição: {item_dict['composition_justification']}",
-                size=8.5,
-                color=_GRAY,
-                indent=10,
-            )
-        writer.row_separator()
-    writer.spacer(10)
-
-    # Totais
-    totals_dict = dict(totals_row)
-    item_disc = totals_dict.get("item_discount_amount") or 0.0
-    quote_disc = totals_dict.get("quote_discount_amount") or 0.0
-    legacy_disc = totals_dict.get("discount_amount") or 0.0
-    inst_count = int(totals_dict.get("installment_count") or 1)
-    inst_interest_pct = totals_dict.get("installment_interest_percent") or 0.0
-    inst_interest_amt = totals_dict.get("installment_interest_amount") or 0.0
-    inst_total = totals_dict.get("installment_total") or totals_dict["total"]
-    inst_value = totals_dict.get("installment_value") or totals_dict["total"]
-
-    totals_rows: list[tuple[str, float, str, bool]] = [
-        ("Subtotal", totals_dict["subtotal"], currency, False)
-    ]
-
-    # Descontos — exibir só se houver
-    if item_disc > 0 or quote_disc > 0:
-        if item_disc > 0:
-            totals_rows.append(("Desc. itens", -item_disc, currency, False))
-        if quote_disc > 0:
-            totals_rows.append(("Desc. orçamento", -quote_disc, currency, False))
-    elif legacy_disc > 0:
-        totals_rows.append(("Desconto", -legacy_disc, currency, False))
-
-    if totals_dict.get("tax_amount"):
-        totals_rows.append(("Impostos", totals_dict["tax_amount"], currency, False))
-    if totals_dict.get("freight_amount"):
-        totals_rows.append(("Frete", totals_dict["freight_amount"], currency, False))
-
-    # Parcelamento — exibir só se houver parcelas
-    _entrada_pct = float(quote_row["entrada_percent"] or 0.0)
-    _base_for_entrada = inst_total if inst_count > 1 else totals_dict["total"]
-    if _entrada_pct > 0:
-        entrada_amount = round(_base_for_entrada * _entrada_pct / 100, 2)
-    else:
-        entrada_amount = float(quote_row["entrada_amount"] or 0.0)
-
-    if inst_count > 1:
-        # Com juros: mostrar "Total à vista" antes dos juros
-        if inst_interest_amt > 0:
-            totals_rows.append(("Total à vista", totals_dict["total"], currency, False))
-            pct_label = f"{inst_interest_pct:g}%".replace(".", ",")
-            totals_rows.append((f"Juros ({pct_label})", inst_interest_amt, currency, False))
-            totals_rows.append(("Total c/ juros", inst_total, currency, entrada_amount == 0))
-        else:
-            totals_rows.append(("Total", totals_dict["total"], currency, entrada_amount == 0))
-        n_label = f"{inst_count}× de"
-        totals_rows.append((n_label, inst_value, currency, False))
-    else:
-        totals_rows.append(("Total", totals_dict["total"], currency, entrada_amount == 0))
-
-    if entrada_amount > 0:
-        base_total = inst_total if inst_count > 1 else totals_dict["total"]
-        valor_restante = base_total - entrada_amount
-        totals_rows.append(("Entrada", -entrada_amount, currency, False))
-        totals_rows.append(("Saldo restante", valor_restante, currency, True))
-
-    writer.totals_box(totals_rows)
-
-    if catalog_observations:
-        writer.spacer(14)
-        writer.section_title("Observações do fabricante/catálogo")
-        for observation in catalog_observations:
-            writer.line(f"•  {observation}", size=9, color=_GRAY)
-
-    writer.finalize()
-    pdf_bytes = doc.tobytes()
-    doc.close()
-    return pdf_bytes
+    quote = repository.get_quote_row(connection, quote_id)
+    customer = repository.get_customer(connection, quote["customer_id"])
+    totals = repository.get_quote_totals_row(connection, quote_id)
+    if customer is None or totals is None:
+        raise ValueError("Dados congelados do orçamento não encontrados.")
+    installment_count = int(totals["installment_count"] or 1)
+    payment = "Pagamento à vista."
+    if installment_count > 1:
+        payment = f"{installment_count} parcelas de {_currency(float(totals['installment_value']), totals['currency'])}."
+    writer = _ProposalPdf(quote["quote_number"], _date(quote["created_at"]) or datetime.now().strftime("%d/%m/%Y"))
+    writer.metadata(customer, quote, payment)
+    writer.item_header()
+    for entry in _line_values(repository.list_items_with_components(connection, quote_id), connection, float(totals["subtotal"])):
+        writer.item(entry, totals["currency"])
+    writer.totals(totals, quote)
+    writer.footer(_date(quote["valid_until"]))
+    return writer.close()

@@ -128,6 +128,8 @@ export interface QuoteItemComponent {
   component: string | null
   descriptor: string | null
   description: string | null
+  dimension_id: number | null
+  dimension_label: string | null
   sku: string | null
   frozen_unit_price: number
   frozen_currency: string

@@ -6,14 +6,9 @@ import { AppShell } from './layout/AppShell'
 import { CatalogLayout } from './pages/catalog/CatalogLayout'
 import { CatalogAdminPage } from './pages/catalog/CatalogAdminPage'
 import { ConsultaPage } from './pages/catalog/consulta/ConsultaPage'
-import { ComponentTypesPage } from './pages/catalog/componentTypes/ComponentTypesPage'
-import { DimensionsPage } from './pages/catalog/dimensions/DimensionsPage'
-import { FamiliesPage } from './pages/catalog/families/FamiliesPage'
-import { FinishesPage } from './pages/catalog/finishes/FinishesPage'
-import { ProductsPage } from './pages/catalog/products/ProductsPage'
-import { VariantsPage } from './pages/catalog/variants/VariantsPage'
 import { LoginPage } from './pages/auth/LoginPage'
 import { ImportsPage } from './pages/imports/upload/ImportsPage'
+import { ImportReviewRoute } from './pages/imports/review/ImportReviewRoute'
 import { SettingsPage } from './pages/settings/SettingsPage'
 import { PainelPage } from './pages/painel/PainelPage'
 import { OrcamentosPage } from './pages/orcamentos/OrcamentosPage'
@@ -60,15 +55,10 @@ function App() {
         <Route path="orcamentos/:id/documento" element={<DocumentoPage />} />
         <Route path="catalogo/admin" element={<CatalogLayout />}>
           <Route index element={<CatalogAdminPage />} />
-          <Route path="familias" element={<FamiliesPage />} />
-          <Route path="produtos" element={<ProductsPage />} />
-          <Route path="tipos-componente" element={<ComponentTypesPage />} />
-          <Route path="dimensoes" element={<DimensionsPage />} />
-          <Route path="acabamentos" element={<FinishesPage />} />
-          <Route path="variacoes" element={<VariantsPage />} />
         </Route>
         <Route path="catalogo" element={<ConsultaPage />} />
         <Route path="importacoes" element={<ImportsPage />} />
+        <Route path="importacoes/:id/revisao" element={<ImportReviewRoute />} />
         <Route path="ajustes" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

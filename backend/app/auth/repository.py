@@ -15,3 +15,9 @@ def get_user_by_id(connection: sqlite3.Connection, user_id: int) -> sqlite3.Row 
     return connection.execute(
         "SELECT id, name, email, role FROM users WHERE id = ?", (user_id,)
     ).fetchone()
+
+
+def list_users(connection: sqlite3.Connection) -> list[sqlite3.Row]:
+    return connection.execute(
+        "SELECT id, name, email, role FROM users ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, name"
+    ).fetchall()

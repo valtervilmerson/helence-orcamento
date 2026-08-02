@@ -344,11 +344,13 @@ def get_item_components(connection: sqlite3.Connection, item_id: int) -> list[sq
                s.code AS sku, qic.frozen_unit_price AS frozen_unit_price,
                qic.frozen_currency AS frozen_currency, qic.frozen_at AS frozen_at,
                qic.quantity AS quantity,
-               pc.name AS component, cv.descriptor AS descriptor, cv.description AS description
+               pc.name AS component, cv.descriptor AS descriptor, cv.description AS description,
+               cv.dimension_id AS dimension_id, d.raw_label AS dimension_label
         FROM quote_item_components qic
         LEFT JOIN skus s ON s.id = qic.sku_id
         LEFT JOIN component_variants cv ON cv.id = qic.component_variant_id
         LEFT JOIN product_components pc ON pc.id = cv.component_id
+        LEFT JOIN dimensions d ON d.id = cv.dimension_id
         WHERE qic.quote_item_id = ?
         ORDER BY qic.id
         """,

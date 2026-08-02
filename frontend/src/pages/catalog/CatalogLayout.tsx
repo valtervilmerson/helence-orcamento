@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Outlet } from 'react-router-dom'
 import {
   type Dimension,
   type Finish,
@@ -14,22 +14,9 @@ import {
 } from '../../api/catalog'
 import { ErrorMessage } from './shared'
 import { describeError, type CatalogContextValue } from './catalogContext'
-import { usePageHeader } from '../../layout/usePageHeader'
 import './CatalogLayout.css'
 
-const TABS: { to: string; label: string; end?: boolean }[] = [
-  { to: '/catalogo', label: 'Visão geral', end: true },
-  { to: '/catalogo/familias', label: 'Famílias' },
-  { to: '/catalogo/produtos', label: 'Produtos-base' },
-  { to: '/catalogo/tipos-componente', label: 'Tipos de componente' },
-  { to: '/catalogo/dimensoes', label: 'Dimensões' },
-  { to: '/catalogo/acabamentos', label: 'Acabamentos' },
-  { to: '/catalogo/variacoes', label: 'Variações vendáveis' },
-]
-
 export function CatalogLayout() {
-  usePageHeader({ title: 'Catálogo' })
-
   const [families, setFamilies] = useState<ProductFamily[]>([])
   const [dimensions, setDimensions] = useState<Dimension[]>([])
   const [finishes, setFinishes] = useState<Finish[]>([])
@@ -61,40 +48,11 @@ export function CatalogLayout() {
     }
   }
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial do catálogo
-    void reload()
-  }, [])
+  useEffect(() => { void reload() }, [])
 
   const context: CatalogContextValue = {
-    families,
-    dimensions,
-    finishes,
-    componentTypes,
-    products,
-    reload,
+    families, dimensions, finishes, componentTypes, products, reload,
   }
 
-  return (
-    <div>
-      <p className="catalog-layout__intro">
-        Cadastro e organização dos itens do catálogo: famílias, produtos-base, tipos de
-        componente, dimensões, acabamentos e as variações vendáveis (com SKU e preço).
-      </p>
-      <ErrorMessage error={error} />
-      <nav className="catalog-tabs">
-        {TABS.map((tab) => (
-          <NavLink
-            key={tab.to}
-            to={tab.to}
-            end={tab.end}
-            className={({ isActive }) => `catalog-tabs__item${isActive ? ' is-active' : ''}`}
-          >
-            {tab.label}
-          </NavLink>
-        ))}
-      </nav>
-      {loading ? <p>Carregando catálogo…</p> : <Outlet context={context} />}
-    </div>
-  )
+  return <div><ErrorMessage error={error} />{loading ? <p>Carregando catálogo…</p> : <Outlet context={context} />}</div>
 }

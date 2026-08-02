@@ -12,8 +12,11 @@ from app.catalog import repository
 from app.catalog.repository import SimpleRepository
 from app.catalog.schemas import (
     ComponentVariantIn,
+    ComponentVariantChangeLogOut,
     ComponentVariantOut,
     ComponentVariantPatch,
+    ComponentVariantPriceOriginOut,
+    ComponentVariantPriceOriginSource,
     ComponentVariantSearchResult,
     DimensionSummary,
     PriceSummary,
@@ -179,6 +182,7 @@ def _row_to_variant_out(row: sqlite3.Row) -> ComponentVariantOut:
     )
     if any(row[field] is not None for field in dim_fields):
         dimension = DimensionSummary(
+            id=row["dim_id"],
             width_mm=row["dim_width_mm"],
             depth_mm=row["dim_depth_mm"],
             diameter_mm=row["dim_diameter_mm"],
@@ -215,6 +219,7 @@ def search_variants(
     product: str | None = None,
     component: str | None = None,
     dimension: str | None = None,
+    dimension_id: int | None = None,
     finish: str | None = None,
     finish_group: str | None = None,
     q: str | None = None,
@@ -227,6 +232,7 @@ def search_variants(
         product=product,
         component=component,
         dimension=dimension,
+        dimension_id=dimension_id,
         finish=finish,
         finish_group=finish_group,
         q=q,
@@ -247,6 +253,54 @@ def get_variant(connection: sqlite3.Connection, variant_id: int) -> ComponentVar
         raise ComponenteNaoEncontradoError(details={"id": variant_id})
 
     return _row_to_variant_out(row)
+
+
+def _price_from_snapshot(snapshot: str) -> PriceSummary | None:
+    try:
+        value = json.loads(snapshot).get("price")
+    except (AttributeError, TypeError, json.JSONDecodeError):
+        return None
+    if not isinstance(value, dict) or value.get("amount") is None or value.get("currency") is None:
+        return None
+    return PriceSummary(amount=value["amount"], currency=value["currency"])
+
+
+def get_variant_price_origin(
+    connection: sqlite3.Connection, variant_id: int
+) -> ComponentVariantPriceOriginOut:
+    if not repository.variant_exists(connection, variant_id):
+        raise ComponenteNaoEncontradoError(details={"id": variant_id})
+
+    origin_row = repository.get_variant_price_origin(connection, variant_id)
+    if origin_row is not None and origin_row["source_extracted_item_id"] is not None:
+        source = ComponentVariantPriceOriginSource(
+            kind="importacao_json" if origin_row["page_profile"] == "json_import" else "importacao_pdf",
+            reference=origin_row["source_text"],
+            original_filename=origin_row["original_filename"],
+            imported_at=origin_row["imported_at"],
+        )
+    else:
+        source = ComponentVariantPriceOriginSource(kind="cadastro_manual")
+
+    changes = [
+        ComponentVariantChangeLogOut(
+            changed_at=row["changed_at"],
+            changed_by=row["changed_by"],
+            reason=row["reason"],
+            previous_price=_price_from_snapshot(row["previous_data"]),
+            new_price=_price_from_snapshot(row["new_data"]),
+        )
+        for row in repository.list_variant_change_logs(connection, variant_id)
+    ]
+    price = None
+    if origin_row is not None and origin_row["price_amount"] is not None:
+        price = PriceSummary(amount=origin_row["price_amount"], currency=origin_row["price_currency"])
+    return ComponentVariantPriceOriginOut(
+        component_variant_id=variant_id,
+        price=price,
+        source=source,
+        changes=changes,
+    )
 
 
 def create_variant(

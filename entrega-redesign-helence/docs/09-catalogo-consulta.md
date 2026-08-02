@@ -1,5 +1,10 @@
 # 09 · Catálogo · consulta (`/catalogo`)
 
+> ⚠ Esta tela tem um complemento obrigatório:
+> [09b — Correção do filtro de dimensão](09b-correcao-filtro-dimensao.md).
+> O filtro de dimensão original transborda a tela de tablet com os dados reais
+> do catálogo; implemente a 09 e aplique a 09b em seguida.
+
 **Arquivo:** `frontend/src/pages/catalogo/CatalogoConsultaPage.tsx`
 (evolução de `pages/catalog/consulta/ConsultaPage.tsx`)
 **DC:** `telaInicial: 'catalogo'`

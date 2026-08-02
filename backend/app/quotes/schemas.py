@@ -129,6 +129,8 @@ class QuoteItemComponentOut(BaseModel):
     component: str | None = None
     descriptor: str | None = None
     description: str | None = None
+    dimension_id: int | None = None
+    dimension_label: str | None = None
     sku: str | None = None
     frozen_unit_price: float
     frozen_currency: str

@@ -34,6 +34,12 @@ function formatDate(value: string | null) {
   )
 }
 
+/**
+ * Rótulo curto para a medida completa. Os rótulos do catálogo vêm como
+ * "1800x1000x740"; na coluna estreita da tabela e nos chips do filtro isso
+ * estoura a largura, então mostramos "1800 × 1000" e deixamos a altura como
+ * sufixo discreto.
+ */
 function splitMeasure(rawLabel: string) {
   const parts = rawLabel.split(/[x×]/i).map((part) => part.trim())
   if (parts.length < 3) return { principal: rawLabel, altura: null as string | null }
@@ -56,6 +62,10 @@ export function ConsultaPage() {
   const [component, setComponent] = useState('')
   const [finish, setFinish] = useState('')
   const [dimension, setDimension] = useState('')
+  // Passo 1 do seletor de dimensão. Não é um filtro enviado à API: serve para
+  // reduzir a lista de medidas completas (que hoje passa de 50 valores) a um
+  // punhado. Ver REDESIGN/09 — quando o backend aceitar filtro por eixo, esta
+  // largura passa a ser um filtro de verdade.
   const [widthPick, setWidthPick] = useState('')
   const [page, setPage] = useState(1)
   const [items, setItems] = useState<ComponentVariant[]>([])
@@ -142,25 +152,66 @@ export function ConsultaPage() {
   const active = [family, component, finish, dimension].filter(Boolean)
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const canSeeAudit = user?.role === 'admin' || user?.role === 'revisor'
+
+  // Eixo de largura: valores distintos, ordenados. Reduz ~50 medidas completas
+  // a ~13 chips curtos que cabem 4 por linha na barra de 198px úteis.
   const widths = [...new Set(dimensions.map((item) => item.width_mm).filter((value): value is number => value != null))]
     .sort((left, right) => left - right)
   const measures = dimensions
-    .filter((item) => item.raw_label && widthPick && String(item.width_mm) === widthPick)
+    .filter((item) => item.raw_label && (widthPick ? String(item.width_mm) === widthPick : false))
     .sort((left, right) => (left.raw_label ?? '').localeCompare(right.raw_label ?? '', 'pt-BR', { numeric: true }))
   const pickWidth = (value: string) => resetPage(() => {
     const next = widthPick === value ? '' : value
     setWidthPick(next)
+    // Trocar de largura invalida a medida escolhida antes.
     if (dimension) setDimension('')
   })
 
   return <div className="catalog-page">
     <aside className="catalog-filters">
-      <div className="catalog-filters__head"><span className="eyebrow">Refinar</span>{active.length > 0 && <button type="button" className="catalog-filters__clear" onClick={clear}>Limpar</button>}</div>
-      <FilterGroup label="Linha" ativo={family} aberto>{families.map((item) => <FilterButton key={item.id} active={family === item.name} onClick={() => resetPage(() => setFamily(family === item.name ? '' : item.name))}>{item.name}</FilterButton>)}</FilterGroup>
-      <FilterGroup label="Tipo de peça" ativo={component}>{types.map((item) => <FilterButton key={item.id} active={component === item.name} onClick={() => resetPage(() => setComponent(component === item.name ? '' : item.name))}>{item.name}</FilterButton>)}</FilterGroup>
-      <FilterGroup label="Acabamento" ativo={finish}><div className="finish-swatches">{finishes.map((item) => <button key={item.id} type="button" title={item.name} aria-label={item.name} aria-pressed={finish === item.name} className={finish === item.name ? 'is-active' : ''} style={{ backgroundColor: FINISH_HEX[item.name] ?? '#9BA39C' }} onClick={() => resetPage(() => setFinish(finish === item.name ? '' : item.name))} />)}</div>{finish && <small>{finish}</small>}</FilterGroup>
-      <FilterGroup label="Dimensão" ativo={dimension || (widthPick && `${widthPick} de largura`) || ''}><div className="dimension-step"><small>1 · Largura (mm)</small><div className="dimension-axis">{widths.map((value) => <button key={value} type="button" aria-pressed={widthPick === String(value)} className={widthPick === String(value) ? 'is-active' : ''} onClick={() => pickWidth(String(value))}>{value}</button>)}</div></div>{widthPick ? <div className="dimension-step"><small>2 · Medida completa</small><div className="dimension-chips">{measures.map((item) => { const label = item.raw_label ?? ''; const { principal, altura } = splitMeasure(label); return <button key={item.id} type="button" aria-pressed={dimension === label} className={dimension === label ? 'is-active' : ''} onClick={() => resetPage(() => setDimension(dimension === label ? '' : label))}>{principal}{altura && <i>h {altura}</i>}</button> })}</div>{measures.length === 0 && <p className="dimension-hint">Nenhuma medida cadastrada com esta largura.</p>}</div> : <p className="dimension-hint">Escolha a largura para ver as medidas disponíveis.</p>}</FilterGroup>
+      <div className="catalog-filters__head">
+        <span className="eyebrow">Refinar</span>
+        {active.length > 0 && <button type="button" className="catalog-filters__clear" onClick={clear}>Limpar</button>}
+      </div>
+
+      <FilterGroup label="Linha" ativo={family} aberto>
+        {families.map((item) => <FilterButton key={item.id} active={family === item.name} onClick={() => resetPage(() => setFamily(family === item.name ? '' : item.name))}>{item.name}</FilterButton>)}
+      </FilterGroup>
+
+      <FilterGroup label="Tipo de peça" ativo={component}>
+        {types.map((item) => <FilterButton key={item.id} active={component === item.name} onClick={() => resetPage(() => setComponent(component === item.name ? '' : item.name))}>{item.name}</FilterButton>)}
+      </FilterGroup>
+
+      <FilterGroup label="Acabamento" ativo={finish}>
+        <div className="finish-swatches">
+          {finishes.map((item) => <button key={item.id} type="button" title={item.name} aria-label={item.name} aria-pressed={finish === item.name} className={finish === item.name ? 'is-active' : ''} style={{ backgroundColor: FINISH_HEX[item.name] ?? '#9BA39C' }} onClick={() => resetPage(() => setFinish(finish === item.name ? '' : item.name))} />)}
+        </div>
+        {finish && <small>{finish}</small>}
+      </FilterGroup>
+
+      <FilterGroup label="Dimensão" ativo={dimension || (widthPick && `${widthPick} de largura`) || ''}>
+        <div className="dimension-step">
+          <small>1 · Largura (mm)</small>
+          <div className="dimension-axis">
+            {widths.map((value) => <button key={value} type="button" aria-pressed={widthPick === String(value)} className={widthPick === String(value) ? 'is-active' : ''} onClick={() => pickWidth(String(value))}>{value}</button>)}
+          </div>
+        </div>
+        {widthPick ? <div className="dimension-step">
+          <small>2 · Medida completa</small>
+          <div className="dimension-chips">
+            {measures.map((item) => {
+              const label = item.raw_label ?? ''
+              const { principal, altura } = splitMeasure(label)
+              return <button key={item.id} type="button" aria-pressed={dimension === label} className={dimension === label ? 'is-active' : ''} onClick={() => resetPage(() => setDimension(dimension === label ? '' : label))}>
+                {principal}{altura && <i>h {altura}</i>}
+              </button>
+            })}
+          </div>
+          {measures.length === 0 && <p className="dimension-hint">Nenhuma medida cadastrada com esta largura.</p>}
+        </div> : <p className="dimension-hint">Escolha a largura para ver as medidas disponíveis.</p>}
+      </FilterGroup>
     </aside>
+
     <main className="catalog-results">
       <header className="catalog-head"><div><span className="eyebrow">Preços ativos do catálogo</span><h1>Catálogo</h1></div><input value={q} onChange={(event) => resetPage(() => setQ(event.target.value))} placeholder="Buscar SKU, peça ou descritor…" /></header>
       <div className="catalog-context"><span>{total} variações encontradas</span>{active.map((value) => <button key={value} onClick={() => resetPage(() => { if (value === family) setFamily(''); if (value === component) setComponent(''); if (value === finish) setFinish(''); if (value === dimension) setDimension('') })}>{value} ×</button>)}{active.length > 0 && <button onClick={clear}>Limpar filtros</button>}</div>
@@ -195,6 +246,12 @@ function PriceOriginDrawer({ item, origin, loading, error, onClose }: { item: Co
 }
 
 function FilterGroup({ label, ativo, aberto, children }: { label: string; ativo?: string; aberto?: boolean; children: React.ReactNode }) {
-  return <details className="filter-group" open={aberto || Boolean(ativo)}><summary><b>{label}</b>{ativo && <em title={ativo}>{ativo}</em>}</summary>{children}</details>
+  return <details className="filter-group" open={aberto || Boolean(ativo)}>
+    <summary><b>{label}</b>{ativo && <em title={ativo}>{ativo}</em>}</summary>
+    {children}
+  </details>
 }
-function FilterButton({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) { return <button type="button" aria-pressed={active} className={active ? 'is-active' : ''} onClick={onClick}>{children}</button> }
+
+function FilterButton({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
+  return <button type="button" aria-pressed={active} className={active ? 'is-active' : ''} onClick={onClick}>{children}</button>
+}

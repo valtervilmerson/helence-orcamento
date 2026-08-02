@@ -26,6 +26,7 @@ def test_search_returns_seeded_variants(client) -> None:
     assert item["product"] == "Reunião 1200x900"
     assert item["component"] == "Tampo"
     assert item["dimension"] == {
+        "id": 1,
         "width_mm": 1200,
         "depth_mm": 900,
         "diameter_mm": None,
@@ -173,6 +174,47 @@ def test_patch_component_updates_descriptor(client) -> None:
     patched = client.patch(f"/api/v1/components/{variant_id}", json={"descriptor": "Atualizado"})
     assert patched.status_code == 200
     assert patched.json()["descriptor"] == "Atualizado"
+
+
+def test_price_origin_exposes_manual_source_and_justified_change_log(client, as_role) -> None:
+    component_type = client.post(
+        "/api/v1/catalog/component-types", json={"name": "Acessório Auditoria de Preço"}
+    ).json()
+    created = client.post(
+        "/api/v1/components",
+        json={
+            "component_id": component_type["id"],
+            "descriptor": "Preço rastreável",
+            "price": {"amount": 100.00, "currency": "BRL"},
+        },
+    ).json()
+    variant_id = created["component_variant_id"]
+
+    patched = client.patch(
+        f"/api/v1/components/{variant_id}",
+        json={
+            "price": {"amount": 125.00, "currency": "BRL"},
+            "change_reason": "Correção confirmada com o fabricante",
+        },
+    )
+    assert patched.status_code == 200
+
+    origin = client.get(f"/api/v1/components/{variant_id}/price-origin")
+    assert origin.status_code == 200
+    body = origin.json()
+    assert body["source"]["kind"] == "cadastro_manual"
+    assert body["price"] == {"amount": 125.0, "currency": "BRL"}
+    assert len(body["changes"]) == 1
+    change = body["changes"][0]
+    assert change["changed_by"] == "Aprovador Teste"
+    assert change["reason"] == "Correção confirmada com o fabricante"
+    assert change["previous_price"] == {"amount": 100.0, "currency": "BRL"}
+    assert change["new_price"] == {"amount": 125.0, "currency": "BRL"}
+
+    as_role("vendedor@helence.local")
+    forbidden = client.get(f"/api/v1/components/{variant_id}/price-origin")
+    assert forbidden.status_code == 403
+    assert forbidden.json()["error"]["code"] == "PERMISSAO_NEGADA"
 
 
 def test_delete_component_without_references(client) -> None:

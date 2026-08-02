@@ -140,6 +140,7 @@ def test_publish_full_flow_creates_catalog_entries_with_traceability(client) -> 
     assert item["family"] == "Mesas de Reunião"
     assert item["component"] == "Estrutura"
     assert item["dimension"] == {
+        "id": 4,
         "width_mm": 1200,
         "depth_mm": 500,
         "diameter_mm": None,

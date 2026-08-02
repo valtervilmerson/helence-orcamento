@@ -142,6 +142,7 @@ export const deleteProduct = (id: number) =>
 // ---------------------------------------------------------------------------
 
 export interface ComponentVariantDimension {
+  id: number
   width_mm: number | null
   depth_mm: number | null
   diameter_mm: number | null
@@ -179,7 +180,20 @@ export interface ComponentVariantSearchResult {
   total: number
 }
 
-export const searchComponents = (params: Record<string, string | number | undefined> = {}) => {
+export interface ComponentSearchParams {
+  family?: string
+  product?: string
+  component?: string
+  dimension?: string
+  dimension_id?: number
+  finish?: string
+  finish_group?: FinishGroup
+  q?: string
+  page?: number
+  page_size?: number
+}
+
+export const searchComponents = (params: ComponentSearchParams = {}) => {
   const query = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== '') {
@@ -211,6 +225,27 @@ export const updateComponent = (id: number, data: ComponentVariantPatchInput) =>
   request<ComponentVariant>(`/components/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const deleteComponent = (id: number) =>
   request<void>(`/components/${id}`, { method: 'DELETE' })
+
+export interface ComponentVariantPriceOrigin {
+  component_variant_id: number
+  price: ComponentVariantPrice | null
+  source: {
+    kind: 'importacao_json' | 'importacao_pdf' | 'cadastro_manual'
+    reference: string | null
+    original_filename: string | null
+    imported_at: string | null
+  }
+  changes: Array<{
+    changed_at: string
+    changed_by: string
+    reason: string
+    previous_price: ComponentVariantPrice | null
+    new_price: ComponentVariantPrice | null
+  }>
+}
+
+export const getComponentPriceOrigin = (id: number) =>
+  request<ComponentVariantPriceOrigin>(`/components/${id}/price-origin`)
 
 // ---------------------------------------------------------------------------
 // Composição de produtos

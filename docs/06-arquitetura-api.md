@@ -916,7 +916,7 @@ das respectivas entidades.
       "product": "Reunião 1200x900",
       "component": "Tampo",
       "descriptor": "Inteiro Simples",
-      "dimension": { "width_mm": 1200, "depth_mm": 900, "raw_label": "1200x900" },
+       "dimension": { "id": 45, "width_mm": 1200, "depth_mm": 900, "raw_label": "1200x900" },
       "finish": "Carvalho",
       "sku": "3981144789",
       "price": { "amount": 493.80, "currency": "BRL" },
@@ -940,7 +940,10 @@ catálogo — usado para preencher lacunas pontuais (ex. casos de
 novo ciclo completo de importação.
 
 **`GET /api/v1/components?...`** — mesmos filtros e formato de resposta
-de 14.8 (reaproveita a busca de catálogo).
+de 14.8 (reaproveita a busca de catálogo). Aceita também `dimension_id`
+inteiro; ele filtra pela chave da dimensão no servidor e é o filtro usado na
+montagem de composição para mostrar apenas complementos compatíveis com a
+peça-base.
 
 **`POST /api/v1/components`**
 
@@ -972,6 +975,12 @@ formato dos itens de 14.8, com `"source": "cadastro_manual"`.
 **`GET /api/v1/components/{id}`** — detalhe de uma variação (mesmo
 formato; inclui histórico de preços por versão de tabela).
 *Erros*: `COMPONENTE_NAO_ENCONTRADO` (`404`).
+
+**`GET /api/v1/components/{id}/price-origin`** — access restricted to `admin`
+and `revisor`. Returns the current price, its source (`importacao_json`,
+`importacao_pdf`, or `cadastro_manual`), and every justified manual price
+change with author, reason, and previous/new values. This endpoint is for
+internal audit only and must never be used by the commercial PDF.
 
 **`PATCH /api/v1/components/{id}`**
 
@@ -1059,7 +1068,7 @@ os componentes precificados, ou nada é criado.
   "label": "Reunião 1200x900 — Carvalho/Prata",
   "quantity": 2,
   "components": [
-    { "id": 1090, "component_variant_id": 881, "sku": "3981144789", "frozen_unit_price": 493.80, "frozen_currency": "BRL", "frozen_at": "2026-06-08T16:14:02" },
+    { "id": 1090, "component_variant_id": 881, "dimension_id": 45, "dimension_label": "1200x900", "sku": "3981144789", "frozen_unit_price": 493.80, "frozen_currency": "BRL", "frozen_at": "2026-06-08T16:14:02" },
     { "id": 1091, "component_variant_id": 902, "sku": "398250071", "frozen_unit_price": 612.40, "frozen_currency": "BRL", "frozen_at": "2026-06-08T16:14:02" }
   ],
   "line_subtotal": 2212.40

@@ -28,6 +28,7 @@ import · fila · ajustes · doc · login`.
 | 07 | [Editor · Condições comerciais](07-editor-condicoes.md) | 05 |
 | 08 | [Editor · Revisar e enviar](08-editor-revisar-enviar.md) | 05, 07 |
 | 09 | [Catálogo · consulta](09-catalogo-consulta.md) | 02 |
+| 09b | [Correção: filtro de dimensão do Catálogo](09b-correcao-filtro-dimensao.md) | 09 |
 | 10 | [Catálogo · administração](10-catalogo-admin.md) | 09 |
 | 11 | [Importações](11-importacoes.md) | 02 |
 | 12 | [Fila de revisão](12-fila-revisao.md) | 11 |
